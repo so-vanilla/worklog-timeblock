@@ -1,0 +1,11 @@
+.clj-kondo/.cache/
+.cpcache/
+.devenv/
+.nrepl-port
+.portal/
+.shadow-cljs/
+target/
+data/*.db
+data/*.db-*
+e2e-artifacts/
+tmp/

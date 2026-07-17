@@ -1,0 +1,22 @@
+services:
+  backend:
+    image: clojure:temurin-21-tools-deps
+    working_dir: /app
+    command: clojure -M:run --host 0.0.0.0 --port 3000 --db /data/app.db
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - ./data:/data
+    environment:
+      WORKLOG_TIMEBLOCK_DB: /data/app.db
+    healthcheck:
+      test:
+        - CMD
+        - clojure
+        - -e
+        - "(let [conn (.openConnection (java.net.URL. \"http://127.0.0.1:3000/health\"))] (System/exit (if (= 200 (.getResponseCode conn)) 0 1)))"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s

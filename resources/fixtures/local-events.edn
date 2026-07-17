@@ -1,0 +1,18 @@
+[{:source-id "local"
+  :external-id "evt-standup"
+  :title "Daily Standup"
+  :starts-at "2026-07-06T09:00:00+09:00"
+  :ends-at "2026-07-06T09:15:00+09:00"
+  :timezone "Asia/Tokyo"}
+ {:source-id "local"
+  :external-id "evt-build"
+  :title "Build worklog-timeblock"
+  :starts-at "2026-07-06T09:20:00+09:00"
+  :ends-at "2026-07-06T10:10:00+09:00"
+  :timezone "Asia/Tokyo"}
+ {:source-id "local"
+  :external-id "evt-lunch"
+  :title "Lunch"
+  :starts-at "2026-07-06T12:00:00+09:00"
+  :ends-at "2026-07-06T13:00:00+09:00"
+  :timezone "Asia/Tokyo"}]
