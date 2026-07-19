@@ -7,7 +7,7 @@
             [worklog-timeblock.domain.worklog :as worklog]
             [worklog-timeblock.importer.core :as importer]
             [worklog-timeblock.web.pages :as pages])
-  (:import [java.net URLDecoder]
+  (:import [java.net URLDecoder URLEncoder]
            [java.time LocalDate LocalTime]))
 
 (def default-summary-options
@@ -72,6 +72,31 @@
    :headers {"location" location}
    :body ""})
 
+(defn- encode-query-component [value]
+  (URLEncoder/encode (str value) "UTF-8"))
+
+(defn- append-query-param [location key value]
+  (let [[path fragment] (str/split location #"#" 2)
+        separator (if (str/includes? path "?") "&" "?")
+        with-query (str path separator
+                        (encode-query-component (name key))
+                        "="
+                        (encode-query-component value))]
+    (str with-query (when fragment (str "#" fragment)))))
+
+(defn- response-error-code [response]
+  (try
+    (let [body (json/parse-string (str (:body response)) keyword)]
+      (or (:reason body)
+          (:error body)
+          (str "http-" (:status response))))
+    (catch Exception _
+      (str "http-" (:status response)))))
+
+(defn- form-warning-redirect [location response]
+  (redirect-response (append-query-param location :warning
+                                         (response-error-code response))))
+
 (defn- invalid-work-log-response [reason]
   (json-response 400 {:error "invalid-work-log" :reason reason}))
 
@@ -92,9 +117,13 @@
     (assoc result :imported (:fetched result))))
 
 (defn- summary-options [ds]
-  (assoc default-summary-options
-         :other-category-id (or (db/other-category-id ds) "other")
-         :assignable-category-ids (db/summarizable-category-ids ds)))
+  (let [unallocated-category-ids (db/unallocated-category-ids ds)]
+    (assoc default-summary-options
+           :other-category-id (or (db/other-category-id ds)
+                                  (db/unallocated-category-id ds)
+                                  "other")
+           :assignable-category-ids (db/summarizable-category-ids ds)
+           :unallocated-category-ids unallocated-category-ids)))
 
 (defn- rule->virtual-break [date rule]
   {:id nil
@@ -108,7 +137,7 @@
 (defn- summary-breaks [ds date break-mode]
   (let [breaks (db/breaks-by-date ds date)]
     (if (= :fixed break-mode)
-      (let [materialized-rule-ids (set (keep :break-rule-id breaks))
+      (let [materialized-rule-ids (db/break-rule-ids-by-date ds date)
             virtual-breaks (->> (db/list-break-rules ds)
                                 (filter :enabled?)
                                 (remove #(contains? materialized-rule-ids (:id %)))
@@ -144,6 +173,8 @@
 
 (defn- settings-json [ds]
   {:break-mode (name (db/break-mode ds))
+   :week-start-day (db/week-start-day ds)
+   :fiscal-month-start-day (db/fiscal-month-start-day ds)
    :holiday-policy (holiday-policy-json (db/holiday-policy ds))})
 
 (defn- holiday-or-workday [policy override date]
@@ -161,7 +192,8 @@
 (defn- classify-calendar-status [date today base-status attendance work-logs summary]
   (if (= :holiday base-status)
     :holiday
-    (let [unallocated (get-in summary [:attendance :unallocated-minutes] 0)]
+    (let [unallocated (+ (get-in summary [:attendance :unallocated-minutes] 0)
+                         (get-in summary [:other :unallocated-category-minutes] 0))]
       (cond
         (>= unallocated 60) :missing
         (and (nil? attendance)
@@ -189,6 +221,8 @@
      :base-status (name base-status)
      :override-status (some-> (:status override) name)
      :unallocated-minutes (get-in summary [:attendance :unallocated-minutes] 0)
+     :unallocated-category-minutes (get-in summary [:other :unallocated-category-minutes] 0)
+     :uncategorized-minutes (get-in summary [:other :uncategorized-minutes] 0)
      :confirmed-work-minutes (get-in summary [:attendance :confirmed-work-minutes] 0)
      :break-minutes (get-in summary [:attendance :break-minutes] 0)
      :category-hours (:category-hours summary)
@@ -198,16 +232,23 @@
   (let [params (parse-query-params request)
         view (normalize-view (:view params))
         date (reference-date params)
-        dates (calendar-dates view date)
+        week-start-day (db/week-start-day ds)
+        fiscal-month-start-day (db/fiscal-month-start-day ds)
+        dates (calendar-dates view date week-start-day fiscal-month-start-day)
         categories (db/list-categories ds)
         policy (db/holiday-policy ds)
         today (LocalDate/now)]
     {:view view
      :edit? (active-edit? (:edit params))
      :reference-date (date-string date)
+     :period-start (first dates)
+     :period-end (last dates)
      :month (subs (date-string (.withDayOfMonth date 1)) 0 7)
      :break-mode (name (db/break-mode ds))
+     :week-start-day week-start-day
+     :fiscal-month-start-day fiscal-month-start-day
      :holiday-policy (holiday-policy-json policy)
+     :flash-warning (:warning params)
      :days (mapv #(calendar-day-state ds policy today %) dates)
      :categories categories}))
 
@@ -280,19 +321,32 @@
       (some-> (:month params) (str "-01") parse-local-date)
       (LocalDate/now)))
 
-(defn- month-dates [date]
-  (let [start (.withDayOfMonth date 1)
-        end (.withDayOfMonth date (.lengthOfMonth date))]
+(defn- fiscal-start-for-month [date fiscal-month-start-day]
+  (let [first-day (.withDayOfMonth date 1)
+        day (min fiscal-month-start-day (.lengthOfMonth first-day))]
+    (.withDayOfMonth first-day day)))
+
+(defn- fiscal-period [date fiscal-month-start-day]
+  (let [this-start (fiscal-start-for-month date fiscal-month-start-day)
+        start (if (.isBefore date this-start)
+                (fiscal-start-for-month (.minusMonths date 1) fiscal-month-start-day)
+                this-start)
+        next-start (fiscal-start-for-month (.plusMonths start 1) fiscal-month-start-day)]
+    [start (.minusDays next-start 1)]))
+
+(defn- month-dates [date fiscal-month-start-day]
+  (let [[start end] (fiscal-period date fiscal-month-start-day)]
     (dates-between (date-string start) (date-string end))))
 
-(defn- week-dates [date]
-  (let [start (.minusDays date (dec (.getValue (.getDayOfWeek date))))]
+(defn- week-dates [date week-start-day]
+  (let [offset (mod (- (.getValue (.getDayOfWeek date)) week-start-day) 7)
+        start (.minusDays date offset)]
     (mapv #(date-string (.plusDays start %)) (range 7))))
 
-(defn- calendar-dates [view date]
+(defn- calendar-dates [view date week-start-day fiscal-month-start-day]
   (case view
-    "week" (week-dates date)
-    (month-dates date)))
+    "week" (week-dates date week-start-day)
+    (month-dates date fiscal-month-start-day)))
 
 (defn- day-of-week-value [date]
   (.getValue (.getDayOfWeek (LocalDate/parse date))))
@@ -426,7 +480,7 @@
                     {:clock-in-minute (:clock-in-time form)
                      :clock-out-minute (:clock-out-time form)})]
     (if-let [error (:error normalized)]
-      error
+      (form-warning-redirect (str "/days/" date) error)
       (do
         (db/upsert-attendance! ds (:attrs normalized))
         (redirect-response (str "/days/" date))))))
@@ -437,7 +491,7 @@
         attrs (assoc current field (current-clock-minute))
         normalized (normalize-attendance date attrs)]
     (if-let [error (:error normalized)]
-      error
+      (form-warning-redirect (str "/days/" date) error)
       (do
         (db/upsert-attendance! ds (:attrs normalized))
         (redirect-response (str "/days/" date))))))
@@ -497,7 +551,7 @@
                                           :end-minute (:end-time form)
                                           :enabled true})]
     (if-let [error (:error normalized)]
-      error
+      (form-warning-redirect (safe-redirect-path (:redirect-to form) "/") error)
       (do
         (db/create-break-rule! ds (:attrs normalized))
         (redirect-response (safe-redirect-path (:redirect-to form) "/"))))))
@@ -515,11 +569,23 @@
     (let [range (normalize-break-range {:start-minute (:start-time form)
                                         :end-minute (:end-time form)})]
       (if-let [error (:error range)]
-        error
+        (form-warning-redirect (str "/days/" (:date break)) error)
         (do
           (db/update-break! ds (:id break) range)
           (redirect-response (str "/days/" (:date break))))))
+    (form-warning-redirect "/" (json-response 404 {:error "not-found"}))))
+
+(defn- delete-break-response! [ds id]
+  (if-let [break (db/get-break ds id)]
+    (json-response (db/update-break! ds (:id break) {:active? false}))
     (json-response 404 {:error "not-found"})))
+
+(defn- delete-break-form-response! [ds id]
+  (if-let [break (db/get-break ds id)]
+    (do
+      (db/update-break! ds (:id break) {:active? false})
+      (redirect-response (str "/days/" (:date break))))
+    (form-warning-redirect "/" (json-response 404 {:error "not-found"}))))
 
 (defn- convert-break-response! [ds id attrs]
   (if-let [break (db/get-break ds id)]
@@ -547,11 +613,11 @@
                    :end-minute (:end-minute break)
                    :category-id (:category-id form)})]
       (if-let [error (:error result)]
-        error
+        (form-warning-redirect (str "/days/" (:date break)) error)
         (do
           (db/update-break! ds id {:active? false})
           (redirect-response (str "/days/" (:date break))))))
-    (json-response 404 {:error "not-found"})))
+    (form-warning-redirect "/" (json-response 404 {:error "not-found"}))))
 
 (defn- work-log-ref-id [ref]
   (when (= :work-log (normalize-state (:kind ref)))
@@ -582,9 +648,11 @@
       (json-response (db/adjust-work-log-boundary! ds left-id right-id boundary-minute)))))
 
 (defn- form-update-response! [ds id attrs]
-  (let [result (persist-work-log-update! ds id attrs)]
+  (let [current (when id (db/get-work-log ds id))
+        fallback (if current (str "/days/" (:date current)) "/")
+        result (persist-work-log-update! ds id attrs)]
     (if-let [error (:error result)]
-      error
+      (form-warning-redirect fallback error)
       (redirect-response (str "/days/" (get-in result [:work-log :date]))))))
 
 (defn- patch-work-log-response! [ds id attrs]
@@ -632,10 +700,11 @@
 
 (defn- create-category-form-response! [ds form]
   (let [result (create-category! ds {:name (:category-name form)
-                                     :parent-id (:parent-id form)})]
+                                     :parent-id (:parent-id form)})
+        fallback (safe-redirect-path (:redirect-to form) "/")]
     (if-let [error (:error result)]
-      error
-      (redirect-response (safe-redirect-path (:redirect-to form) "/")))))
+      (form-warning-redirect fallback error)
+      (redirect-response fallback))))
 
 (defn- rename-category! [ds id attrs]
   (if-let [category (db/get-category ds id)]
@@ -662,10 +731,11 @@
       (json-response (:category result)))))
 
 (defn- rename-category-form-response! [ds id form]
-  (let [result (rename-category! ds id {:name (:category-name form)})]
+  (let [result (rename-category! ds id {:name (:category-name form)})
+        fallback (safe-redirect-path (:redirect-to form) "/")]
     (if-let [error (:error result)]
-      error
-      (redirect-response (safe-redirect-path (:redirect-to form) "/")))))
+      (form-warning-redirect fallback error)
+      (redirect-response fallback))))
 
 (defn- delete-category-response! [ds id]
   (if-let [result (db/delete-category! ds id)]
@@ -675,10 +745,11 @@
     (json-response 404 {:error "not-found"})))
 
 (defn- delete-category-form-response! [ds id form]
-  (let [response (delete-category-response! ds id)]
+  (let [fallback (safe-redirect-path (:redirect-to form) "/")
+        response (delete-category-response! ds id)]
     (if (= 200 (:status response))
-      (redirect-response (safe-redirect-path (:redirect-to form) "/"))
-      response)))
+      (redirect-response fallback)
+      (form-warning-redirect fallback response))))
 
 (defn- new-work-log-attrs [date ds attrs]
   (let [title (normalize-text (:title attrs))
@@ -737,7 +808,7 @@
                                           :end-minute (parse-clock-minute (:end-time form))
                                           :category-id (:category-id form)})]
     (if-let [error (:error result)]
-      error
+      (form-warning-redirect (str "/days/" date) error)
       (redirect-response (str "/days/" date)))))
 
 (defn- move-category-form-response! [ds id form]
@@ -745,7 +816,8 @@
     (do
       (db/move-category! ds id (:direction form))
       (redirect-response (safe-redirect-path (:redirect-to form) "/")))
-    (json-response 404 {:error "not-found"})))
+    (form-warning-redirect (safe-redirect-path (:redirect-to form) "/")
+                           (json-response 404 {:error "not-found"}))))
 
 (defn- move-category-response! [ds id attrs]
   (if (db/get-category ds id)
@@ -802,7 +874,7 @@
 (defn- create-import-source-form-response! [ds form]
   (let [normalized (normalize-import-source form)]
     (if-let [error (:error normalized)]
-      error
+      (form-warning-redirect "/settings" error)
       (do
         (db/create-import-source! ds (:attrs normalized))
         (redirect-response "/settings")))))
@@ -824,7 +896,7 @@
   (let [response (fetch-import-source-response! ds id)]
     (if (= 200 (:status response))
       (redirect-response "/settings")
-      response)))
+      (form-warning-redirect "/settings" response))))
 
 (defn- update-settings-response! [ds attrs]
   (try
@@ -836,6 +908,10 @@
        ds
        {:mode (:holiday-policy-mode attrs)
         :weekdays (:holiday-weekdays attrs)}))
+    (when (contains? attrs :week-start-day)
+      (db/set-week-start-day! ds (:week-start-day attrs)))
+    (when (contains? attrs :fiscal-month-start-day)
+      (db/set-fiscal-month-start-day! ds (:fiscal-month-start-day attrs)))
     (json-response (settings-json ds))
     (catch Exception error
       (json-response 400 {:error "invalid-settings"
@@ -846,8 +922,10 @@
     (db/set-break-mode! ds (:break-mode form))
     (redirect-response (safe-redirect-path (:redirect-to form) "/settings"))
     (catch Exception error
-      (json-response 400 {:error "invalid-settings"
-                          :reason (.getMessage error)}))))
+      (form-warning-redirect
+       (safe-redirect-path (:redirect-to form) "/settings")
+       (json-response 400 {:error "invalid-settings"
+                           :reason (.getMessage error)})))))
 
 (defn- holiday-weekdays-from-form [form]
   (keep (fn [weekday]
@@ -863,8 +941,21 @@
       :weekdays (holiday-weekdays-from-form form)})
     (redirect-response (safe-redirect-path (:redirect-to form) "/settings"))
     (catch Exception error
-      (json-response 400 {:error "invalid-settings"
-                          :reason (.getMessage error)}))))
+      (form-warning-redirect
+       (safe-redirect-path (:redirect-to form) "/settings")
+       (json-response 400 {:error "invalid-settings"
+                           :reason (.getMessage error)})))))
+
+(defn- update-calendar-settings-form-response! [ds form]
+  (try
+    (db/set-week-start-day! ds (:week-start-day form))
+    (db/set-fiscal-month-start-day! ds (:fiscal-month-start-day form))
+    (redirect-response (safe-redirect-path (:redirect-to form) "/settings"))
+    (catch Exception error
+      (form-warning-redirect
+       (safe-redirect-path (:redirect-to form) "/settings")
+       (json-response 400 {:error "invalid-settings"
+                           :reason (.getMessage error)})))))
 
 (defn- normalize-day-status-range [attrs]
   (let [start-date (:start-date attrs)
@@ -900,7 +991,8 @@
   (let [response (update-day-status-range-response! ds form)]
     (if (= 200 (:status response))
       (redirect-response (safe-redirect-path (:redirect-to form) "/"))
-      response)))
+      (form-warning-redirect (safe-redirect-path (:redirect-to form) "/")
+                             response))))
 
 (defn- source-event->candidate [source-event]
   {:source-id (:source-id source-event)
@@ -926,23 +1018,25 @@
                         (db/resolve-category-id ds requested-category-id))]
       (cond
         (nil? category-id)
-        (invalid-work-log-response "category-required")
+        (form-warning-redirect (str "/days/" (:date source-event))
+                               (invalid-work-log-response "category-required"))
 
         (not (db/category-assignable? ds category-id))
-        (invalid-work-log-response "non-assignable-category")
+        (form-warning-redirect (str "/days/" (:date source-event))
+                               (invalid-work-log-response "non-assignable-category"))
 
         :else
         (do
           (persist-source-event-work-log! ds source-event :confirmed category-id)
           (redirect-response (str "/days/" (:date source-event))))))
-    (json-response 404 {:error "not-found"})))
+    (form-warning-redirect "/" (json-response 404 {:error "not-found"}))))
 
 (defn- exclude-source-event-form-response! [ds id]
   (if-let [source-event (db/get-source-event ds id)]
     (do
       (persist-source-event-work-log! ds source-event :excluded nil)
       (redirect-response (str "/days/" (:date source-event))))
-    (json-response 404 {:error "not-found"})))
+    (form-warning-redirect "/" (json-response 404 {:error "not-found"}))))
 
 (defn app [{:keys [ds]}]
   (ring/ring-handler
@@ -955,23 +1049,32 @@
                      date (:date form)]
                  (if (valid-date-string? date)
                    (redirect-response (str "/days/" date))
-                   (json-response 400 {:error "invalid-date"}))))}]
+                   (form-warning-redirect
+                    "/"
+                    (json-response 400 {:error "invalid-date"})))))}]
      ["/days/:date" {:get (fn [request]
-                            (let [date (get-in request [:path-params :date])]
+                            (let [date (get-in request [:path-params :date])
+                                  params (parse-query-params request)]
                               (html-response
-                               (pages/day-page (day-state ds date)
+                               (pages/day-page (assoc (day-state ds date)
+                                                      :flash-warning (:warning params))
                                                (db/list-categories ds)))))}]
      ["/settings"
-      {:get (fn [_]
-              (html-response (pages/settings-page {:break-rules (db/list-break-rules ds)
-                                                   :import-sources (db/list-import-sources ds)
-                                                   :settings (settings-json ds)})))}]
+      {:get (fn [request]
+              (let [params (parse-query-params request)]
+                (html-response (pages/settings-page {:break-rules (db/list-break-rules ds)
+                                                     :import-sources (db/list-import-sources ds)
+                                                     :settings (settings-json ds)
+                                                     :flash-warning (:warning params)}))))}]
      ["/settings/break-mode"
       {:post (fn [request]
                (update-break-mode-form-response! ds (parse-form-body request)))}]
      ["/settings/holiday-policy"
       {:post (fn [request]
                (update-holiday-policy-form-response! ds (parse-form-body request)))}]
+     ["/settings/calendar"
+      {:post (fn [request]
+               (update-calendar-settings-form-response! ds (parse-form-body request)))}]
      ["/day-status-ranges"
       {:post (fn [request]
                (update-day-status-range-form-response! ds (parse-form-body request)))}]
@@ -1010,7 +1113,7 @@
                               :end-minute (:end-time form)})]
                  (if (= 200 (:status result))
                    (redirect-response (str "/days/" date))
-                   result)))}]
+                   (form-warning-redirect (str "/days/" date) result))))}]
      ["/health" {:get (fn [_] (json-response {:status "ok"}))}]
      ["/categories"
       {:post (fn [request]
@@ -1045,6 +1148,11 @@
                 ds
                 (parse-id (get-in request [:path-params :id]))
                 (parse-form-body request)))}]
+     ["/breaks/:id/delete"
+      {:post (fn [request]
+               (delete-break-form-response!
+                ds
+                (parse-id (get-in request [:path-params :id]))))}]
      ["/import-sources"
       {:get (fn [_]
               (redirect-response "/settings"))
@@ -1069,9 +1177,14 @@
      ["/worklogs/:id/assign-category"
       {:post (fn [request]
                (let [id (parse-id (get-in request [:path-params :id]))
-                     form (parse-form-body request)]
-                 (form-update-response! ds id {:state :confirmed
-                                               :category-id (:category-id form)})))}]
+                     form (parse-form-body request)
+                     category-id (:category-id form)]
+                 (form-update-response!
+                  ds
+                  id
+                  (if (str/blank? category-id)
+                    {:state :uncategorized :category-id nil}
+                    {:state :confirmed :category-id category-id}))))}]
      ["/worklogs/:id/exclude"
       {:post (fn [request]
                (let [id (parse-id (get-in request [:path-params :id]))]
@@ -1174,7 +1287,11 @@
                 (update-break-response!
                  ds
                  (parse-id (get-in request [:path-params :id]))
-                 (parse-json-body request)))}]
+                 (parse-json-body request)))
+       :delete (fn [request]
+                 (delete-break-response!
+                  ds
+                  (parse-id (get-in request [:path-params :id]))))}]
      ["/api/breaks/:id/convert"
       {:post (fn [request]
                (convert-break-response!

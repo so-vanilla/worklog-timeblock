@@ -329,6 +329,23 @@
   (:id (first (filter #(and (:active? %) (= :other (:kind %)))
                       (list-categories ds)))))
 
+(defn- unallocated-category? [{:keys [legacy-key name kind]}]
+  (let [legacy-key (some-> legacy-key str/lower-case)
+        name (some-> name str/lower-case)]
+    (or (= :unallocated kind)
+        (= "unallocated" legacy-key)
+        (= "unallocated" name))))
+
+(defn unallocated-category-id [ds]
+  (:id (first (filter unallocated-category? (list-categories ds)))))
+
+(defn unallocated-category-ids [ds]
+  (set
+   (keep (fn [category]
+           (when (unallocated-category? category)
+             (:id category)))
+         (list-categories ds))))
+
 (defn root-categories [ds]
   (vec (filter #(and (:active? %) (nil? (:parent-id %))) (list-categories ds))))
 
@@ -718,6 +735,16 @@
                         date]
                        {:builder-fn builder})))
 
+(defn break-rule-ids-by-date [ds date]
+  (set
+   (keep :break_rule_id
+         (jdbc/execute! ds
+                        ["SELECT break_rule_id
+                          FROM breaks
+                          WHERE date = ? AND break_rule_id IS NOT NULL"
+                         date]
+                        {:builder-fn builder}))))
+
 (defn update-break! [ds id attrs]
   (let [current (or (get-break ds id)
                     (throw (ex-info "Break not found" {:id id})))
@@ -798,6 +825,29 @@
       mode)
     (throw (ex-info "Invalid break mode" {:mode mode}))))
 
+(defn- parse-fiscal-month-start-day [value]
+  (let [value (cond
+                (integer? value) value
+                (string? value) (try
+                                  (parse-long (str/trim value))
+                                  (catch NumberFormatException _
+                                    nil))
+                :else nil)]
+    (when (and value (<= 1 value 31))
+      value)))
+
+(defn fiscal-month-start-day [ds]
+  (or (parse-fiscal-month-start-day
+       (setting-value ds :fiscal-month-start-day "1"))
+      1))
+
+(defn set-fiscal-month-start-day! [ds day]
+  (if-let [day (parse-fiscal-month-start-day day)]
+    (do
+      (upsert-setting! ds :fiscal-month-start-day day)
+      day)
+    (throw (ex-info "Invalid fiscal month start day" {:day day}))))
+
 (defn- normalize-holiday-policy-mode [mode]
   (let [mode (normalize-keyword mode)]
     (when (contains? valid-holiday-policy-modes mode)
@@ -813,6 +863,17 @@
                 :else nil)]
     (when (and value (<= 1 value 7))
       value)))
+
+(defn week-start-day [ds]
+  (or (parse-weekday (setting-value ds :week-start-day "1"))
+      1))
+
+(defn set-week-start-day! [ds weekday]
+  (if-let [weekday (parse-weekday weekday)]
+    (do
+      (upsert-setting! ds :week-start-day weekday)
+      weekday)
+    (throw (ex-info "Invalid week start day" {:weekday weekday}))))
 
 (defn- normalize-weekdays [weekdays]
   (let [items (cond

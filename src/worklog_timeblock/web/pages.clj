@@ -18,7 +18,7 @@
        "a{color:var(--accent);}button,select,input{font:inherit;}button{border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:6px;padding:6px 10px;cursor:pointer;}"
        "select,input{border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--text);padding:5px 8px;min-height:34px;}"
        "table{border-collapse:collapse;width:100%;}td,th{border-bottom:1px solid var(--line);padding:7px 6px;text-align:left;}th{color:var(--muted);font-size:12px;text-transform:uppercase;}"
-       ".home{max-width:980px;margin:40px auto;padding:0 24px;}.days-shell{max-width:1180px;margin:28px auto;padding:0 24px;display:grid;gap:16px;}.days-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;}.view-tabs,.edit-tabs{display:flex;gap:8px;align-items:center;}.days-calendar{display:grid;gap:10px;}.month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;}.weekday-header{color:var(--muted);font-size:12px;text-transform:uppercase;padding:0 6px;}.calendar-day{position:relative;min-height:104px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px;display:grid;align-content:start;gap:5px;}.calendar-day.range-selected{outline:2px solid var(--accent);outline-offset:2px;}.calendar-day a,.week-day-card a{color:inherit;text-decoration:none;}.calendar-day button{all:unset;display:block;cursor:pointer;}.day-number{font-weight:700;font-variant-numeric:tabular-nums;}.day-status{display:inline-flex;width:max-content;border-radius:999px;padding:2px 7px;font-size:11px;font-weight:650;text-transform:uppercase;}.day-status-done{border-color:#86efac;background:#f0fdf4;}.day-status-done .day-status{background:#dcfce7;color:#166534;}.day-status-missing{border-color:#fdba74;background:#fff7ed;}.day-status-missing .day-status{background:#ffedd5;color:#9a3412;}.day-status-holiday{border-color:#c4b5fd;background:#f5f3ff;}.day-status-holiday .day-status{background:#ede9fe;color:#5b21b6;}.day-status-workday{border-color:#d7dde5;background:#fbfcfd;}.day-status-workday .day-status{background:#eef2f7;color:#475569;}.calendar-detail{color:var(--muted);font-size:12px;line-height:1.25;}.range-action-popover{position:fixed;z-index:30;display:grid;gap:8px;width:min(300px,calc(100vw - 24px));padding:12px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 12px 30px rgba(23,32,42,.18);}.range-action-popover[hidden]{display:none;}.range-action-popover form{display:grid;gap:8px;}.range-actions{display:flex;gap:8px;}.week-calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;}.week-day-card{min-height:180px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:10px;display:grid;align-content:start;gap:8px;}.day-workspace{height:100vh;overflow:hidden;display:grid;grid-template-rows:auto minmax(0,1fr);}"
+       ".home{max-width:980px;margin:40px auto;padding:0 24px;}.days-shell{max-width:1180px;margin:28px auto;padding:0 24px;display:grid;gap:16px;}.days-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;}.view-tabs,.edit-tabs{display:flex;gap:8px;align-items:center;}.days-calendar{display:grid;gap:10px;}.month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;}.weekday-header{color:var(--muted);font-size:12px;text-transform:uppercase;padding:0 6px;}.calendar-day{position:relative;min-height:104px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px;display:grid;align-content:start;gap:5px;}.calendar-blank{background:transparent;border-style:dashed;}.calendar-day.range-selected{outline:2px solid var(--accent);outline-offset:2px;}.calendar-day a,.week-day-card a{color:inherit;text-decoration:none;}.calendar-day button{all:unset;display:block;cursor:pointer;}.day-number{font-weight:700;font-variant-numeric:tabular-nums;}.day-status{display:inline-flex;width:max-content;border-radius:999px;padding:2px 7px;font-size:11px;font-weight:650;text-transform:uppercase;}.day-status-done{border-color:#86efac;background:#f0fdf4;}.day-status-done .day-status{background:#dcfce7;color:#166534;}.day-status-missing{border-color:#fdba74;background:#fff7ed;}.day-status-missing .day-status{background:#ffedd5;color:#9a3412;}.day-status-holiday{border-color:#c4b5fd;background:#f5f3ff;}.day-status-holiday .day-status{background:#ede9fe;color:#5b21b6;}.day-status-workday{border-color:#d7dde5;background:#fbfcfd;}.day-status-workday .day-status{background:#eef2f7;color:#475569;}.calendar-detail{color:var(--muted);font-size:12px;line-height:1.25;}.calendar-detail .uncategorized{color:var(--warn);font-weight:650;}.range-action-popover{position:fixed;z-index:30;display:grid;gap:8px;width:min(300px,calc(100vw - 24px));padding:12px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 12px 30px rgba(23,32,42,.18);}.range-action-popover[hidden]{display:none;}.range-action-popover form{display:grid;gap:8px;}.range-actions{display:flex;gap:8px;}.week-calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;}.week-day-card{min-height:180px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:10px;display:grid;align-content:start;gap:8px;}.day-workspace{height:100vh;overflow:hidden;display:grid;grid-template-rows:auto auto minmax(0,1fr);}"
        ".workspace-header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:18px 28px;border-bottom:1px solid var(--line);background:var(--surface);}"
        ".workspace-header h1{font-size:22px;line-height:1.2;margin:0;letter-spacing:0;}.workspace-meta{color:var(--muted);font-size:13px;}"
        ".header-actions{display:grid;gap:8px;justify-items:end;}.day-navigation{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;}.nav-button{display:inline-flex;align-items:center;min-height:34px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--text);text-decoration:none;}.day-navigation form{display:flex;gap:6px;align-items:center;}.day-navigation input{width:142px;}"
@@ -39,7 +39,7 @@
        ".time-range{font-variant-numeric:tabular-nums;font-weight:650;}.title{min-width:0;overflow-wrap:anywhere;}.state{color:var(--muted);}.state-excluded{opacity:.66;}.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0;}.controls select{min-width:0;max-width:100%;}.category-form select{flex:1 1 180px;}.range-form{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0;}.range-form input{width:92px;}.exclude-form{justify-self:end;}.exclude-form button,.delete-form button{border-color:#747b86;background:#747b86;}"
        ".category-create-form{display:grid;gap:8px;margin:0 0 14px;}.category-list{display:grid;gap:4px;list-style:none;margin:0;padding:0;}.category-row{display:grid;grid-template-columns:minmax(0,1fr) 48px auto;gap:8px;align-items:center;border:1px solid var(--line);border-left:5px solid var(--group-color,var(--line));border-radius:6px;padding:7px 8px;background:#fff;}.category-child{margin-left:20px;}.category-rename-form{display:flex;gap:6px;min-width:0;}.category-rename-form input{min-width:0;width:100%;}.category-row .controls{justify-content:flex-end;}.category-row button{padding:4px 8px;}.summary-row{border-left:5px solid var(--group-color,var(--line));}.summary-child td:first-child{padding-left:22px;}.summary-parent td:first-child{font-weight:700;}"
        ".metric-list{display:grid;grid-template-columns:1fr auto;gap:6px 10px;margin:0 0 14px;}.metric-list dt{color:var(--muted);}.metric-list dd{margin:0;font-variant-numeric:tabular-nums;font-weight:650;}.day-breaks{border-top:1px solid var(--line);padding-top:2px;}.break-list{display:grid;gap:8px;margin:0 0 12px;}.break-row{display:grid;gap:8px;border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff7ed;}.break-actions{display:grid;gap:8px;}.one-off-break-form{display:grid;gap:8px;margin-top:8px;}"
-       ".settings-grid{display:grid;grid-template-columns:1fr;gap:14px;}.settings-form{display:grid;gap:10px;}.weekday-options{display:flex;flex-wrap:wrap;gap:8px 12px;}.weekday-options label{display:flex;gap:5px;align-items:center;color:var(--muted);}.warn{color:var(--warn);font-weight:650;}.warnings{padding-left:18px;}@media (max-width:980px){.workspace-header{align-items:flex-start;flex-direction:column;}.header-actions{justify-items:start;}.day-navigation{justify-content:flex-start;}.workspace-grid,.week-calendar{grid-template-columns:1fr;}.month-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.entry-pane,.summary-pane{border-left:0;border-top:1px solid var(--line);}.day-timeline{height:720px;}.work-log-main,.work-log-actions,.work-log-range-line,.input-grid,.category-row{grid-template-columns:1fr;}.range-form input{width:100%;}.controls,.range-form,.inline-form{align-items:stretch;}.controls form,.range-form,.inline-form input,.inline-form button,.exclude-form{width:100%;}.controls select,.controls button,.range-form input,.range-form button{width:100%;}}"
+       ".settings-grid{display:grid;grid-template-columns:1fr;gap:14px;}.settings-form{display:grid;gap:10px;}.weekday-options{display:flex;flex-wrap:wrap;gap:8px 12px;}.weekday-options label{display:flex;gap:5px;align-items:center;color:var(--muted);}.flash-warning{border:1px solid rgba(154,52,18,.42);border-radius:8px;background:#fff7ed;color:var(--warn);padding:10px 12px;font-weight:650;}.day-workspace>.flash-warning{margin:12px 28px 0;}.warn{color:var(--warn);font-weight:650;}.warnings{padding-left:18px;}@media (max-width:980px){.workspace-header{align-items:flex-start;flex-direction:column;}.header-actions{justify-items:start;}.day-navigation{justify-content:flex-start;}.workspace-grid,.week-calendar{grid-template-columns:1fr;}.month-grid{grid-template-columns:repeat(7,minmax(86px,1fr));overflow:auto;}.entry-pane,.summary-pane{border-left:0;border-top:1px solid var(--line);}.day-timeline{height:720px;}.work-log-main,.work-log-actions,.work-log-range-line,.input-grid,.category-row{grid-template-columns:1fr;}.range-form input{width:100%;}.controls,.range-form,.inline-form{align-items:stretch;}.controls form,.range-form,.inline-form input,.inline-form button,.exclude-form{width:100%;}.controls select,.controls button,.range-form input,.range-form button{width:100%;}}"
        "</style>"
        "</head><body>" body "</body></html>"))
 
@@ -120,6 +120,28 @@
 
 (defn- hours-string [minutes]
   (format "%.2fh" (/ (double (or minutes 0)) 60.0)))
+
+(def warning-labels
+  {"category-required" "Category is required"
+   "client-category-id-not-allowed" "Category ID is assigned automatically"
+   "duplicate-category-name" "Duplicate category name"
+   "has-active-children" "Has active children"
+   "invalid-date" "Invalid date"
+   "invalid-time-range" "Invalid time range"
+   "invalid-minute" "Invalid time"
+   "invalid-settings" "Invalid settings"
+   "name-required" "Name is required"
+   "non-assignable-category" "Non-assignable category"
+   "title-required" "Title is required"
+   "unknown-category" "Unknown category"
+   "unknown-parent-category" "Unknown parent category"
+   "overlaps-confirmed-work-log" "Overlaps confirmed work"})
+
+(defn- flash-warning [warning]
+  (when (and warning (not (str/blank? (str warning))))
+    (str "<div class=\"flash-warning\" role=\"alert\">"
+         (escape-html (get warning-labels (str warning) (str warning)))
+         "</div>")))
 
 (defn- offset-minute [value]
   (let [date-time (OffsetDateTime/parse value)]
@@ -465,16 +487,26 @@
 (defn- query-href [view date edit?]
   (str "/?view=" view "&date=" date (when edit? "&edit=1")))
 
-(defn- calendar-navigation [view reference-date]
+(defn- calendar-date-link [view reference-date edit? offset]
+  (query-href view (str (.plusDays (LocalDate/parse reference-date) offset)) edit?))
+
+(defn- calendar-navigation [view reference-date edit?]
   (str "<div class=\"days-toolbar\"><div><h1>Days</h1>"
        "<div class=\"workspace-meta\">" (escape-html reference-date) "</div></div>"
        "<div class=\"view-tabs\">"
-       "<a class=\"nav-button\" href=\"" (escape-html (query-href "month" reference-date false)) "\">Month</a>"
-       "<a class=\"nav-button\" href=\"" (escape-html (query-href "week" reference-date false)) "\">Week</a>"
+       "<a class=\"nav-button\" href=\"" (escape-html (query-href "month" reference-date edit?)) "\">Month</a>"
+       "<a class=\"nav-button\" href=\"" (escape-html (query-href "week" reference-date edit?)) "\">Week</a>"
        "</div>"
-       "<form class=\"inline-form\" method=\"post\" action=\"/days\">"
+       "<div class=\"day-navigation\">"
+       "<a class=\"nav-button\" href=\"" (escape-html (calendar-date-link view reference-date edit? -7)) "\">Prev week</a>"
+       "<form class=\"inline-form\" method=\"get\" action=\"/\">"
+       "<input type=\"hidden\" name=\"view\" value=\"" (escape-html view) "\">"
+       (when edit? "<input type=\"hidden\" name=\"edit\" value=\"1\">")
        "<input type=\"date\" name=\"date\" value=\"" (escape-html reference-date) "\">"
-       "<button type=\"submit\">Open day</button></form>"
+       "<button type=\"submit\">GOTO</button></form>"
+       "<a class=\"nav-button\" href=\"" (escape-html (query-href view (today-string) edit?)) "\">TODAY</a>"
+       "<a class=\"nav-button\" href=\"" (escape-html (calendar-date-link view reference-date edit? 7)) "\">Next week</a>"
+       "</div>"
        "<div class=\"edit-tabs\">"
        "<a class=\"nav-button\" href=\"" (escape-html (query-href view reference-date false)) "\">Edit off</a>"
        "<a class=\"nav-button\" href=\"" (escape-html (query-href view reference-date true)) "\">Edit on</a>"
@@ -485,6 +517,10 @@
   (str "<div class=\"calendar-detail\">"
        "<div>" (escape-html (hours-string (:confirmed-work-minutes day))) " work</div>"
        "<div>" (escape-html (hours-string (:unallocated-minutes day))) " open</div>"
+       (when (pos? (or (:uncategorized-minutes day) 0))
+         (str "<div class=\"uncategorized\">Uncategorized "
+              (escape-html (hours-string (:uncategorized-minutes day)))
+              "</div>"))
        "</div>"))
 
 (defn- calendar-day-content [day]
@@ -507,10 +543,27 @@
                 "</a>"))
          "</div>")))
 
-(defn- weekday-headers []
+(def weekday-labels
+  {1 "Mon" 2 "Tue" 3 "Wed" 4 "Thu" 5 "Fri" 6 "Sat" 7 "Sun"})
+
+(defn- ordered-weekdays [week-start-day]
+  (map #(inc (mod (+ (dec week-start-day) %) 7)) (range 7)))
+
+(defn- weekday-headers [week-start-day]
   (apply str
-         (map #(str "<div class=\"weekday-header\">" % "</div>")
-              ["Mon" "Tue" "Wed" "Thu" "Fri" "Sat" "Sun"])))
+         (map #(str "<div class=\"weekday-header\">" (weekday-labels %) "</div>")
+              (ordered-weekdays week-start-day))))
+
+(defn- calendar-blank-cell []
+  "<div class=\"calendar-day calendar-blank\" aria-hidden=\"true\"></div>")
+
+(defn- month-leading-blanks [state]
+  (if-let [first-day (first (:days state))]
+    (mod (- (:weekday first-day) (:week-start-day state)) 7)
+    0))
+
+(defn- month-trailing-blanks [day-count]
+  (mod (- 7 (mod day-count 7)) 7))
 
 (defn- day-status-popover [reference-date]
   (str "<div id=\"range-action-popover\" class=\"range-action-popover\" hidden>"
@@ -527,12 +580,16 @@
        "</div></form></div>"))
 
 (defn- month-calendar [state]
-  (let [edit? (:edit? state)]
+  (let [edit? (:edit? state)
+        leading (month-leading-blanks state)
+        trailing (month-trailing-blanks (+ leading (count (:days state))))]
     (str "<section class=\"days-calendar\" data-calendar-view=\"month\" data-calendar-edit=\""
          (if edit? "active" "inactive")
          "\"><div class=\"month-grid\">"
-         (weekday-headers)
+         (weekday-headers (:week-start-day state))
+         (apply str (repeat leading (calendar-blank-cell)))
          (apply str (map #(month-day-cell edit? %) (:days state)))
+         (apply str (repeat trailing (calendar-blank-cell)))
          "</div>"
          (when edit? (day-status-popover (:reference-date state)))
          "</section>")))
@@ -647,7 +704,8 @@
 (defn days-page [state]
   (page "worklog-timeblock days"
         (str "<main class=\"days-shell\">"
-             (calendar-navigation (:view state) (:reference-date state))
+             (calendar-navigation (:view state) (:reference-date state) (:edit? state))
+             (flash-warning (:flash-warning state))
              (if (= "week" (:view state))
                (week-calendar state)
                (month-calendar state))
@@ -722,6 +780,9 @@
        "<input type=\"time\" name=\"start-time\" value=\"" (escape-html (time-string (:start-minute break))) "\">"
        "<input type=\"time\" name=\"end-time\" value=\"" (escape-html (time-string (:end-minute break))) "\">"
        "<button type=\"submit\">Range</button></form>"
+       "<form class=\"delete-form\" method=\"post\" action=\"/breaks/"
+       (escape-html (:id break)) "/delete\">"
+       "<button type=\"submit\">Delete</button></form>"
        "</div></article>"))
 
 (defn- day-breaks-section [date break-mode breaks]
@@ -1173,7 +1234,8 @@
 })();
 </script>")
 
-(defn day-page [{:keys [date break-mode work-logs source-events attendance breaks summary]} categories]
+(defn day-page [{:keys [date break-mode work-logs source-events attendance breaks summary]
+                 :as state} categories]
   (page (str "worklog-timeblock " date)
         (str "<main class=\"day-workspace\">"
              "<header class=\"workspace-header\"><div><h1>" (escape-html date)
@@ -1182,6 +1244,7 @@
              (day-navigation date)
              "<nav><a href=\"/\">Days</a> | <a href=\"/settings\">Settings</a></nav>"
              "</div></header>"
+             (flash-warning (:flash-warning state))
              "<div class=\"workspace-grid\">"
              "<section class=\"timeline-pane\"><h2 class=\"pane-title\">Timeline</h2>"
              (day-timeline date work-logs source-events attendance breaks)
@@ -1252,6 +1315,25 @@
                      (range 1 8)))
          "</div><button type=\"submit\">Save</button></form>")))
 
+(defn- calendar-settings-form [settings]
+  (let [week-start-day (:week-start-day settings)
+        fiscal-month-start-day (:fiscal-month-start-day settings)]
+    (str "<form class=\"input-panel settings-form\" method=\"post\" action=\"/settings/calendar\">"
+         "<h2 class=\"pane-title\">Calendar</h2>"
+         "<input type=\"hidden\" name=\"redirect-to\" value=\"/settings\">"
+         "<select name=\"week-start-day\">"
+         (apply str
+                (map (fn [weekday]
+                       (str "<option value=\"" weekday "\""
+                            (when (= weekday week-start-day) " selected")
+                            ">" (weekday-labels weekday) "</option>"))
+                     (range 1 8)))
+         "</select>"
+         "<input name=\"fiscal-month-start-day\" type=\"number\" min=\"1\" max=\"31\" value=\""
+         (escape-html fiscal-month-start-day)
+         "\">"
+         "<button type=\"submit\">Save</button></form>")))
+
 (defn- break-rules-panel [break-rules]
   (str (daily-break-rule-form "/settings")
        "<section class=\"input-panel break-rule-list-panel\"><h2 class=\"pane-title\">Daily break rules</h2>"
@@ -1287,13 +1369,15 @@
          "<tr><td colspan=\"6\" class=\"state\">No import sources yet.</td></tr>")
        "</tbody></table></section>"))
 
-(defn settings-page [{:keys [break-rules import-sources settings]}]
+(defn settings-page [{:keys [break-rules import-sources settings] :as state}]
   (page "worklog-timeblock settings"
         (str "<main class=\"home settings-page\"><h1>Settings</h1>"
              "<p><a href=\"/\">Days</a></p>"
+             (flash-warning (:flash-warning state))
              "<div class=\"settings-grid\">"
              (break-mode-settings-form settings)
              (holiday-policy-form settings)
+             (calendar-settings-form settings)
              (break-rules-panel break-rules)
              (import-sources-panel import-sources)
              "</div></main>")))

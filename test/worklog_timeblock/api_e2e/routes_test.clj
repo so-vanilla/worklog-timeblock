@@ -442,7 +442,22 @@
                (select-keys body [:title :state :category-id])))
         (is (empty? (:breaks day)))
         (is (= 480 (category-minutes summary (:id dev))))
-        (is (= 0 (get-in summary [:attendance :break-minutes])))))))
+        (is (= 0 (get-in summary [:attendance :break-minutes])))))
+
+    (testing "fixed materialized breaks can be deleted without reappearing as virtual breaks"
+      (is (= 200 (:status (request handler :post "/api/break-rules"
+                                    {:title "Dinner"
+                                     :start-minute 1320
+                                     :end-minute 1350
+                                     :enabled true}))))
+      (let [day (parse-body (request handler :get "/api/days/2026-07-12"))
+            break (first (filter #(= "Dinner" (:title %)) (:breaks day)))
+            response (request handler :delete (str "/api/breaks/" (:id break)))
+            day-after-delete (parse-body (request handler :get "/api/days/2026-07-12"))]
+        (is (pos-int? (:id break)))
+        (is (= 200 (:status response)))
+        (is (false? (:active? (parse-body response))))
+        (is (not-any? #(= "Dinner" (:title %)) (:breaks day-after-delete)))))))
 
 (deftest api-settings-and-calendar-e2e-test
   (let [{:keys [handler ds]} (empty-temp-system)
@@ -454,17 +469,28 @@
             response (request handler :put "/api/settings"
                               {:break-mode :flexible
                                :holiday-policy-mode :manual
-                               :holiday-weekdays []})
+                               :holiday-weekdays []
+                               :week-start-day 7
+                               :fiscal-month-start-day 21})
             updated (parse-body (request handler :get "/api/settings"))]
         (is (= {:break-mode "fixed"
+                :week-start-day 1
+                :fiscal-month-start-day 1
                 :holiday-policy {:mode "complete-two-day"
                                  :weekdays [6 7]}}
-               (select-keys default-settings [:break-mode :holiday-policy])))
+               (select-keys default-settings [:break-mode :week-start-day
+                                              :fiscal-month-start-day
+                                              :holiday-policy])))
         (is (= 200 (:status response)))
         (is (= "flexible" (:break-mode (parse-body response))))
         (is (= "flexible" (:break-mode updated)))
+        (is (= 7 (:week-start-day updated)))
+        (is (= 21 (:fiscal-month-start-day updated)))
         (is (= {:mode "manual" :weekdays []}
-               (:holiday-policy updated)))))
+               (:holiday-policy updated)))
+        (is (= 200 (:status (request handler :put "/api/settings"
+                                      {:week-start-day 1
+                                       :fiscal-month-start-day 1}))))))
 
     (testing "flexible break mode skips daily materialization but keeps one-off breaks"
       (is (= 200 (:status (request handler :post "/api/break-rules"
@@ -504,10 +530,17 @@
                                     {:clock-in-minute 540
                                      :clock-out-minute 1080}))))
       (is (= 200 (:status (request handler :post "/api/days/2026-07-16/worklogs"
-                                    {:title "Unallocated but intentional"
+                                    {:title "Unallocated backlog"
                                      :start-minute 540
                                      :end-minute 1080
                                      :category-id (:id unallocated)}))))
+      (is (= 200 (:status (request handler :put "/api/days/2026-07-17/attendance"
+                                    {:clock-in-minute 540
+                                     :clock-out-minute 600}))))
+      (is (= 200 (:status (request handler :post "/api/days/2026-07-17/worklogs"
+                                    {:title "Needs category"
+                                     :start-minute 540
+                                     :end-minute 600}))))
       (is (= 200 (:status (request handler :post "/api/day-status-ranges"
                                     {:start-date "2026-07-20"
                                      :end-date "2026-07-22"
@@ -516,10 +549,33 @@
             days-by-date (into {} (map (juxt :date identity)) (:days calendar))]
         (is (= "month" (:view calendar)))
         (is (= "done" (get-in days-by-date ["2026-07-15" :status])))
-        (is (= "done" (get-in days-by-date ["2026-07-16" :status])))
+        (is (= "missing" (get-in days-by-date ["2026-07-16" :status])))
+        (is (= 540 (get-in days-by-date ["2026-07-16" :category-minutes
+                                          (keyword (str (:id unallocated)))])))
+        (is (= "done" (get-in days-by-date ["2026-07-17" :status])))
+        (is (= 60 (get-in days-by-date ["2026-07-17" :uncategorized-minutes])))
+        (is (= 60 (get-in days-by-date ["2026-07-17" :category-minutes
+                                         (keyword (str (:id unallocated)))])))
         (is (= "holiday" (get-in days-by-date ["2026-07-20" :status])))
         (is (= "holiday" (get-in days-by-date ["2026-07-21" :status])))
         (is (= "holiday" (get-in days-by-date ["2026-07-22" :status])))))))
+
+(deftest api-calendar-settings-e2e-test
+  (let [{:keys [handler]} (empty-temp-system)]
+    (testing "calendar settings shift week starts and fiscal month ranges"
+      (is (= 200 (:status (request handler :put "/api/settings"
+                                    {:week-start-day 7
+                                     :fiscal-month-start-day 21}))))
+      (let [week (parse-body (request handler :get "/api/calendar?view=week&date=2026-07-15"))
+            fiscal-month (parse-body (request handler :get "/api/calendar?view=month&date=2026-07-15"))]
+        (is (= 7 (:week-start-day week)))
+        (is (= ["2026-07-12" "2026-07-13" "2026-07-14"
+                "2026-07-15" "2026-07-16" "2026-07-17" "2026-07-18"]
+               (map :date (:days week))))
+        (is (= "2026-06-21" (:period-start fiscal-month)))
+        (is (= "2026-07-20" (:period-end fiscal-month)))
+        (is (= "2026-06-21" (-> fiscal-month :days first :date)))
+        (is (= "2026-07-20" (-> fiscal-month :days last :date)))))))
 
 (deftest api-overlap-and-boundary-e2e-test
   (let [{:keys [handler ds]} (empty-temp-system)

@@ -48,7 +48,7 @@ add_case normal-080x20 80 20 2026-07-06 normal-day \
   'worklog-timeblock|2026-07-06|Build|Standup|Development|0.75h|Meetings|0.25h|Other|0.25h' \
   'Warnings|Exception|Stacktrace|Error|dev|meeting'
 add_case uncategorized-060x20 60 20 2026-07-06 uncategorized-warning \
-  'worklog-timeblock|2026-07-06|Unknown|Uncategorized: Unknown|Development|0.75h|Other|0.17h|Warnings' \
+  'worklog-timeblock|2026-07-06|Unknown|Uncategorized: Unknown|Development|0.75h|Other|0.67h|Warnings' \
   'Exception|Stacktrace|Error|dev|other'
 add_case excluded-060x20 60 20 2026-07-06 excluded-log-not-totaled \
   'worklog-timeblock|2026-07-06|Lunch|excluded|Build|Development|0.75h|Other|0.08h' \

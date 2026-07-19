@@ -9,7 +9,7 @@
                 :state :confirmed :category-id "dev"}
                {:title "Unknown" :start-minute 600 :end-minute 630
                 :state :uncategorized}]
-   :summary {:category-hours {"dev" 0.75 "other" 0.08333333333333333}
+   :summary {:category-hours {"dev" 0.75 "other" 0.75}
              :warnings [{:type :uncategorized :work-log-id 2 :title "Unknown"}]}})
 
 (deftest tui-smoke-test
@@ -21,7 +21,8 @@
   (testing "renders category totals for manual entry"
     (let [screen (tui/render-dashboard state)]
       (is (str/includes? screen "dev"))
-      (is (str/includes? screen "0.75h"))))
+      (is (str/includes? screen "0.75h"))
+      (is (str/includes? screen "other"))))
 
   (testing "renders warnings without hiding uncategorized work"
     (let [screen (tui/render-dashboard state)]

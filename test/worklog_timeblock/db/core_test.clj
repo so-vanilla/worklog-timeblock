@@ -213,11 +213,17 @@
 
     (testing "global settings have safe defaults and persist changes"
       (is (= :fixed (db/break-mode ds)))
+      (is (= 1 (db/week-start-day ds)))
+      (is (= 1 (db/fiscal-month-start-day ds)))
       (is (= {:mode :complete-two-day
               :weekdays #{6 7}}
              (db/holiday-policy ds)))
       (is (= :flexible (db/set-break-mode! ds :flexible)))
+      (is (= 7 (db/set-week-start-day! ds 7)))
+      (is (= 21 (db/set-fiscal-month-start-day! ds 21)))
       (is (= :flexible (db/break-mode (db/datasource path))))
+      (is (= 7 (db/week-start-day (db/datasource path))))
+      (is (= 21 (db/fiscal-month-start-day (db/datasource path))))
       (is (= {:mode :manual
               :weekdays #{}}
              (db/set-holiday-policy! ds {:mode :manual :weekdays #{}})))

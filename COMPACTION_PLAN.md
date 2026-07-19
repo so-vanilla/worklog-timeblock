@@ -410,8 +410,10 @@ Goal:
 - Replace the old home list with a Days calendar screen supporting month/week
   modes, status badges, inactive click-through, and active click/drag range
   editing.
-- Treat confirmed ranges assigned to an `Unallocated` category as intentional
-  input, not as missing-time evidence for the 1-hour threshold.
+- Treat confirmed ranges assigned to an `Unallocated` category as missing-time
+  evidence for the 1-hour threshold.
+- Treat `Uncategorized` as Other effort and warning evidence, but not as
+  missing-time evidence.
 - Integrate import-source configuration into Settings.
 - Keep the full day workspace as the actual worklog input page.
 - Preserve and test selected confirmed-block boundary priority in the timeline.
@@ -983,6 +985,70 @@ Done when:
 
 - Failure modes are visible and recoverable.
 - Local data is not easy to corrupt through normal operations.
+
+## Current Repair Batch
+
+Status: Done.
+
+Current objective:
+
+- Fix break deletion, Month weekday alignment, Days week navigation, calendar
+  settings, `Uncategorized` fallback assignment, Other effort treatment, and
+  expected form-error display.
+
+Acceptance criteria:
+
+- Added breaks can be deleted from the day page and `/api/breaks/:id`.
+- Deleted fixed/materialized breaks do not reappear as virtual fixed breaks.
+- Month view uses week-start-aware blank cells so holidays sit under the
+  correct weekday column.
+- Days navigation has previous-week and next-week controls.
+- Settings has week start day and fiscal month start day.
+- Fiscal month start day supports company periods such as 21st to 20th.
+- Blank category selection on an existing work log changes it to
+  `Uncategorized`.
+- Days calendar visibly reports `Uncategorized` minutes.
+- Manual reporting totals fold `Unallocated` and `Uncategorized` into Other.
+- Missing-day detection uses `Unallocated` but not `Uncategorized`.
+- Expected Web form failures redirect back to HTML with an inline warning.
+- JSON API failures remain JSON.
+
+Required verification before completion:
+
+```sh
+devenv shell e2e-all
+devenv shell test
+devenv shell lint
+nix flake check
+git diff --check --cached
+git diff --check
+zellij --session wz-10 action list-tabs
+```
+
+Implementation status:
+
+- Done on 2026-07-20.
+- Implemented break deletion in Web forms and JSON API.
+- Deleted fixed/materialized breaks are treated as tombstoned for virtual-break
+  fallback.
+- Added week start day and fiscal month start day settings.
+- Month cells now align by configured week start and fiscal period start.
+- Days navigation has previous-week, next-week, GOTO, and TODAY controls.
+- Blank category selection changes existing logs to `Uncategorized`.
+- Days calendar shows `Uncategorized` minutes.
+- `Unallocated` and `Uncategorized` are folded into Other effort totals.
+- Missing-day detection uses `Unallocated` evidence but not `Uncategorized`.
+- Expected Web form failures redirect to inline warnings; JSON API errors remain
+  JSON.
+- Latest validation before commit:
+  - `devenv shell e2e-all`: Clojure E2E 18 tests / 482 assertions, browser
+    29 cases / 158 assertions, zellij 8 cases / 220 assertions / 0 failures.
+  - `devenv shell test`: 33 tests / 675 assertions / 0 failures.
+  - `devenv shell lint`: errors 0 / warnings 0.
+  - `nix flake check`: success.
+  - `nix run . -- --db <empty-temp-db>` smoke: 5 assertions / 0 failures.
+  - `git diff --check && git diff --check --cached`: success.
+  - `zellij --session wz-10 action list-tabs`: `Tab #1` only.
 
 ## Known Remaining Work
 

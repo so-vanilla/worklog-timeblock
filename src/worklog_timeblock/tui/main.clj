@@ -116,8 +116,11 @@
             source-events (db/source-events-by-date ds date)
             day-summary (summary/summarize-day
                          (assoc default-summary-options
-                                :other-category-id (or (db/other-category-id ds) "other")
-                                :assignable-category-ids (db/summarizable-category-ids ds))
+                                :other-category-id (or (db/other-category-id ds)
+                                                       (db/unallocated-category-id ds)
+                                                       "other")
+                                :assignable-category-ids (db/summarizable-category-ids ds)
+                                :unallocated-category-ids (db/unallocated-category-ids ds))
                          work-logs)]
         (print
          (render-dashboard-for-terminal

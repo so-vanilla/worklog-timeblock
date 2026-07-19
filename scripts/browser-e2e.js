@@ -274,6 +274,8 @@ async function run() {
 
     await page.goto(`${baseUrl}/?view=week&date=2026-07-06`);
     assert(await page.locator(".week-calendar[data-calendar-view='week']").count() === 1, "week calendar should render");
+    assert(await page.locator("a[href='/?view=week&date=2026-06-29']").count() === 1, "days navigation should include previous week");
+    assert(await page.locator("a[href='/?view=week&date=2026-07-13']").count() === 1, "days navigation should include next week");
     assert(await page.locator(".week-day-card[data-date='2026-07-07'] a[href='/days/2026-07-07']").count() === 1, "week day should link to the day workspace");
     await Promise.all([
       page.waitForURL(`${baseUrl}/days/2026-07-07`),
@@ -302,6 +304,9 @@ async function run() {
     await page.waitForURL(`${baseUrl}/settings`);
     assert(await page.locator("form[action='/settings/break-mode']").count() === 1, "settings should own break mode form");
     assert(await page.locator("form[action='/settings/holiday-policy']").count() === 1, "settings should own holiday policy form");
+    assert(await page.locator("form[action='/settings/calendar']").count() === 1, "settings should own calendar preferences form");
+    assert(await page.locator("select[name='week-start-day']").count() === 1, "settings should expose week start day");
+    assert(await page.locator("input[name='fiscal-month-start-day']").count() === 1, "settings should expose fiscal month start day");
     assert(await page.locator(".import-sources-panel form[action='/import-sources']").count() === 1, "settings should own import source form");
     assert(await page.locator("a[href='/import-sources']").count() === 0, "standalone import source page should not be linked from settings");
 
@@ -355,8 +360,18 @@ async function run() {
     assert(await page.locator(".timeline-block.break-block").count() === 1, "break should render on timeline");
     assert((await page.locator(".timeline-block.break-block").textContent()).includes("Lunch"), "break timeline block should show title");
     assert(await page.locator(".break-row form[action*='/range']").count() === 1, "break range form should exist");
+    assert(await page.locator(".break-row form[action*='/delete']").count() === 1, "break delete form should exist");
     assert(await page.locator(".break-row form[action*='/convert']").count() === 0, "break convert form should not be exposed");
     assert(!(await page.locator(".attendance-panel").textContent()).includes("Convert to work"), "break category conversion should not be visible");
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: "domcontentloaded" }),
+      page.locator(".break-row form[action*='/delete'] button").click(),
+    ]);
+    assert(await page.locator(".break-row").count() === 0, "deleted fixed break should not reappear on reload");
+    assert(await page.locator(".timeline-block.break-block").count() === 0, "deleted fixed break should disappear from timeline");
+    await page.goto(`${baseUrl}/settings`);
+    assert((await page.locator(".break-rule-list-panel").textContent()).includes("Lunch"), "deleting a materialized break should not delete the daily rule");
+    await page.goto(`${baseUrl}/days/2026-07-06`);
     assert(await page.locator(".summary-pane > .attendance-panel").count() === 1, "attendance should be first right-pane panel");
     const paneOrder = await page.locator(".summary-pane > .input-panel").evaluateAll((panels) =>
       panels.slice(0, 3).map((panel) =>
@@ -569,7 +584,7 @@ async function run() {
     assert((await page.locator(".timeline-warning-bubble").textContent()).includes("only shrinks"), "shift expansion warning should explain shrink-only behavior");
     assert((await page.locator(buildSelector).textContent()).includes("09:45-10:30"), "shift expansion should not save");
 
-    console.log(`browser-e2e cases=24 assertions=${assertions} failures=0`);
+    console.log(`browser-e2e cases=29 assertions=${assertions} failures=0`);
   } finally {
     if (browser) {
       await browser.close();

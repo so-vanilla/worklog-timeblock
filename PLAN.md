@@ -822,8 +822,10 @@ Goal 3: Days calendar workspace.
 - Month view shows each day as done, missing, or holiday.
 - Done means effective unallocated time is under 1 hour.
 - Missing means effective unallocated time is 1 hour or more.
-- Confirmed work logs assigned to an `Unallocated` category are treated as
-  intentional input and are not counted toward the 1-hour missing threshold.
+- Confirmed work logs assigned to an `Unallocated` category count toward the
+  1-hour missing threshold.
+- `Uncategorized` logs count toward Other effort and remain warnings, but they
+  do not count toward the missing threshold.
 - Holidays come from policy plus day overrides. Paid leave uses the same
   holiday status.
 - Month edit mode active lets click/drag select a range and submit workday or
@@ -883,7 +885,74 @@ Implementation status:
   - `git diff --check`: success.
   - `zellij --session wz-10 action list-tabs`: `Tab #1` only.
 
-### Phase 5: Category And Title Mapping Management
+### Phase 5: Current Repair Batch
+
+Status: Done.
+
+Scope:
+
+- Added breaks can be deleted from Web form and JSON API.
+- Deleted fixed/materialized breaks must not reappear as virtual fixed breaks
+  on reload.
+- Month calendar must align dates under the configured weekday headers.
+- Days navigation must include previous-week and next-week movement.
+- Settings must expose week start day and fiscal month start day.
+- Fiscal month view must support periods such as previous-month 21st through
+  current-month 20th.
+- Selecting blank category on an existing work log must return it to
+  `Uncategorized` without throwing `category-required`.
+- `Uncategorized` minutes must be visible on the Days calendar.
+- `Unallocated` and `Uncategorized` both count into the same Other effort
+  bucket for manual reporting.
+- Days missing detection uses `Unallocated` only for incomplete-effort
+  detection; `Uncategorized` remains a warning and Other effort, but does not
+  by itself make a day missing.
+- Expected form failures should redirect back to HTML with an inline warning
+  instead of showing raw JSON.
+- JSON API error responses stay JSON for programmatic callers.
+
+Quantitative done criteria:
+
+- Add or update at least 20 assertions across DB/API/Web/domain tests.
+- Browser E2E covers settings controls, week navigation, and break deletion.
+- API E2E covers fiscal month, week start, fixed break deletion, and
+  `Uncategorized`/`Unallocated` calendar classification.
+- Full gate passes:
+  - `devenv shell e2e-all`
+  - `devenv shell test`
+  - `devenv shell lint`
+  - `nix flake check`
+  - `git diff --check --cached`
+  - `git diff --check`
+  - `zellij --session wz-10 action list-tabs`
+
+Implementation status:
+
+- Done on 2026-07-20.
+- Added Web/API break deletion and fixed-break tombstone handling.
+- Added week start day and fiscal month start day settings.
+- Added fiscal month period calculation and week-start-aware Week/Month dates.
+- Added Month blank cells and configurable weekday headers.
+- Added previous-week, next-week, GOTO, and TODAY controls on Days.
+- Added blank category selection back to `Uncategorized`.
+- Added `Uncategorized` minutes to Days calendar cells.
+- Folded `Unallocated` category minutes and `Uncategorized` minutes into Other
+  effort totals.
+- Changed missing-day detection so only attendance unallocated time plus
+  `Unallocated` category minutes are threshold evidence.
+- Added form-warning redirects for expected Web form failures while preserving
+  JSON API errors.
+- Latest local validation before commit:
+  - `devenv shell e2e-all`: Clojure E2E 18 tests / 482 assertions, browser
+    29 cases / 158 assertions, zellij 8 cases / 220 assertions / 0 failures.
+  - `devenv shell test`: 33 tests / 675 assertions / 0 failures.
+  - `devenv shell lint`: errors 0 / warnings 0.
+  - `nix flake check`: success.
+  - `nix run . -- --db <empty-temp-db>` smoke: 5 assertions / 0 failures.
+  - `git diff --check && git diff --check --cached`: success.
+  - `zellij --session wz-10 action list-tabs`: `Tab #1` only.
+
+### Phase 6: Category And Title Mapping Management
 
 Status: Not started.
 
@@ -922,7 +991,7 @@ Quantitative done criteria:
   - `git diff --check --cached`
   - `git diff --check`
 
-### Phase 6: Manual Entry Export And Other Breakdown
+### Phase 7: Manual Entry Export And Other Breakdown
 
 Status: Partially started through the Web manual-entry block.
 
@@ -950,7 +1019,7 @@ Quantitative done criteria:
 - `other` breakdown is visible and tested.
 - Uncategorized and large-gap warnings remain visible and tested.
 
-### Phase 7: TUI Interaction
+### Phase 8: TUI Interaction
 
 Status: Not started.
 
@@ -960,7 +1029,7 @@ Scope:
 - Assign category.
 - Exclude.
 - Edit range.
-- Create mapping from corrected log if Phase 5 exists.
+- Create mapping from corrected log if Phase 6 exists.
 - Re-render totals after edits.
 
 Suggested ownership:
@@ -975,7 +1044,7 @@ Quantitative done criteria:
 - Total zellij E2E assertions must remain at least 198 and increase when new cases are added.
 - Narrow viewport output must remain readable, with explicit NG-token checks for concatenated fields.
 
-### Phase 8: Calendar Source Plugins
+### Phase 9: Calendar Source Plugins
 
 Status: Not started.
 
@@ -999,7 +1068,7 @@ Quantitative done criteria:
 - Test proves confirmed snapshots are preserved.
 - Test proves source update warning is visible.
 
-### Phase 9: Hardening
+### Phase 10: Hardening
 
 Status: Not started.
 
@@ -1036,7 +1105,7 @@ devenv shell test
 Then choose one:
 
 - If only preserving baseline or preparing first commit: run full gate and commit.
-- If implementing next functionality: start with Phase 5 and write failing tests first.
+- If implementing next functionality: start with Phase 6 and write failing tests first.
 - If using Agent Teams: use this file as `/team /Users/shuto-vanilla/Documents/Codex/2026-07-06-flake-my-emacs-git-log-org/worklog-timeblock/PLAN.md`.
 
 ## Workflow Feedback Template

@@ -116,29 +116,41 @@
 (defn summarize-day
   "Summarize a single day for manual entry.
   Confirmed categorized logs are rounded down to the configured quantum.
-  Residual minutes and short gaps go to the other category. Larger gaps and
+  Residual minutes, short gaps, uncategorized work, and explicitly
+  unallocated category work go to the other category. Larger gaps and
   uncategorized work remain warnings."
   [options logs]
   (let [rounding-minutes (:rounding-minutes options)
         small-gap-minutes (:small-gap-minutes options)
         other-category-id (:other-category-id options)
         assignable-category-ids (:assignable-category-ids options)
+        unallocated-category-ids (set (:unallocated-category-ids options))
         breaks (:breaks options)
         attendance (:attendance options)]
     (when-not (pos-int? rounding-minutes)
       (throw (ex-info "rounding-minutes must be positive" options)))
     (let [included (filter work-candidate? logs)
           confirmed (filter #(confirmed-with-category? assignable-category-ids %) included)
+          allocated-confirmed (remove #(contains? unallocated-category-ids (:category-id %))
+                                      confirmed)
+          unallocated-confirmed (filter #(contains? unallocated-category-ids (:category-id %))
+                                        confirmed)
           non-assignable (filter #(confirmed-with-non-assignable-category?
                                    assignable-category-ids %)
                                  included)
           uncategorized (filter #(= :uncategorized (normalize-state (:state %))) included)
+          uncategorized-minutes (reduce + 0 (map duration uncategorized))
+          unallocated-category-minutes (reduce
+                                        (fn [acc log]
+                                          (+ acc (rounded-category-minutes rounding-minutes log)))
+                                        0
+                                        unallocated-confirmed)
           category-minutes (reduce
                             (fn [acc log]
                               (add-minutes acc (:category-id log)
                                            (rounded-category-minutes rounding-minutes log)))
                             {}
-                            confirmed)
+                            allocated-confirmed)
           residual-minutes (reduce
                             (fn [acc log]
                               (+ acc (- (duration log)
@@ -149,7 +161,10 @@
           short-gap-minutes (reduce + 0 (map :minutes
                                              (filter #(<= (:minutes %) small-gap-minutes) gaps)))
           large-gaps (filter #(> (:minutes %) small-gap-minutes) gaps)
-          other-minutes (+ residual-minutes short-gap-minutes)
+          other-minutes (+ residual-minutes
+                           short-gap-minutes
+                           uncategorized-minutes
+                           unallocated-category-minutes)
           category-minutes (add-minutes category-minutes other-category-id other-minutes)
           warnings (vec
                     (concat
@@ -178,6 +193,8 @@
        :other {:category-id other-category-id
                :rounding-residual-minutes residual-minutes
                :short-gap-minutes short-gap-minutes
+               :uncategorized-minutes uncategorized-minutes
+               :unallocated-category-minutes unallocated-category-minutes
                :total-minutes other-minutes}})))
 
 (defn source-diff-warnings [work-logs source-events]

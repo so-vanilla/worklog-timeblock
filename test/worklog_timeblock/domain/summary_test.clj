@@ -21,7 +21,7 @@
   (testing "sums confirmed logs by category using rounded-down category minutes"
     (is (= {"meeting" 15
             "dev" 45
-            "other" 10}
+            "other" 40}
            (:category-minutes (summary/summarize-day base-options logs)))))
 
   (testing "residual minutes are assigned to other category"
@@ -41,10 +41,11 @@
     (is (not (contains? (:category-minutes (summary/summarize-day base-options logs))
                         nil))))
 
-  (testing "uncategorized logs are warning targets and not hidden as other"
+  (testing "uncategorized logs are warning targets and included in other"
     (let [result (summary/summarize-day base-options logs)]
       (is (= [4] (map :id (:uncategorized result))))
-      (is (= 1 (count (filter #(= :uncategorized (:type %)) (:warnings result)))))))
+      (is (= 1 (count (filter #(= :uncategorized (:type %)) (:warnings result)))))
+      (is (= 30 (get-in result [:other :uncategorized-minutes])))))
 
   (testing "large gaps create warnings instead of automatic other time"
     (let [result (summary/summarize-day base-options
@@ -70,8 +71,22 @@
          (summary/summarize-day (assoc base-options :rounding-minutes 0) logs))))
 
   (testing "summary exposes decimal hours for manual entry"
-    (is (= {"meeting" 0.25 "dev" 0.75 "other" 0.17}
+    (is (= {"meeting" 0.25 "dev" 0.75 "other" 0.67}
            (:category-hours (summary/summarize-day base-options logs)))))
+
+  (testing "unallocated category minutes are folded into other"
+    (let [result (summary/summarize-day
+                  (assoc base-options :unallocated-category-ids #{"unallocated"})
+                  [{:id 5 :date "2026-07-06" :title "Fallback"
+                   :start-minute 540 :end-minute 590
+                   :state :confirmed :category-id "unallocated"}
+                   {:id 6 :date "2026-07-06" :title "Unknown"
+                    :start-minute 590 :end-minute 620
+                    :state :uncategorized :category-id nil}])]
+      (is (nil? (get (:category-minutes result) "unallocated")))
+      (is (= 80 (get (:category-minutes result) "other")))
+      (is (= 45 (get-in result [:other :unallocated-category-minutes])))
+      (is (= 30 (get-in result [:other :uncategorized-minutes])))))
 
   (testing "non-assignable categories are excluded from totals and warned"
     (let [result (summary/summarize-day

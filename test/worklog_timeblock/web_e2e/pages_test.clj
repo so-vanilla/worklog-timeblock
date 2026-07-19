@@ -56,7 +56,11 @@
         (is (str/includes? html "data-calendar-edit=\"inactive\""))
         (is (str/includes? html "/days/2026-07-06"))
         (is (str/includes? html "href=\"/?view=week&amp;date=2026-07-06\""))
-        (is (str/includes? html "href=\"/?view=month&amp;date=2026-07-06&amp;edit=1\""))))
+        (is (str/includes? html "href=\"/?view=month&amp;date=2026-07-06&amp;edit=1\""))
+        (is (str/includes? html "href=\"/?view=month&amp;date=2026-06-29\""))
+        (is (str/includes? html "href=\"/?view=month&amp;date=2026-07-13\""))
+        (is (str/includes? html "name=\"date\" value=\"2026-07-06\""))
+        (is (str/includes? html "TODAY"))))
 
     (testing "day page renders a full-viewport worklog workspace"
       (let [html (response-body (request handler "/days/2026-07-06"))]
@@ -122,6 +126,15 @@
         (is (str/includes? html "Meetings"))
         (is (str/includes? html "0.50h"))))
 
+    (testing "category form can return a confirmed log to uncategorized"
+      (let [response (request handler :post
+                              (str "/worklogs/" (:build ids) "/assign-category")
+                              "category-id=")
+            html (response-body (request handler "/days/2026-07-06"))]
+        (is (= 303 (:status response)))
+        (is (= "/days/2026-07-06" (get-in response [:headers "location"])))
+        (is (str/includes? html "Uncategorized: Build"))))
+
     (testing "range form updates the rendered timeline"
       (let [response (request handler :post
                               (str "/worklogs/" (:build ids) "/range")
@@ -144,7 +157,7 @@
     (testing "home page exposes a date picker and calendar for an empty database"
       (let [html (response-body (request handler "/?view=month&date=2026-07-07"))]
         (is (str/includes? html "class=\"days-calendar\""))
-        (is (str/includes? html "action=\"/days\""))
+        (is (str/includes? html "action=\"/\""))
         (is (str/includes? html "name=\"date\""))
         (is (str/includes? html "type=\"date\""))
         (is (str/includes? html "data-date=\"2026-07-07\""))))
@@ -217,6 +230,10 @@
              (str "title=Build&start-time=09%3A00&end-time=17%3A00&category-id=" dev-id))
     (request handler :post "/days/2026-07-16/attendance"
              "clock-in-time=09%3A00&clock-out-time=18%3A00")
+    (request handler :post "/days/2026-07-17/attendance"
+             "clock-in-time=09%3A00&clock-out-time=10%3A00")
+    (request handler :post "/days/2026-07-17/worklogs"
+             "title=Needs%20category&start-time=09%3A00&end-time=10%3A00&category-id=")
     (request handler :post "/day-status-ranges"
              "start-date=2026-07-20&end-date=2026-07-22&status=holiday&redirect-to=%2F%3Fview%3Dmonth%26date%3D2026-07-15")
 
@@ -224,8 +241,10 @@
       (let [html (response-body (request handler "/?view=month&date=2026-07-15"))]
         (is (str/includes? html "class=\"days-calendar\""))
         (is (str/includes? html "data-calendar-view=\"month\""))
+        (is (str/includes? html "class=\"calendar-day calendar-blank\""))
         (is (str/includes? html "class=\"calendar-day day-status-done\" data-date=\"2026-07-15\""))
         (is (str/includes? html "class=\"calendar-day day-status-missing\" data-date=\"2026-07-16\""))
+        (is (str/includes? html "Uncategorized"))
         (is (str/includes? html "class=\"calendar-day day-status-holiday\" data-date=\"2026-07-20\""))
         (is (str/includes? html "href=\"/days/2026-07-15\""))
         (is (not (str/includes? html "id=\"day-status-range-form\"")))))
@@ -252,6 +271,8 @@
       (let [html (response-body (request handler "/?view=week&date=2026-07-15"))]
         (is (str/includes? html "class=\"week-calendar days-calendar\""))
         (is (str/includes? html "data-calendar-view=\"week\""))
+        (is (str/includes? html "href=\"/?view=week&amp;date=2026-07-08\""))
+        (is (str/includes? html "href=\"/?view=week&amp;date=2026-07-22\""))
         (is (str/includes? html "data-date=\"2026-07-13\""))
         (is (str/includes? html "data-date=\"2026-07-19\""))
         (is (str/includes? html "href=\"/days/2026-07-15\""))
@@ -271,6 +292,9 @@
         (is (str/includes? settings-html "value=\"fixed\" selected"))
         (is (str/includes? settings-html "action=\"/settings/holiday-policy\""))
         (is (str/includes? settings-html "name=\"holiday-policy-mode\""))
+        (is (str/includes? settings-html "action=\"/settings/calendar\""))
+        (is (str/includes? settings-html "name=\"week-start-day\""))
+        (is (str/includes? settings-html "name=\"fiscal-month-start-day\""))
         (is (str/includes? settings-html "Daily break"))
         (is (str/includes? settings-html "action=\"/break-rules\""))
         (is (str/includes? settings-html "value=\"/settings\""))
@@ -289,6 +313,15 @@
         (is (str/includes? settings-html "value=\"flexible\" selected"))
         (is (str/includes? day-html "Break today"))
         (is (str/includes? day-html "One-off break"))))
+
+    (testing "calendar settings form persists week and fiscal month preferences"
+      (let [response (request handler :post "/settings/calendar"
+                              "week-start-day=7&fiscal-month-start-day=21&redirect-to=%2Fsettings")
+            settings-html (response-body (request handler "/settings"))]
+        (is (= 303 (:status response)))
+        (is (= "/settings" (get-in response [:headers "location"])))
+        (is (str/includes? settings-html "value=\"7\" selected"))
+        (is (str/includes? settings-html "name=\"fiscal-month-start-day\" type=\"number\" min=\"1\" max=\"31\" value=\"21\""))))
 
     (testing "settings daily break form persists and returns to settings"
       (let [response (request handler :post "/break-rules"
@@ -329,9 +362,12 @@
         (testing "parent categories cannot be assigned through form submission"
           (let [response (request handler :post "/days/2026-07-08/worklogs"
                                   (str "title=Parent&start-time=09%3A00&end-time=10%3A00&category-id="
-                                       engineering-id))]
-            (is (= 400 (:status response)))
-            (is (str/includes? (response-body response) "non-assignable-category"))))
+                                       engineering-id))
+                html (response-body (request handler (get-in response [:headers "location"])))]
+            (is (= 303 (:status response)))
+            (is (= "/days/2026-07-08?warning=non-assignable-category"
+                   (get-in response [:headers "location"])))
+            (is (str/includes? html "Non-assignable category"))))
 
         (testing "child categories remain assignable"
           (let [response (request handler :post "/days/2026-07-08/worklogs"
@@ -390,9 +426,12 @@
         (testing "delete form rejects a parent with active children"
           (let [response (request handler :post
                                   (str "/categories/" engineering-id "/delete")
-                                  "redirect-to=%2Fdays%2F2026-07-08")]
-            (is (= 400 (:status response)))
-            (is (str/includes? (response-body response) "has-active-children"))))
+                                  "redirect-to=%2Fdays%2F2026-07-08")
+                html (response-body (request handler (get-in response [:headers "location"])))]
+            (is (= 303 (:status response)))
+            (is (= "/days/2026-07-08?warning=has-active-children"
+                   (get-in response [:headers "location"])))
+            (is (str/includes? html "Has active children"))))
 
         (testing "delete form soft-deletes assigned categories but keeps summary names"
           (let [response (request handler :post
@@ -450,6 +489,7 @@
           (is (str/includes? html "Fixed breaks"))
           (is (str/includes? html "1.00h"))
           (is (str/includes? html (str "action=\"/breaks/" break-id "/range\"")))
+          (is (str/includes? html (str "action=\"/breaks/" break-id "/delete\"")))
           (is (not (str/includes? html (str "action=\"/breaks/" break-id "/convert\""))))
           (is (not (str/includes? html "Convert to work")))))
 
@@ -461,6 +501,17 @@
               html (response-body (request handler "/days/2026-07-11"))]
           (is (= 303 (:status response)))
           (is (str/includes? html "12:15-13:15"))))
+
+      (testing "break delete form hides a materialized fixed break"
+        (let [break-id (:id (first (db/breaks-by-date ds "2026-07-11")))
+              response (request handler :post
+                                (str "/breaks/" break-id "/delete")
+                                "")
+              html (response-body (request handler "/days/2026-07-11"))]
+          (is (= 303 (:status response)))
+          (is (= "/days/2026-07-11" (get-in response [:headers "location"])))
+          (is (not (str/includes? html "12:15-13:15")))
+          (is (not (str/includes? html "class=\"timeline-block break-block\"")))))
 
       (testing "flexible mode shows day-level break creation without materializing rules"
         (let [mode-response (request handler :post "/settings/break-mode"
@@ -480,7 +531,16 @@
           (is (= 303 (:status response)))
           (is (str/includes? html "Coffee"))
           (is (str/includes? html "class=\"timeline-block break-block\""))
-          (is (not (str/includes? html "Convert to work"))))))))
+          (is (not (str/includes? html "Convert to work"))))))
+
+    (testing "expected form errors return to HTML with an inline warning"
+      (let [response (request handler :post "/days/2026-07-12/breaks"
+                              "break-title=Bad&start-time=15%3A00&end-time=15%3A00")
+            html (response-body (request handler (get-in response [:headers "location"])))]
+        (is (= 303 (:status response)))
+        (is (= "/days/2026-07-12?warning=invalid-time-range"
+               (get-in response [:headers "location"])))
+        (is (str/includes? html "Invalid time range"))))))
 
 (deftest web-import-source-test
   (let [{:keys [handler ds]} (empty-temp-system)
