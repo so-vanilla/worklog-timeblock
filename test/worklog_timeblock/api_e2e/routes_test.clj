@@ -17,6 +17,13 @@
     (db/upsert-title-mapping! ds {:title "Lunch" :state :excluded})
     {:ds ds :handler (routes/app {:ds ds})}))
 
+(defn empty-temp-system []
+  (let [file (java.io.File/createTempFile "worklog-timeblock-api-empty" ".db")
+        ds (db/datasource (.getAbsolutePath file))]
+    (.deleteOnExit file)
+    (migration/migrate! ds)
+    {:ds ds :handler (routes/app {:ds ds})}))
+
 (defn request [handler method uri & [body]]
   (handler {:request-method method
             :uri uri
@@ -116,3 +123,76 @@
 
     (testing "unknown route returns 404"
       (is (= 404 (:status (request handler :get "/missing")))))))
+
+(deftest api-manual-input-e2e-test
+  (let [{:keys [handler]} (empty-temp-system)]
+    (testing "empty day starts without work logs"
+      (is (= [] (:work-logs (parse-body (request handler :get "/api/days/2026-07-07"))))))
+
+    (testing "category endpoint creates a category"
+      (let [response (request handler :post "/api/categories"
+                              {:id "dev" :name "Development"})]
+        (is (= 200 (:status response)))
+        (is (= {:id "dev" :name "Development"}
+               (select-keys (parse-body response) [:id :name])))))
+
+    (testing "category endpoint rejects duplicate ids"
+      (let [response (request handler :post "/api/categories"
+                              {:id "dev" :name "Duplicate"})]
+        (is (= 400 (:status response)))
+        (is (= "duplicate-category" (:reason (parse-body response))))))
+
+    (testing "manual worklog endpoint creates a categorized log"
+      (let [response (request handler :post "/api/days/2026-07-07/worklogs"
+                              {:title "Build"
+                               :start-minute 540
+                               :end-minute 600
+                               :category-id "dev"})]
+        (is (= 200 (:status response)))
+        (is (= {:title "Build"
+                :state "confirmed"
+                :category-id "dev"
+                :start-minute 540
+                :end-minute 600}
+               (select-keys (parse-body response)
+                            [:title :state :category-id :start-minute :end-minute])))
+        (is (= 60 (get-in (parse-body (request handler :get "/api/days/2026-07-07/summary"))
+                          [:category-minutes :dev])))))
+
+    (testing "manual worklog endpoint creates an uncategorized log without a category"
+      (let [response (request handler :post "/api/days/2026-07-07/worklogs"
+                              {:title "Triage"
+                               :start-minute 615
+                               :end-minute 645})]
+        (is (= 200 (:status response)))
+        (is (= {:title "Triage"
+                :state "uncategorized"
+                :start-minute 615
+                :end-minute 645}
+               (select-keys (parse-body response)
+                            [:title :state :start-minute :end-minute])))
+        (is (nil? (:category-id (parse-body response))))
+        (is (= "Triage" (->> (:warnings (parse-body (request handler :get "/api/days/2026-07-07/summary")))
+                             (filter #(= "Triage" (:title %)))
+                             first
+                             :title)))))
+
+    (testing "manual worklog rejects unknown categories without mutation"
+      (let [response (request handler :post "/api/days/2026-07-08/worklogs"
+                              {:title "Missing category"
+                               :start-minute 600
+                               :end-minute 660
+                               :category-id "missing"})]
+        (is (= 400 (:status response)))
+        (is (= "unknown-category" (:reason (parse-body response))))
+        (is (= [] (:work-logs (parse-body (request handler :get "/api/days/2026-07-08")))))))
+
+    (testing "manual worklog rejects invalid ranges without mutation"
+      (let [response (request handler :post "/api/days/2026-07-08/worklogs"
+                              {:title "Bad range"
+                               :start-minute 660
+                               :end-minute 660
+                               :category-id "dev"})]
+        (is (= 400 (:status response)))
+        (is (= "invalid-time-range" (:reason (parse-body response))))
+        (is (= [] (:work-logs (parse-body (request handler :get "/api/days/2026-07-08")))))))))

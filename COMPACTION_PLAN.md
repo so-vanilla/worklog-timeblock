@@ -5,7 +5,7 @@
 ## Repository
 
 - Path: `/Users/shuto-vanilla/Documents/Codex/2026-07-06-flake-my-emacs-git-log-org/worklog-timeblock`
-- Status: 新規Clojureリポジトリ。まだ初回コミット前。
+- Status: GitHub `so-vanilla/worklog-timeblock` の `main` に初回版はpush済み。P0入力対応まで実装済み。
 - Runtime: `nix run` and `devenv`
 - Scope: ローカル専用の工数集計補助アプリ。
 - Non-scope: 社内工数サービスへの自動入力。
@@ -131,10 +131,16 @@ Implemented:
 - `GET /api/days/:date`
 - `GET /api/days/:date/summary`
 - `PATCH /api/worklogs/:id`
+- `POST /api/categories`
+- `POST /api/days/:date/worklogs`
 - JSON validation for work-log update state, category, and time range
-- 400 response for invalid edits
+- JSON validation for category creation and manual work-log creation
+- 400 response for invalid edits, duplicate categories, unknown categories, and invalid manual ranges
 - 404 response for missing work logs
 - Form routes for the Web UI:
+  - `POST /days`
+  - `POST /categories`
+  - `POST /days/:date/worklogs`
   - `POST /worklogs/:id/assign-category`
   - `POST /worklogs/:id/range`
   - `POST /worklogs/:id/exclude`
@@ -152,6 +158,9 @@ Implemented:
 
 - Home page
 - Day page
+- Empty-DB date picker
+- Category creation form
+- Manual work-log creation form
 - Full-viewport day workspace
 - Timeline pane
 - Summary pane
@@ -256,15 +265,18 @@ devenv shell e2e
 
 Last verified:
 
-- 3 tests
-- 61 assertions
+- 5 tests
+- 109 assertions
 - 0 failures
 
 Covered:
 
 - API import and summary
+- API category creation and duplicate rejection
+- API manual work-log creation from an empty DB
 - API category/range/exclude updates
-- API invalid range, unknown category, and unknown worklog behavior
+- API invalid range, unknown category, and unknown worklog behavior without mutation
+- Web empty-DB date/category/work-log form flow
 - Web full-viewport day workspace rendering
 - Web category/range/exclude forms
 - Web summary updates after edits
@@ -285,7 +297,7 @@ This runs:
 
 Last verified:
 
-- Clojure E2E: 3 tests / 61 assertions / 0 failures
+- Clojure E2E: 5 tests / 109 assertions / 0 failures
 - zellij E2E: 8 cases / 198 assertions / 0 failures
 
 ### Zellij TUI E2E
@@ -318,10 +330,10 @@ Behavior:
 - Writes artifact under `e2e-artifacts/zellij-tui-layout/<timestamp>/`.
 - Closes temporary tabs.
 
-Latest successful artifact:
+Recent successful artifact example:
 
 ```text
-e2e-artifacts/zellij-tui-layout/20260717-144801/index.md
+e2e-artifacts/zellij-tui-layout/20260719-162239/index.md
 ```
 
 `e2e-artifacts/` is ignored by git and intentionally left as local evidence.
@@ -351,12 +363,10 @@ TAB_ID  POSITION  NAME
 
 At the time this file was updated:
 
-- Initial repo files are staged.
-- `COMPACTION_PLAN.md` is staged.
-- `scripts/zellij-tui-e2e.sh` is staged and executable.
-- API/Web edit-workspace changes are staged.
+- Initial repo was committed and pushed to `origin/main`.
+- P0 input capability changes are expected to be part of `main` after the final gate/commit step.
+- If the worktree has diffs, inspect them before assuming they belong to the P0 input work.
 - `e2e-artifacts/` is ignored and not staged.
-- No commit has been made.
 
 Start any resumed session with:
 
@@ -369,7 +379,7 @@ find e2e-artifacts/zellij-tui-layout -maxdepth 2 -type f -name index.md -print |
 
 ## Roadmap
 
-Do not jump to calendar sync first. The highest-value next step is app-side editing.
+Do not jump to calendar sync first. The highest-value next step remains app-side category/title-mapping management.
 
 ### Phase 0: Preserve Current Green Baseline
 
@@ -422,7 +432,38 @@ Done when:
 
 - A user can open a day, fix category/exclude/range, and see totals update without DB edits.
 
-### Phase 2: Category And Mapping Management
+### Phase 2: Empty-DB Web/API Manual Input
+
+Goal:
+
+- Make the app usable from an empty SQLite DB without direct DB edits or fixture imports.
+
+Status:
+
+- Implemented on 2026-07-19.
+
+Implement:
+
+- Home date picker. Done.
+- Web category creation form. Done.
+- Web manual work-log creation form. Done.
+- API category creation. Done.
+- API manual work-log creation. Done.
+- Validation for duplicate category id, unknown category, invalid date, invalid range, and missing title. Done.
+- Confirmed log when category is provided; uncategorized log when category is omitted. Done.
+
+Test requirements:
+
+- API E2E starts from empty DB and creates category and work logs.
+- API E2E proves invalid manual input does not mutate the target day.
+- Web E2E starts from empty DB and completes date/category/work-log input.
+- Browser/DOM verification starts `nix run` against empty `data/app.db` and confirms the rendered summary.
+
+Done when:
+
+- A user can open the Web UI on an empty DB, create a category, add a categorized work log, and see category totals update.
+
+### Phase 3: Category And Mapping Management
 
 Goal:
 
@@ -446,7 +487,7 @@ Done when:
 
 - The user can configure auto-confirmation without direct DB edits.
 
-### Phase 3: Manual Entry Output
+### Phase 4: Manual Entry Output
 
 Goal:
 
@@ -477,7 +518,7 @@ Done when:
 
 - The user can use one screen/output to manually enter company worklog totals.
 
-### Phase 4: TUI Interaction
+### Phase 5: TUI Interaction
 
 Goal:
 
@@ -502,7 +543,7 @@ Done when:
 
 - Common corrections can be done from TUI without switching to Web.
 
-### Phase 5: Calendar Source Plugins
+### Phase 6: Calendar Source Plugins
 
 Goal:
 
@@ -526,7 +567,7 @@ Done when:
 
 - Calendar events can be imported without cron/ical2org while preserving local confirmation semantics.
 
-### Phase 6: Hardening
+### Phase 7: Hardening
 
 Goal:
 
@@ -564,7 +605,7 @@ Not implemented yet:
 - Overlap handling
 - Day-crossing events
 - DST and timezone edge cases
-- Comprehensive API error response design beyond current 400/404 work-log edit errors
+- Comprehensive API error response design beyond current 400/404 edit and manual-input errors
 - Production-grade migrations
 - Docker Compose runtime verification
 - CI for zellij E2E
@@ -575,8 +616,8 @@ If another session takes over:
 
 1. Read this file first.
 2. Inspect current git state.
-3. Preserve staged files.
-4. Do not `git reset` or discard the initial staged repo.
+3. Preserve unrelated local/user changes.
+4. Do not `git reset` or discard work in progress.
 5. Do not remove zellij E2E because it is local-only.
 6. If TUI output changes, update both:
    - `test/worklog_timeblock/tui_e2e/main_test.clj`

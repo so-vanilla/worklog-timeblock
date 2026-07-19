@@ -22,6 +22,13 @@
       {:handler (routes/app {:ds ds})
        :ids {:build build-id :unknown unknown-id}})))
 
+(defn empty-temp-system []
+  (let [file (java.io.File/createTempFile "worklog-timeblock-web-empty" ".db")
+        ds (db/datasource (.getAbsolutePath file))]
+    (.deleteOnExit file)
+    (migration/migrate! ds)
+    {:handler (routes/app {:ds ds})}))
+
 (defn request
   ([handler uri] (request handler :get uri nil))
   ([handler method uri body]
@@ -93,3 +100,59 @@
         (is (= 303 (:status response)))
         (is (str/includes? html "excluded"))
         (is (not (str/includes? html "Development\t0.50h")))))))
+
+(deftest web-empty-input-test
+  (let [{:keys [handler]} (empty-temp-system)]
+    (testing "home page exposes a date picker for an empty database"
+      (let [html (response-body (request handler "/"))]
+        (is (str/includes? html "No work logs yet."))
+        (is (str/includes? html "action=\"/days\""))
+        (is (str/includes? html "name=\"date\""))
+        (is (str/includes? html "type=\"date\""))))
+
+    (testing "date picker redirects to the requested day"
+      (let [response (request handler :post "/days" "date=2026-07-07")]
+        (is (= 303 (:status response)))
+        (is (= "/days/2026-07-07" (get-in response [:headers "location"])))))
+
+    (testing "empty day page exposes category and worklog creation forms"
+      (let [html (response-body (request handler "/days/2026-07-07"))]
+        (is (str/includes? html "0 logs"))
+        (is (str/includes? html "action=\"/categories\""))
+        (is (str/includes? html "name=\"category-id\""))
+        (is (str/includes? html "name=\"category-name\""))
+        (is (str/includes? html "action=\"/days/2026-07-07/worklogs\""))
+        (is (str/includes? html "name=\"title\""))
+        (is (str/includes? html "name=\"start-time\""))
+        (is (str/includes? html "name=\"end-time\""))
+        (is (str/includes? html "No confirmed work."))))
+
+    (testing "category form creates a category and returns to the day"
+      (let [response (request handler :post "/categories"
+                              "category-id=dev&category-name=Development&redirect-to=%2Fdays%2F2026-07-07")
+            html (response-body (request handler "/days/2026-07-07"))]
+        (is (= 303 (:status response)))
+        (is (= "/days/2026-07-07" (get-in response [:headers "location"])))
+        (is (str/includes? html "Development"))
+        (is (str/includes? html "value=\"dev\""))))
+
+    (testing "worklog form creates a categorized log and updates manual-entry totals"
+      (let [response (request handler :post "/days/2026-07-07/worklogs"
+                              "title=Build&start-time=09%3A00&end-time=10%3A00&category-id=dev")
+            html (response-body (request handler "/days/2026-07-07"))]
+        (is (= 303 (:status response)))
+        (is (= "/days/2026-07-07" (get-in response [:headers "location"])))
+        (is (str/includes? html "1 logs"))
+        (is (str/includes? html "09:00-10:00"))
+        (is (str/includes? html "Build"))
+        (is (str/includes? html "Development"))
+        (is (str/includes? html "Development\t1.00h"))))
+
+    (testing "worklog form can create an uncategorized log"
+      (let [response (request handler :post "/days/2026-07-07/worklogs"
+                              "title=Triage&start-time=10%3A15&end-time=10%3A45&category-id=")
+            html (response-body (request handler "/days/2026-07-07"))]
+        (is (= 303 (:status response)))
+        (is (str/includes? html "2 logs"))
+        (is (str/includes? html "Triage"))
+        (is (str/includes? html "Uncategorized: Triage"))))))

@@ -22,16 +22,20 @@
        ".workspace-header h1{font-size:22px;line-height:1.2;margin:0;letter-spacing:0;}.workspace-meta{color:var(--muted);font-size:13px;}"
        ".workspace-grid{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(320px,.85fr);min-height:0;}"
        ".timeline-pane{min-width:0;overflow:auto;padding:22px 28px 32px;}.summary-pane{min-width:0;overflow:auto;padding:22px 28px 32px;border-left:1px solid var(--line);background:var(--surface);}"
+       ".input-panel{display:grid;gap:10px;margin:0 0 18px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);}.input-grid{display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:8px;}.input-grid .wide{grid-column:1/-1;}.inline-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0;}.inline-form input{min-width:160px;}"
        ".pane-title{font-size:15px;margin:0 0 14px;}.work-log-list{display:grid;gap:10px;}.work-log-row{display:grid;grid-template-columns:116px minmax(140px,1fr) 96px minmax(120px,.8fr) minmax(220px,1.15fr) minmax(246px,1.35fr) 92px;gap:10px;align-items:center;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:10px;}"
        ".time-range{font-variant-numeric:tabular-nums;font-weight:650;}.title{min-width:0;overflow-wrap:anywhere;}.state{color:var(--muted);}.state-excluded{opacity:.66;}.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}.range-form{display:flex;gap:6px;align-items:center;}.range-form input{width:92px;}.exclude-form button{border-color:#747b86;background:#747b86;}"
        ".manual-entry-output{white-space:pre-wrap;min-height:96px;margin:10px 0 18px;padding:12px;border:1px solid var(--line);border-radius:8px;background:#f9fafb;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;line-height:1.5;}"
-       ".warn{color:var(--warn);font-weight:650;}.warnings{padding-left:18px;}@media (max-width:980px){.workspace-grid{grid-template-columns:1fr;}.summary-pane{border-left:0;border-top:1px solid var(--line);}.work-log-row{grid-template-columns:1fr;}.range-form input{width:100%;}.controls,.range-form{align-items:stretch;}.controls form,.range-form{width:100%;}.controls select,.controls button,.range-form input,.range-form button{width:100%;}}"
+       ".warn{color:var(--warn);font-weight:650;}.warnings{padding-left:18px;}@media (max-width:980px){.workspace-grid{grid-template-columns:1fr;}.summary-pane{border-left:0;border-top:1px solid var(--line);}.work-log-row,.input-grid{grid-template-columns:1fr;}.range-form input{width:100%;}.controls,.range-form,.inline-form{align-items:stretch;}.controls form,.range-form,.inline-form input,.inline-form button{width:100%;}.controls select,.controls button,.range-form input,.range-form button{width:100%;}}"
        "</style>"
        "</head><body>" body "</body></html>"))
 
 (defn home-page [dates]
   (page "worklog-timeblock"
         (str "<main class=\"home\"><h1>worklog-timeblock</h1>"
+             "<form class=\"inline-form\" method=\"post\" action=\"/days\">"
+             "<input type=\"date\" name=\"date\" value=\"2026-07-06\">"
+             "<button type=\"submit\">Open day</button></form>"
              (if (seq dates)
                (str "<ul>"
                     (apply str
@@ -42,7 +46,7 @@
                                 dates))
                     "</ul>")
                "<p>No work logs yet.</p>")
-             "<p><a href=\"/days/2026-07-06\">/days/2026-07-06</a></p></main>")))
+             "</main>")))
 
 (defn- categories-by-id [categories]
   (into {} (map (juxt :id identity)) categories))
@@ -64,6 +68,28 @@
        "<option value=\"\">Uncategorized</option>"
        (apply str (map #(category-option selected-id %) categories))
        "</select>"))
+
+(defn- new-work-log-form [date categories]
+  (str "<form class=\"input-panel\" method=\"post\" action=\"/days/"
+       (escape-html date) "/worklogs\">"
+       "<h2 class=\"pane-title\">Add work log</h2>"
+       "<div class=\"input-grid\">"
+       "<input class=\"wide\" name=\"title\" placeholder=\"Title\">"
+       "<input type=\"time\" name=\"start-time\" value=\"09:00\">"
+       "<input type=\"time\" name=\"end-time\" value=\"10:00\">"
+       (category-select categories nil)
+       "<button type=\"submit\">Add</button>"
+       "</div></form>"))
+
+(defn- new-category-form [date]
+  (str "<form class=\"input-panel\" method=\"post\" action=\"/categories\">"
+       "<h2 class=\"pane-title\">Add category</h2>"
+       "<input type=\"hidden\" name=\"redirect-to\" value=\"/days/" (escape-html date) "\">"
+       "<div class=\"input-grid\">"
+       "<input name=\"category-id\" placeholder=\"Category ID\">"
+       "<input name=\"category-name\" placeholder=\"Category name\">"
+       "<button type=\"submit\">Add category</button>"
+       "</div></form>"))
 
 (defn- work-log-row [categories categories-map log]
   (let [id (:id log)
@@ -129,10 +155,12 @@
                "<a href=\"/\">Days</a></header>"
                "<div class=\"workspace-grid\">"
                "<section class=\"timeline-pane\"><h2 class=\"pane-title\">Timeline</h2>"
+               (new-work-log-form date categories)
                "<div class=\"work-log-list\">"
                (apply str (map #(work-log-row categories categories-map %) work-logs))
                "</div></section>"
                "<aside class=\"summary-pane\"><h2 class=\"pane-title\">Category totals</h2>"
+               (new-category-form date)
                "<table><thead><tr><th>Category</th><th>Hours</th></tr></thead><tbody>"
                (apply str (map #(summary-row categories-map %)
                                (sorted-summary-items categories-map summary)))

@@ -59,6 +59,9 @@
 (defn- invalid-work-log-response [reason]
   (json-response 400 {:error "invalid-work-log" :reason reason}))
 
+(defn- invalid-category-response [reason]
+  (json-response 400 {:error "invalid-category" :reason reason}))
+
 (defn- import-candidates! [ds events]
   (let [mappings (db/title-mappings-map ds)]
     (doseq [event events]
@@ -95,6 +98,23 @@
 
 (defn- valid-minute? [minute]
   (and (integer? minute) (<= 0 minute 1440)))
+
+(defn- normalize-text [value]
+  (when value
+    (let [value (str/trim (str value))]
+      (when-not (str/blank? value)
+        value))))
+
+(defn- valid-date-string? [value]
+  (boolean (re-matches #"\d{4}-\d{2}-\d{2}" (or value ""))))
+
+(defn- safe-redirect-path [value fallback]
+  (let [value (normalize-text value)]
+    (if (and value
+             (str/starts-with? value "/")
+             (not (str/starts-with? value "//")))
+      value
+      fallback)))
 
 (defn- normalize-update [current categories attrs]
   (let [state (normalize-state (or (:state attrs) (:state current)))
@@ -166,17 +186,115 @@
         (json-response (:work-log result))))
     (json-response 404 {:error "not-found"})))
 
+(defn- create-category! [ds attrs]
+  (let [id (normalize-category-id (:id attrs))
+        name (normalize-text (:name attrs))
+        categories (db/categories-by-id ds)]
+    (cond
+      (nil? id)
+      {:error (invalid-category-response "category-id-required")}
+
+      (nil? name)
+      {:error (invalid-category-response "category-name-required")}
+
+      (contains? categories id)
+      {:error (invalid-category-response "duplicate-category")}
+
+      :else
+      {:category (db/upsert-category! ds {:id id :name name})})))
+
+(defn- create-category-response! [ds attrs]
+  (let [result (create-category! ds attrs)]
+    (if-let [error (:error result)]
+      error
+      (json-response (:category result)))))
+
+(defn- create-category-form-response! [ds form]
+  (let [result (create-category! ds {:id (:category-id form)
+                                     :name (:category-name form)})]
+    (if-let [error (:error result)]
+      error
+      (redirect-response (safe-redirect-path (:redirect-to form) "/")))))
+
+(defn- new-work-log-attrs [date categories attrs]
+  (let [title (normalize-text (:title attrs))
+        category-id (normalize-category-id (:category-id attrs))
+        start-minute (:start-minute attrs)
+        end-minute (:end-minute attrs)
+        state (if category-id :confirmed :uncategorized)]
+    (cond
+      (not (valid-date-string? date))
+      {:error (invalid-work-log-response "invalid-date")}
+
+      (nil? title)
+      {:error (invalid-work-log-response "title-required")}
+
+      (not (and (valid-minute? start-minute)
+                (valid-minute? end-minute)
+                (< start-minute end-minute)))
+      {:error (invalid-work-log-response "invalid-time-range")}
+
+      (and category-id
+           (not (contains? categories category-id)))
+      {:error (invalid-work-log-response "unknown-category")}
+
+      :else
+      {:attrs {:date date
+               :title title
+               :start-minute start-minute
+               :end-minute end-minute
+               :state state
+               :category-id category-id}})))
+
+(defn- create-work-log! [ds date attrs]
+  (let [categories (db/categories-by-id ds)
+        normalized (new-work-log-attrs date categories attrs)]
+    (if-let [error (:error normalized)]
+      {:error error}
+      (let [id (db/insert-work-log! ds (:attrs normalized))]
+        {:work-log (db/get-work-log ds id)}))))
+
+(defn- create-work-log-response! [ds date attrs]
+  (let [result (create-work-log! ds date attrs)]
+    (if-let [error (:error result)]
+      error
+      (json-response (:work-log result)))))
+
+(defn- create-work-log-form-response! [ds date form]
+  (let [result (create-work-log! ds date {:title (:title form)
+                                          :start-minute (parse-clock-minute (:start-time form))
+                                          :end-minute (parse-clock-minute (:end-time form))
+                                          :category-id (:category-id form)})]
+    (if-let [error (:error result)]
+      error
+      (redirect-response (str "/days/" date)))))
+
 (defn app [{:keys [ds]}]
   (ring/ring-handler
    (ring/router
     [["/" {:get (fn [_]
                   (html-response (pages/home-page (db/list-dates ds))))}]
+     ["/days"
+      {:post (fn [request]
+               (let [form (parse-form-body request)
+                     date (:date form)]
+                 (if (valid-date-string? date)
+                   (redirect-response (str "/days/" date))
+                   (json-response 400 {:error "invalid-date"}))))}]
      ["/days/:date" {:get (fn [request]
                             (let [date (get-in request [:path-params :date])]
                               (html-response
                                (pages/day-page (day-state ds date)
                                                (db/list-categories ds)))))}]
+     ["/days/:date/worklogs"
+      {:post (fn [request]
+               (let [date (get-in request [:path-params :date])
+                     form (parse-form-body request)]
+                 (create-work-log-form-response! ds date form)))}]
      ["/health" {:get (fn [_] (json-response {:status "ok"}))}]
+     ["/categories"
+      {:post (fn [request]
+               (create-category-form-response! ds (parse-form-body request)))}]
      ["/worklogs/:id/assign-category"
       {:post (fn [request]
                (let [id (parse-id (get-in request [:path-params :id]))
@@ -198,10 +316,18 @@
                (let [body (parse-json-body request)
                      imported (import-candidates! ds (:events body))]
                  (json-response {:imported imported})))}]
+     ["/api/categories"
+      {:post (fn [request]
+               (create-category-response! ds (parse-json-body request)))}]
      ["/api/days/:date"
       {:get (fn [request]
               (json-response (select-keys (day-state ds (get-in request [:path-params :date]))
                                           [:date :work-logs])))}]
+     ["/api/days/:date/worklogs"
+      {:post (fn [request]
+               (create-work-log-response! ds
+                                          (get-in request [:path-params :date])
+                                          (parse-json-body request)))}]
      ["/api/days/:date/summary"
       {:get (fn [request]
               (json-response (:summary (day-state ds (get-in request [:path-params :date])))))}]

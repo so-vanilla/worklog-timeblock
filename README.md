@@ -16,10 +16,11 @@ time tracking service.
 
 ## Current UI
 
-The Web day page is a full-viewport review workspace. It shows the timeline,
-per-category totals, warnings, and a manual-entry output block on one screen.
-Existing work logs can be corrected from the page by assigning a category,
-editing the time range, or excluding the log.
+The Web UI can be used from an empty database: open any date from the home page,
+create categories, add manual work logs, and immediately see per-category
+totals plus a manual-entry output block. Existing work logs can also be
+corrected from the day page by assigning a category, editing the time range, or
+excluding the log.
 
 The TUI is currently display-focused. It renders the selected day, totals, and
 warnings, but interactive correction still belongs to the Web UI.
