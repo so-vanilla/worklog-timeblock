@@ -22,6 +22,13 @@ totals plus a manual-entry output block. Existing work logs can also be
 corrected from the day page by assigning a category, editing the time range, or
 excluding the log.
 
+The day page is a three-pane workspace. The left pane is a compact one-day
+timeline with snapped mouse drag selection. The center pane contains the
+work-log input form, imported candidate queue, and editable log list. The right
+pane keeps category totals and manual-entry output visible. Imported candidates
+can be confirmed or excluded from the candidate queue or the timeline context
+menu, and overlapping drafts are blocked instead of silently double-counted.
+
 The import source page can store zero or more iCal file/URL sources. Manual
 fetch stores imported events as `source_events` and creates initial work-log
 snapshots only when a matching snapshot does not already exist. Re-fetching a
@@ -37,17 +44,19 @@ warnings, but interactive correction still belongs to the Web UI.
 devenv shell
 test
 e2e
+e2e-browser
 e2e-zellij
 e2e-all
 run-backend
 run-tui
 ```
 
-`e2e-zellij` is a local terminal E2E for the TUI. It expects an existing
-Zellij session named `wz-10` by default and writes ignored artifacts under
-`e2e-artifacts/zellij-tui-layout/`. Override the session with
-`WORKLOG_ZELLIJ_SESSION`. `e2e-all` runs both the Clojure E2E suite and the
-local Zellij TUI E2E.
+`e2e-browser` is a Playwright browser E2E for the Web workspace. The first run
+may download Playwright's local Chromium cache. `e2e-zellij` is a local terminal
+E2E for the TUI. It expects an existing Zellij session named `wz-10` by default
+and writes ignored artifacts under `e2e-artifacts/zellij-tui-layout/`. Override
+the session with `WORKLOG_ZELLIJ_SESSION`. `e2e-all` runs the Clojure E2E suite,
+browser E2E, and local Zellij TUI E2E.
 
 Expected local verification before handing off:
 

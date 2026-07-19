@@ -55,7 +55,10 @@
       (let [html (response-body (request handler "/days/2026-07-06"))]
         (is (str/includes? html "class=\"day-workspace\""))
         (is (str/includes? html "class=\"timeline-pane\""))
+        (is (str/includes? html "class=\"entry-pane\""))
         (is (str/includes? html "class=\"summary-pane\""))
+        (is (str/includes? html "class=\"day-timeline\""))
+        (is (str/includes? html "class=\"timeline-track\""))
         (is (str/includes? html "Build"))
         (is (str/includes? html "Development"))
         (is (str/includes? html "0.75h"))
@@ -70,6 +73,9 @@
         (is (str/includes? html "name=\"category-id\""))
         (is (str/includes? html (str "value=\"" (:meeting category-ids) "\"")))
         (is (not (str/includes? html "value=\"meeting\"")))
+        (is (str/includes? html "id=\"new-work-log-form\""))
+        (is (str/includes? html "id=\"draft-summary-preview\""))
+        (is (str/includes? html "id=\"candidate-menu\""))
         (is (str/includes? html "name=\"start-time\""))
         (is (str/includes? html "name=\"end-time\""))))
 
@@ -213,7 +219,8 @@
             (is (< backend-pos frontend-pos))))))))
 
 (deftest web-import-source-test
-  (let [{:keys [handler]} (empty-temp-system)
+  (let [{:keys [handler ds]} (empty-temp-system)
+        dev (db/upsert-category! ds {:name "Development"})
         fixture-path (.getPath (io/file (io/resource "fixtures/ical/basic.ics")))]
     (testing "home page links to import source settings"
       (let [html (response-body (request handler "/"))]
@@ -246,4 +253,24 @@
         (is (= 303 (:status response)))
         (is (= "/import-sources" (get-in response [:headers "location"])))
         (is (str/includes? day-html "Build"))
-        (is (str/includes? day-html "09:00-10:00"))))))
+        (is (str/includes? day-html "09:00-10:00"))
+        (is (str/includes? day-html "imported-block"))
+        (is (str/includes? day-html "Imported candidates"))))
+
+    (testing "source event confirm and exclude forms update the snapshot"
+      (let [source-event-id (:id (first (db/source-events-by-date ds "2026-07-06")))
+            confirm-response (request handler :post
+                                      (str "/source-events/" source-event-id "/confirm")
+                                      (str "category-id=" (:id dev)))
+            confirmed-html (response-body (request handler "/days/2026-07-06"))
+            exclude-response (request handler :post
+                                      (str "/source-events/" source-event-id "/exclude")
+                                      "")
+            excluded-html (response-body (request handler "/days/2026-07-06"))]
+        (is (= 303 (:status confirm-response)))
+        (is (= "/days/2026-07-06" (get-in confirm-response [:headers "location"])))
+        (is (str/includes? confirmed-html "Development\t1.00h"))
+        (is (= 303 (:status exclude-response)))
+        (is (= "/days/2026-07-06" (get-in exclude-response [:headers "location"])))
+        (is (str/includes? excluded-html "excluded"))
+        (is (not (str/includes? excluded-html "Development\t1.00h")))))))

@@ -408,6 +408,25 @@ Goal 2 implementation status:
   - `devenv shell lint`: errors 0 / warnings 0.
   - `nix flake check`: success.
 
+Goal 3 implementation status:
+
+- Added three-pane day workspace. Timeline is about one third of desktop width.
+- Added snapped drag selection, manual time edit highlight sync, and draft
+  duration/category preview.
+- Added confirmed timeline blocks and imported candidate blocks.
+- Added source candidate right-click menu plus attention queue confirm/exclude
+  forms.
+- Added overlap fallback stripe and blocked overlapping manual draft submit.
+- Added `devenv shell e2e-browser`; `e2e-all` now runs Clojure E2E, browser
+  E2E, then zellij E2E.
+- Current local validation before Goal 3 commit:
+  - `devenv shell e2e-browser`: 6 cases / 32 assertions / 0 failures.
+  - `devenv shell e2e-all`: Clojure E2E 10 tests / 197 assertions, browser
+    6 cases / 32 assertions, zellij 8 cases / 220 assertions / 0 failures.
+  - `devenv shell test`: 22 tests / 335 assertions / 0 failures.
+  - `devenv shell lint`: errors 0 / warnings 0.
+  - `nix flake check`: success.
+
 Detailed done criteria live in `PLAN.md`.
 
 ### Phase 0: Preserve Current Green Baseline

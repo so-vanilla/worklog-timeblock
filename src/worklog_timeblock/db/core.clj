@@ -101,7 +101,7 @@
    :status (keyword (:status row))})
 
 (declare get-title-mapping list-categories get-import-source get-import-run
-         get-source-event-by-identity)
+         get-source-event get-source-event-by-identity)
 
 (defn- next-position [ds parent-id]
   (inc
@@ -507,6 +507,17 @@
                                FROM source_events
                                WHERE source_id = ? AND external_id = ?"
                               source-id external-id]
+                              {:builder-fn builder})
+          row->source-event))
+
+(defn get-source-event [ds id]
+  (some-> (jdbc/execute-one! ds
+                             ["SELECT id, import_source_id, source_id, external_id,
+                                      date, title, starts_at, ends_at, timezone,
+                                      source_updated_at, sequence, status
+                               FROM source_events
+                               WHERE id = ?"
+                              id]
                              {:builder-fn builder})
           row->source-event))
 

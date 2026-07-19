@@ -4,6 +4,7 @@
             [reitit.ring :as ring]
             [worklog-timeblock.db.core :as db]
             [worklog-timeblock.domain.summary :as summary]
+            [worklog-timeblock.domain.worklog :as worklog]
             [worklog-timeblock.importer.core :as importer]
             [worklog-timeblock.web.pages :as pages])
   (:import [java.net URLDecoder]))
@@ -384,6 +385,48 @@
       (redirect-response "/import-sources")
       response)))
 
+(defn- source-event->candidate [source-event]
+  {:source-id (:source-id source-event)
+   :external-id (:external-id source-event)
+   :title (:title source-event)
+   :starts-at (:starts-at source-event)
+   :ends-at (:ends-at source-event)
+   :timezone (or (:timezone source-event) "UTC")
+   :updated-at (:updated-at source-event)})
+
+(defn- persist-source-event-work-log! [ds source-event state category-id]
+  (let [mapping {(:title source-event) {:state state :category-id category-id}}
+        attrs (worklog/candidate->worklog mapping (source-event->candidate source-event))
+        existing (db/work-log-by-source ds (:source-id source-event) (:external-id source-event))]
+    (if existing
+      (db/update-work-log! ds (:id existing) attrs)
+      (db/get-work-log ds (db/insert-work-log! ds attrs)))))
+
+(defn- confirm-source-event-form-response! [ds id form]
+  (if-let [source-event (db/get-source-event ds id)]
+    (let [requested-category-id (normalize-category-id (:category-id form))
+          category-id (when requested-category-id
+                        (db/resolve-category-id ds requested-category-id))]
+      (cond
+        (nil? category-id)
+        (invalid-work-log-response "category-required")
+
+        (not (db/category-assignable? ds category-id))
+        (invalid-work-log-response "non-assignable-category")
+
+        :else
+        (do
+          (persist-source-event-work-log! ds source-event :confirmed category-id)
+          (redirect-response (str "/days/" (:date source-event))))))
+    (json-response 404 {:error "not-found"})))
+
+(defn- exclude-source-event-form-response! [ds id]
+  (if-let [source-event (db/get-source-event ds id)]
+    (do
+      (persist-source-event-work-log! ds source-event :excluded nil)
+      (redirect-response (str "/days/" (:date source-event))))
+    (json-response 404 {:error "not-found"})))
+
 (defn app [{:keys [ds]}]
   (ring/ring-handler
    (ring/router
@@ -423,6 +466,17 @@
      ["/import-sources/:id/fetch"
       {:post (fn [request]
                (fetch-import-source-form-response!
+                ds
+                (parse-id (get-in request [:path-params :id]))))}]
+     ["/source-events/:id/confirm"
+      {:post (fn [request]
+               (confirm-source-event-form-response!
+                ds
+                (parse-id (get-in request [:path-params :id]))
+                (parse-form-body request)))}]
+     ["/source-events/:id/exclude"
+      {:post (fn [request]
+               (exclude-source-event-form-response!
                 ds
                 (parse-id (get-in request [:path-params :id]))))}]
      ["/worklogs/:id/assign-category"

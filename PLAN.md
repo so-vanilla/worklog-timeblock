@@ -338,6 +338,8 @@ Validation:
 
 ### Goal 3: Compact Day Timeline Workspace
 
+Status: Implemented locally; gate passed before commit.
+
 Done when:
 
 - Day view has a compact one-day vertical timeline using about one third of a
@@ -359,6 +361,35 @@ Done when:
 - Browser/DOM E2E has at least 4 cases covering drag, form sync, candidate
   context action, overlap fallback, and live summary update.
 - Full gate passes and the result is committed and pushed.
+
+Implemented:
+
+- Replaced the day page with a three-pane workspace:
+  - left one-day timeline at about one third of desktop width,
+  - center input, imported-candidate queue, and editable work-log list,
+  - right category totals, category management, manual-entry output, warnings.
+- Timeline supports snapped mouse drag selection.
+- Manual start/end edits update the same visible selection range.
+- Confirmed logs render as occupied blocks.
+- Imported source events render as lighter candidate blocks.
+- Right-click on imported blocks opens a confirm/exclude surface.
+- Dragging over imported blocks creates a manual draft and does not open the
+  candidate menu.
+- Confirmed/imported overlaps render with a fallback stripe and covered
+  candidate entry in the attention queue.
+- Drafts overlapping confirmed work disable Add and show an overlap warning.
+- Candidate confirm/exclude forms update the source-backed snapshot.
+- Added Playwright browser E2E through `devenv shell e2e-browser`; `e2e-all`
+  now runs Clojure E2E, browser E2E, and zellij E2E.
+
+Validation:
+
+- `devenv shell e2e-browser`: 6 cases / 32 assertions / 0 failures.
+- `devenv shell e2e-all`: Clojure E2E 10 tests / 197 assertions, browser E2E
+  6 cases / 32 assertions, zellij E2E 8 cases / 220 assertions / 0 failures.
+- `devenv shell test`: 22 tests / 335 assertions / 0 failures.
+- `devenv shell lint`: errors 0 / warnings 0.
+- `nix flake check`: success.
 
 ## Agent Team Plan
 
