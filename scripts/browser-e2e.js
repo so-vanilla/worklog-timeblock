@@ -96,6 +96,18 @@ async function seed(baseUrl) {
     "category-id": dev.body.id,
   });
   assert(worklog.status === 200, "confirmed worklog should be created");
+  const attendance = await requestJson(baseUrl, "PUT", "/api/days/2026-07-06/attendance", {
+    "clock-in-minute": 540,
+    "clock-out-minute": 1080,
+  });
+  assert(attendance.status === 200, "attendance should be stored");
+  const breakRule = await requestJson(baseUrl, "POST", "/api/break-rules", {
+    title: "Lunch",
+    "start-minute": 720,
+    "end-minute": 780,
+    enabled: true,
+  });
+  assert(breakRule.status === 200, "daily break rule should be stored");
   const childWorklog = await requestJson(baseUrl, "POST", "/api/days/2026-07-06/worklogs", {
     title: "Backend plan",
     "start-minute": 780,
@@ -211,6 +223,17 @@ async function run() {
     assert(await page.locator(".day-navigation a[href='/days/2026-07-07']").count() === 1, "next day link should exist");
     assert(await page.locator(".day-navigation input[name='date']").inputValue() === "2026-07-06", "goto date should default to current day");
     assert(await page.locator(".manual-entry-output").count() === 0, "manual entry output should be removed");
+    assert(await page.locator(".attendance-panel").count() === 1, "attendance panel should exist");
+    assert((await page.locator(".attendance-panel").textContent()).includes("09:00-18:00"), "attendance panel should show clock range");
+    assert((await page.locator(".attendance-panel").textContent()).includes("Unallocated"), "attendance panel should show unallocated time");
+    assert(await page.locator("form[action='/days/2026-07-06/attendance/clock-in-now']").count() === 1, "clock-in-now form should exist");
+    assert(await page.locator("form[action='/days/2026-07-06/attendance/clock-out-now']").count() === 1, "clock-out-now form should exist");
+    assert(await page.locator("input[name='clock-in-time']").inputValue() === "09:00", "manual clock-in input should render stored time");
+    assert(await page.locator("input[name='clock-out-time']").inputValue() === "18:00", "manual clock-out input should render stored time");
+    assert(await page.locator(".timeline-block.break-block").count() === 1, "break should render on timeline");
+    assert((await page.locator(".timeline-block.break-block").textContent()).includes("Lunch"), "break timeline block should show title");
+    assert(await page.locator(".break-row form[action*='/range']").count() === 1, "break range form should exist");
+    assert(await page.locator(".break-row form[action*='/convert']").count() === 1, "break convert form should exist");
 
     const categoryText = await page.locator(".category-list").textContent();
     assert(categoryText.includes("Engineering"), "category list should include parent category");
@@ -323,7 +346,7 @@ async function run() {
     const submit = await page.locator(".candidate-card[data-external-id='evt-candidate'] form[action*='/confirm']").count();
     assert(submit === 1, "candidate card should expose confirm action");
 
-    console.log(`browser-e2e cases=7 assertions=${assertions} failures=0`);
+    console.log(`browser-e2e cases=8 assertions=${assertions} failures=0`);
   } finally {
     if (browser) {
       await browser.close();

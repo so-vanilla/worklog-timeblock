@@ -89,6 +89,32 @@
              (first (filter #(= :non-assignable-category (:type %))
                             (:warnings result))))))))
 
+(deftest attendance-and-break-summary-test
+  (let [work-logs [{:id 10 :date "2026-07-06" :title "Morning"
+                    :start-minute 540 :end-minute 720
+                    :state :confirmed :category-id "dev"}
+                   {:id 11 :date "2026-07-06" :title "Afternoon"
+                    :start-minute 780 :end-minute 1020
+                    :state :confirmed :category-id "dev"}]
+        result (summary/summarize-day
+                (assoc base-options
+                       :attendance {:date "2026-07-06"
+                                    :clock-in-minute 540
+                                    :clock-out-minute 1080}
+                       :breaks [{:id 1 :date "2026-07-06" :title "Lunch"
+                                 :start-minute 720 :end-minute 780
+                                 :active? true}])
+                work-logs)]
+    (testing "breaks are excluded from work effort and attendance exposes remaining time"
+      (is (= {"dev" 420} (:category-minutes result)))
+      (is (= 420 (get-in result [:attendance :confirmed-work-minutes])))
+      (is (= 60 (get-in result [:attendance :break-minutes])))
+      (is (= 540 (get-in result [:attendance :span-minutes])))
+      (is (= 60 (get-in result [:attendance :unallocated-minutes]))))
+
+    (testing "a break-covered gap does not become a large gap warning"
+      (is (empty? (filter #(= :large-gap (:type %)) (:warnings result)))))))
+
 (deftest source-diff-warning-test
   (testing "changed source event can be represented without mutating confirmed log"
     (is (= [{:type :source-updated :work-log-id 42 :external-id "evt-1"}]

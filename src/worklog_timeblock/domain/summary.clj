@@ -11,6 +11,9 @@
 (defn- duration [log]
   (- (:end-minute log) (:start-minute log)))
 
+(defn- active-break? [break]
+  (not (false? (:active? break))))
+
 (defn- round2 [value]
   (/ (math/round (* 100.0 value)) 100.0))
 
@@ -45,8 +48,70 @@
                (let [gap (- (:start-minute right) (:end-minute left))]
                  (when (pos? gap)
                    {:start-minute (:end-minute left)
-                    :end-minute (:start-minute right)
-                    :minutes gap}))))))
+                   :end-minute (:start-minute right)
+                   :minutes gap}))))))
+
+(defn- subtract-interval [segments interval]
+  (mapcat
+   (fn [segment]
+     (let [start (:start-minute segment)
+           end (:end-minute segment)
+           break-start (:start-minute interval)
+           break-end (:end-minute interval)]
+       (cond
+         (or (<= break-end start) (<= end break-start))
+         [segment]
+
+         (and (<= break-start start) (<= end break-end))
+         []
+
+         :else
+         (cond-> []
+           (< start break-start) (conj {:start-minute start
+                                        :end-minute break-start
+                                        :minutes (- break-start start)})
+           (< break-end end) (conj {:start-minute break-end
+                                    :end-minute end
+                                    :minutes (- end break-end)})))))
+   segments))
+
+(defn- break-intervals [breaks]
+  (->> breaks
+       (filter active-break?)
+       (map #(select-keys % [:start-minute :end-minute]))
+       (sort-by :start-minute)))
+
+(defn- uncovered-gaps [gaps breaks]
+  (let [breaks (break-intervals breaks)]
+    (mapcat (fn [gap]
+              (reduce subtract-interval [gap] breaks))
+            gaps)))
+
+(defn- confirmed-work-minutes [logs]
+  (reduce + 0
+          (map duration
+               (filter #(= :confirmed (normalize-state (:state %))) logs))))
+
+(defn- break-minutes [breaks]
+  (reduce + 0
+          (map #(- (:end-minute %) (:start-minute %))
+               (filter active-break? breaks))))
+
+(defn- attendance-summary [attendance logs breaks]
+  (let [clock-in (:clock-in-minute attendance)
+        clock-out (:clock-out-minute attendance)
+        span-minutes (when (and clock-in clock-out (< clock-in clock-out))
+                       (- clock-out clock-in))
+        confirmed-minutes (confirmed-work-minutes logs)
+        break-minutes (break-minutes breaks)
+        unallocated (when span-minutes
+                      (max 0 (- span-minutes confirmed-minutes break-minutes)))]
+    {:clock-in-minute clock-in
+     :clock-out-minute clock-out
+     :span-minutes (or span-minutes 0)
+     :confirmed-work-minutes confirmed-minutes
+     :break-minutes break-minutes
+     :unallocated-minutes (or unallocated 0)}))
 
 (defn summarize-day
   "Summarize a single day for manual entry.
@@ -57,7 +122,9 @@
   (let [rounding-minutes (:rounding-minutes options)
         small-gap-minutes (:small-gap-minutes options)
         other-category-id (:other-category-id options)
-        assignable-category-ids (:assignable-category-ids options)]
+        assignable-category-ids (:assignable-category-ids options)
+        breaks (:breaks options)
+        attendance (:attendance options)]
     (when-not (pos-int? rounding-minutes)
       (throw (ex-info "rounding-minutes must be positive" options)))
     (let [included (filter work-candidate? logs)
@@ -78,7 +145,7 @@
                                         (rounded-category-minutes rounding-minutes log))))
                             0
                             confirmed)
-          gaps (adjacent-gaps included)
+          gaps (uncovered-gaps (adjacent-gaps included) breaks)
           short-gap-minutes (reduce + 0 (map :minutes
                                              (filter #(<= (:minutes %) small-gap-minutes) gaps)))
           large-gaps (filter #(> (:minutes %) small-gap-minutes) gaps)
@@ -107,6 +174,7 @@
                              category-minutes)
        :uncategorized (vec uncategorized)
        :warnings warnings
+       :attendance (attendance-summary attendance included breaks)
        :other {:category-id other-category-id
                :rounding-residual-minutes residual-minutes
                :short-gap-minutes short-gap-minutes

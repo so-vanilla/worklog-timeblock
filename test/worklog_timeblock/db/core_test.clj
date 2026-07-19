@@ -134,6 +134,50 @@
                (:id (db/find-category-by-name-and-parent ds "Backend" (:id dev)))))
         (is (nil? (db/find-category-by-name-and-parent ds "Backend" nil)))))))
 
+(deftest attendance-and-breaks-test
+  (let [path (temp-db)
+        ds (db/datasource path)]
+    (migration/migrate! ds)
+
+    (testing "upserts day-level attendance"
+      (let [attendance (db/upsert-attendance! ds {:date "2026-07-06"
+                                                  :clock-in-minute 540
+                                                  :clock-out-minute 1080})]
+        (is (= {:date "2026-07-06"
+                :clock-in-minute 540
+                :clock-out-minute 1080}
+               (select-keys attendance [:date :clock-in-minute :clock-out-minute])))
+        (is (= attendance (db/get-attendance ds "2026-07-06")))
+        (is (nil? (db/get-attendance ds "2026-07-07")))))
+
+    (testing "daily break rules materialize into editable day breaks"
+      (let [rule (db/create-break-rule! ds {:title "Lunch"
+                                            :start-minute 720
+                                            :end-minute 780
+                                            :enabled? true})
+            first-run (db/materialize-breaks-for-date! ds "2026-07-06")
+            second-run (db/materialize-breaks-for-date! ds "2026-07-06")
+            breaks (db/breaks-by-date ds "2026-07-06")]
+        (is (pos-int? (:id rule)))
+        (is (= "Lunch" (:title rule)))
+        (is (= 1 (count first-run)))
+        (is (= 1 (count second-run)))
+        (is (= 1 (count breaks)))
+        (is (= (:id rule) (:break-rule-id (first breaks))))
+        (is (= {:title "Lunch" :start-minute 720 :end-minute 780 :active? true}
+               (select-keys (first breaks)
+                            [:title :start-minute :end-minute :active?])))))
+
+    (testing "day breaks can be updated independently of the rule"
+      (let [break-id (:id (first (db/breaks-by-date ds "2026-07-06")))
+            updated (db/update-break! ds break-id {:start-minute 735
+                                                   :end-minute 795})]
+        (is (= {:start-minute 735 :end-minute 795}
+               (select-keys updated [:start-minute :end-minute])))
+        (is (= {:start-minute 735 :end-minute 795}
+               (select-keys (db/get-break ds break-id)
+                            [:start-minute :end-minute])))))))
+
 (deftest legacy-category-schema-migration-test
   (let [path (temp-db)
         ds (db/datasource path)]

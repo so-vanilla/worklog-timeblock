@@ -100,8 +100,29 @@
    :sequence (:sequence row)
    :status (keyword (:status row))})
 
+(defn- row->attendance [row]
+  {:date (:date row)
+   :clock-in-minute (:clock_in_minute row)
+   :clock-out-minute (:clock_out_minute row)})
+
+(defn- row->break-rule [row]
+  {:id (:id row)
+   :title (:title row)
+   :start-minute (:start_minute row)
+   :end-minute (:end_minute row)
+   :enabled? (db-bool (:enabled row))})
+
+(defn- row->break [row]
+  {:id (:id row)
+   :date (:date row)
+   :title (:title row)
+   :start-minute (:start_minute row)
+   :end-minute (:end_minute row)
+   :break-rule-id (:break_rule_id row)
+   :active? (db-bool (:active row))})
+
 (declare get-title-mapping list-categories get-import-source get-import-run
-         get-source-event get-source-event-by-identity)
+         get-source-event get-source-event-by-identity get-break-rule get-break)
 
 (defn- next-position [ds parent-id]
   (inc
@@ -532,6 +553,142 @@
                          ORDER BY starts_at, id"
                         date]
                        {:builder-fn builder})))
+
+(defn get-attendance [ds date]
+  (some-> (jdbc/execute-one! ds
+                             ["SELECT date, clock_in_minute, clock_out_minute
+                               FROM day_attendance
+                               WHERE date = ?"
+                              date]
+                             {:builder-fn builder})
+          row->attendance))
+
+(defn upsert-attendance! [ds attendance]
+  (jdbc/execute! ds
+                 ["INSERT INTO day_attendance
+                   (date, clock_in_minute, clock_out_minute)
+                   VALUES (?, ?, ?)
+                   ON CONFLICT(date) DO UPDATE SET
+                     clock_in_minute = excluded.clock_in_minute,
+                     clock_out_minute = excluded.clock_out_minute,
+                     updated_at = CURRENT_TIMESTAMP"
+                  (:date attendance)
+                  (:clock-in-minute attendance)
+                  (:clock-out-minute attendance)])
+  (get-attendance ds (:date attendance)))
+
+(defn create-break-rule! [ds rule]
+  (let [enabled? (if (contains? rule :enabled?)
+                   (:enabled? rule)
+                   (if (contains? rule :enabled)
+                     (:enabled rule)
+                     true))
+        id (:id (jdbc/execute-one! ds
+                                   ["INSERT INTO break_rules
+                                     (title, start_minute, end_minute, enabled)
+                                     VALUES (?, ?, ?, ?)
+                                     RETURNING id"
+                                    (:title rule)
+                                    (:start-minute rule)
+                                    (:end-minute rule)
+                                    (normalize-active enabled?)]
+                                   {:builder-fn builder}))]
+    (get-break-rule ds id)))
+
+(defn get-break-rule [ds id]
+  (some-> (jdbc/execute-one! ds
+                             ["SELECT id, title, start_minute, end_minute, enabled
+                               FROM break_rules
+                               WHERE id = ?"
+                              id]
+                             {:builder-fn builder})
+          row->break-rule))
+
+(defn list-break-rules [ds]
+  (mapv row->break-rule
+        (jdbc/execute! ds
+                       ["SELECT id, title, start_minute, end_minute, enabled
+                         FROM break_rules
+                         ORDER BY id"]
+                       {:builder-fn builder})))
+
+(defn create-break! [ds break]
+  (let [active? (if (contains? break :active?)
+                  (:active? break)
+                  true)
+        id (:id (jdbc/execute-one! ds
+                                   ["INSERT INTO breaks
+                                     (date, title, start_minute, end_minute,
+                                      break_rule_id, active)
+                                     VALUES (?, ?, ?, ?, ?, ?)
+                                     RETURNING id"
+                                    (:date break)
+                                    (:title break)
+                                    (:start-minute break)
+                                    (:end-minute break)
+                                    (:break-rule-id break)
+                                    (normalize-active active?)]
+                                   {:builder-fn builder}))]
+    (get-break ds id)))
+
+(defn get-break [ds id]
+  (some-> (jdbc/execute-one! ds
+                             ["SELECT id, date, title, start_minute, end_minute,
+                                      break_rule_id, active
+                               FROM breaks
+                               WHERE id = ?"
+                              id]
+                             {:builder-fn builder})
+          row->break))
+
+(defn breaks-by-date [ds date]
+  (mapv row->break
+        (jdbc/execute! ds
+                       ["SELECT id, date, title, start_minute, end_minute,
+                                break_rule_id, active
+                         FROM breaks
+                         WHERE date = ? AND active = 1
+                         ORDER BY start_minute, id"
+                        date]
+                       {:builder-fn builder})))
+
+(defn update-break! [ds id attrs]
+  (let [current (or (get-break ds id)
+                    (throw (ex-info "Break not found" {:id id})))
+        active? (if (contains? attrs :active?)
+                  (:active? attrs)
+                  (:active? current))
+        updated (merge current attrs {:active? active?})]
+    (jdbc/execute! ds
+                   ["UPDATE breaks SET
+                       title = ?,
+                       start_minute = ?,
+                       end_minute = ?,
+                       active = ?,
+                       updated_at = CURRENT_TIMESTAMP
+                     WHERE id = ?"
+                    (:title updated)
+                    (:start-minute updated)
+                    (:end-minute updated)
+                    (normalize-active (:active? updated))
+                    id])
+    (get-break ds id)))
+
+(defn materialize-breaks-for-date! [ds date]
+  (doseq [rule (filter :enabled? (list-break-rules ds))]
+    (jdbc/execute! ds
+                   ["INSERT INTO breaks
+                     (date, title, start_minute, end_minute, break_rule_id, active)
+                     VALUES (?, ?, ?, ?, ?, 1)
+                     ON CONFLICT(date, break_rule_id)
+                     WHERE break_rule_id IS NOT NULL
+                     DO NOTHING"
+                    date
+                    (:title rule)
+                    (:start-minute rule)
+                    (:end-minute rule)
+                    (:id rule)]))
+  (breaks-by-date ds date))
 
 (defn work-log-by-source [ds source-id external-id]
   (some-> (jdbc/execute-one! ds

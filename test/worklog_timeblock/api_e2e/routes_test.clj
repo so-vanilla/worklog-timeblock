@@ -267,6 +267,107 @@
         (is (= ["Engineering" "Backend" "Frontend" "Operations" "Frontend"]
                (map :name (:categories (parse-body (request handler :get "/api/categories"))))))))))
 
+(deftest api-attendance-and-breaks-e2e-test
+  (let [{:keys [handler ds]} (empty-temp-system)
+        dev (db/upsert-category! ds {:name "Development"})]
+    (testing "day endpoint starts without attendance or materialized breaks"
+      (let [day (parse-body (request handler :get "/api/days/2026-07-10"))]
+        (is (nil? (:attendance day)))
+        (is (= [] (:breaks day)))))
+
+    (testing "attendance endpoint persists day-level clock-in and clock-out"
+      (let [response (request handler :put "/api/days/2026-07-10/attendance"
+                              {:clock-in-minute 540
+                               :clock-out-minute 1080})
+            body (parse-body response)
+            day (parse-body (request handler :get "/api/days/2026-07-10"))]
+        (is (= 200 (:status response)))
+        (is (= {:date "2026-07-10"
+                :clock-in-minute 540
+                :clock-out-minute 1080}
+               (select-keys body [:date :clock-in-minute :clock-out-minute])))
+        (is (= body (:attendance day)))))
+
+    (testing "invalid attendance is rejected without mutation"
+      (let [response (request handler :put "/api/days/2026-07-10/attendance"
+                              {:clock-in-minute 1080
+                               :clock-out-minute 540})
+            attendance (:attendance (parse-body (request handler :get "/api/days/2026-07-10")))]
+        (is (= 400 (:status response)))
+        (is (= "invalid-time-range" (:reason (parse-body response))))
+        (is (= {:clock-in-minute 540 :clock-out-minute 1080}
+               (select-keys attendance [:clock-in-minute :clock-out-minute])))))
+
+    (testing "daily break rule materializes one editable break per day"
+      (let [response (request handler :post "/api/break-rules"
+                              {:title "Lunch"
+                               :start-minute 720
+                               :end-minute 780
+                               :enabled true})
+            rule (parse-body response)
+            first-day (parse-body (request handler :get "/api/days/2026-07-10"))
+            second-day (parse-body (request handler :get "/api/days/2026-07-10"))
+            break (first (:breaks second-day))]
+        (is (= 200 (:status response)))
+        (is (pos-int? (:id rule)))
+        (is (= "Lunch" (:title rule)))
+        (is (= 1 (count (:breaks first-day))))
+        (is (= 1 (count (:breaks second-day))))
+        (is (= (:id rule) (:break-rule-id break)))
+        (is (= {:title "Lunch" :start-minute 720 :end-minute 780 :active? true}
+               (select-keys break [:title :start-minute :end-minute :active?])))))
+
+    (testing "breaks suppress false large-gap warnings and are excluded from work effort"
+      (let [dev-id (:id dev)]
+        (is (= 200 (:status (request handler :post "/api/days/2026-07-10/worklogs"
+                                      {:title "Morning"
+                                       :start-minute 540
+                                       :end-minute 720
+                                       :category-id dev-id}))))
+        (is (= 200 (:status (request handler :post "/api/days/2026-07-10/worklogs"
+                                      {:title "Afternoon"
+                                       :start-minute 780
+                                       :end-minute 1020
+                                       :category-id dev-id}))))
+        (let [summary (parse-body (request handler :get "/api/days/2026-07-10/summary"))]
+          (is (= 420 (category-minutes summary dev-id)))
+          (is (= 60 (get-in summary [:attendance :break-minutes])))
+          (is (= 60 (get-in summary [:attendance :unallocated-minutes])))
+          (is (empty? (filter #(= "large-gap" (:type %)) (:warnings summary)))))))
+
+    (testing "break range patch validates and preserves the previous range on error"
+      (let [break-id (:id (first (:breaks (parse-body (request handler :get "/api/days/2026-07-10")))))
+            bad-response (request handler :patch (str "/api/breaks/" break-id)
+                                  {:start-minute 800 :end-minute 800})
+            unchanged (db/get-break ds break-id)
+            good-response (request handler :patch (str "/api/breaks/" break-id)
+                                   {:start-minute 735 :end-minute 795})]
+        (is (= 400 (:status bad-response)))
+        (is (= "invalid-time-range" (:reason (parse-body bad-response))))
+        (is (= {:start-minute 720 :end-minute 780}
+               (select-keys unchanged [:start-minute :end-minute])))
+        (is (= 200 (:status good-response)))
+        (is (= {:start-minute 735 :end-minute 795}
+               (select-keys (parse-body good-response)
+                            [:start-minute :end-minute])))))
+
+    (testing "a break can be converted into categorized work effort"
+      (let [break-id (:id (first (:breaks (parse-body (request handler :get "/api/days/2026-07-10")))))
+            response (request handler :post (str "/api/breaks/" break-id "/convert")
+                              {:title "Lunch support"
+                               :category-id (:id dev)})
+            body (parse-body response)
+            day (parse-body (request handler :get "/api/days/2026-07-10"))
+            summary (parse-body (request handler :get "/api/days/2026-07-10/summary"))]
+        (is (= 200 (:status response)))
+        (is (= {:title "Lunch support"
+                :state "confirmed"
+                :category-id (:id dev)}
+               (select-keys body [:title :state :category-id])))
+        (is (empty? (:breaks day)))
+        (is (= 480 (category-minutes summary (:id dev))))
+        (is (= 0 (get-in summary [:attendance :break-minutes])))))))
+
 (deftest api-source-snapshot-e2e-test
   (let [{:keys [handler ds]} (empty-temp-system)
         dev (db/upsert-category! ds {:id "dev" :name "Development"})]

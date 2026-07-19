@@ -30,12 +30,13 @@
        ".timeline-track{position:relative;min-height:100%;border:1px solid var(--line);border-radius:8px;background:repeating-linear-gradient(to bottom,#fff 0,#fff calc(100% / 24 - 1px),#e8edf3 calc(100% / 24 - 1px),#e8edf3 calc(100% / 24));touch-action:none;}"
        ".timeline-selection{position:absolute;left:8px;right:8px;border:2px solid #0f766e;background:rgba(15,118,110,.14);border-radius:6px;pointer-events:none;box-shadow:0 0 0 2px rgba(15,118,110,.08);}"
        ".timeline-selection[hidden]{display:none;}.timeline-block{position:absolute;border-radius:6px;padding:5px 7px;overflow:hidden;font-size:12px;line-height:1.2;border:1px solid transparent;}"
-       ".confirmed-block{left:8px;width:66%;background:#dbeafe;border-color:#93c5fd;color:#172554;cursor:pointer;}.confirmed-block.selected{outline:2px solid #1d4ed8;outline-offset:2px;}.imported-block{left:12%;width:78%;background:rgba(15,118,110,.12);border-color:rgba(15,118,110,.34);color:#064e3b;cursor:context-menu;}.overlap-block{left:76%;width:20%;padding-inline:4px;background:rgba(154,52,18,.12);border-color:rgba(154,52,18,.45);}"
+       ".confirmed-block{left:8px;width:66%;background:#dbeafe;border-color:#93c5fd;color:#172554;cursor:pointer;}.confirmed-block.selected{outline:2px solid #1d4ed8;outline-offset:2px;}.break-block{left:6%;width:88%;background:rgba(202,138,4,.14);border-color:rgba(202,138,4,.45);color:#713f12;}.imported-block{left:12%;width:78%;background:rgba(15,118,110,.12);border-color:rgba(15,118,110,.34);color:#064e3b;cursor:context-menu;}.overlap-block{left:76%;width:20%;padding-inline:4px;background:rgba(154,52,18,.12);border-color:rgba(154,52,18,.45);}"
        ".block-time{font-variant-numeric:tabular-nums;font-weight:650;}.block-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.candidate-menu{position:fixed;z-index:20;width:min(320px,calc(100vw - 24px));padding:12px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 12px 30px rgba(23,32,42,.18);}.candidate-menu[hidden]{display:none;}.candidate-menu form{display:grid;gap:8px;margin-top:8px;}"
        ".attention-queue{display:grid;gap:8px;margin-bottom:18px;}.candidate-card{border:1px solid var(--line);border-radius:8px;padding:10px;background:#fbfcfd;}.candidate-card.covered{border-color:rgba(154,52,18,.45);}.candidate-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}.candidate-actions form{display:flex;gap:6px;align-items:center;}.candidate-badge{font-size:11px;color:var(--warn);text-transform:uppercase;}"
        ".pane-title{font-size:15px;margin:0 0 14px;}.work-log-list{display:grid;gap:10px;}.work-log-row{display:grid;gap:10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:10px;overflow:hidden;}.work-log-row.selected{border-color:#1d4ed8;box-shadow:0 0 0 2px rgba(29,78,216,.14);}.work-log-main{display:grid;grid-template-columns:112px minmax(0,1fr) 92px;gap:10px;align-items:center;}.work-log-actions{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:start;}.work-log-category-label{font-size:12px;color:var(--muted);}"
        ".time-range{font-variant-numeric:tabular-nums;font-weight:650;}.title{min-width:0;overflow-wrap:anywhere;}.state{color:var(--muted);}.state-excluded{opacity:.66;}.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0;}.controls select{min-width:0;max-width:100%;}.category-form select{flex:1 1 180px;}.range-form{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0;}.range-form input{width:92px;}.exclude-form button{border-color:#747b86;background:#747b86;}"
        ".category-list{display:grid;gap:4px;list-style:none;margin:0 0 18px;padding:0;}.category-row{display:grid;grid-template-columns:minmax(0,1fr) 48px auto;gap:8px;align-items:center;border:1px solid var(--line);border-left:5px solid var(--group-color,var(--line));border-radius:6px;padding:7px 8px;background:#fff;}.category-child{margin-left:20px;}.category-row .controls{justify-content:flex-end;}.category-row button{padding:4px 8px;}.summary-row{border-left:5px solid var(--group-color,var(--line));}.summary-child td:first-child{padding-left:22px;}.summary-parent td:first-child{font-weight:700;}"
+       ".metric-list{display:grid;grid-template-columns:1fr auto;gap:6px 10px;margin:0 0 14px;}.metric-list dt{color:var(--muted);}.metric-list dd{margin:0;font-variant-numeric:tabular-nums;font-weight:650;}.break-list{display:grid;gap:8px;margin:0 0 18px;}.break-row{display:grid;gap:8px;border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff7ed;}.break-actions{display:grid;gap:8px;}"
        ".warn{color:var(--warn);font-weight:650;}.warnings{padding-left:18px;}@media (max-width:980px){.workspace-header{align-items:flex-start;flex-direction:column;}.header-actions{justify-items:start;}.day-navigation{justify-content:flex-start;}.workspace-grid{grid-template-columns:1fr;}.entry-pane,.summary-pane{border-left:0;border-top:1px solid var(--line);}.day-timeline{height:720px;}.work-log-main,.work-log-actions,.input-grid{grid-template-columns:1fr;}.range-form input{width:100%;}.controls,.range-form,.inline-form{align-items:stretch;}.controls form,.range-form,.inline-form input,.inline-form button{width:100%;}.controls select,.controls button,.range-form input,.range-form button{width:100%;}}"
        "</style>"
        "</head><body>" body "</body></html>"))
@@ -110,6 +111,14 @@
 (defn- time-string [minute]
   (format "%02d:%02d" (quot minute 60) (mod minute 60)))
 
+(defn- optional-time-string [minute]
+  (if (integer? minute)
+    (time-string minute)
+    ""))
+
+(defn- hours-string [minutes]
+  (format "%.2fh" (/ (double (or minutes 0)) 60.0)))
+
 (defn- offset-minute [value]
   (let [date-time (OffsetDateTime/parse value)]
     (+ (* (.getHour date-time) 60) (.getMinute date-time))))
@@ -163,6 +172,16 @@
                                                       "-"
                                                       (time-string (:end-minute log))))
        "</div><div class=\"block-title\">" (escape-html (:title log))
+       "</div></div>"))
+
+(defn- timeline-break-block [break]
+  (str "<div class=\"timeline-block break-block\" style=\""
+       (escape-html (block-style (:start-minute break) (:end-minute break)))
+       "\" data-break-id=\"" (escape-html (:id break)) "\">"
+       "<div class=\"block-time\">" (escape-html (str (time-string (:start-minute break))
+                                                      "-"
+                                                      (time-string (:end-minute break))))
+       "</div><div class=\"block-title\">" (escape-html (:title break))
        "</div></div>"))
 
 (defn- timeline-imported-block [work-logs event]
@@ -392,6 +411,89 @@
                            (:category-hours summary))]
     (concat ordered-rows orphan-hours)))
 
+(defn- attendance-range-label [attendance]
+  (let [clock-in (:clock-in-minute attendance)
+        clock-out (:clock-out-minute attendance)]
+    (if (and (integer? clock-in) (integer? clock-out))
+      (str (time-string clock-in) "-" (time-string clock-out))
+      "Not set")))
+
+(defn- attendance-panel [date attendance summary]
+  (let [stats (:attendance summary)]
+    (str "<section class=\"input-panel attendance-panel\"><h2 class=\"pane-title\">Attendance</h2>"
+         "<dl class=\"metric-list\">"
+         "<dt>Clock range</dt><dd>" (escape-html (attendance-range-label attendance)) "</dd>"
+         "<dt>Span</dt><dd>" (escape-html (hours-string (:span-minutes stats))) "</dd>"
+         "<dt>Confirmed work</dt><dd>" (escape-html (hours-string (:confirmed-work-minutes stats))) "</dd>"
+         "<dt>Breaks</dt><dd>" (escape-html (hours-string (:break-minutes stats))) "</dd>"
+         "<dt>Unallocated</dt><dd>" (escape-html (hours-string (:unallocated-minutes stats))) "</dd>"
+         "</dl>"
+         "<div class=\"controls\">"
+         "<form method=\"post\" action=\"/days/" (escape-html date) "/attendance/clock-in-now\">"
+         "<button type=\"submit\">Clock in now</button></form>"
+         "<form method=\"post\" action=\"/days/" (escape-html date) "/attendance/clock-out-now\">"
+         "<button type=\"submit\">Clock out now</button></form>"
+         "</div>"
+         "<form class=\"range-form\" method=\"post\" action=\"/days/" (escape-html date) "/attendance\">"
+         "<input type=\"time\" name=\"clock-in-time\" value=\""
+         (escape-html (optional-time-string (:clock-in-minute attendance))) "\">"
+         "<input type=\"time\" name=\"clock-out-time\" value=\""
+         (escape-html (optional-time-string (:clock-out-minute attendance))) "\">"
+         "<button type=\"submit\">Set attendance</button></form>"
+         "</section>")))
+
+(defn- daily-break-rule-form [date]
+  (str "<form class=\"input-panel\" method=\"post\" action=\"/break-rules\">"
+       "<h2 class=\"pane-title\">Daily break</h2>"
+       "<input type=\"hidden\" name=\"redirect-to\" value=\"/days/" (escape-html date) "\">"
+       "<div class=\"input-grid\">"
+       "<input name=\"break-title\" value=\"Lunch\" placeholder=\"Break title\">"
+       "<input type=\"time\" name=\"start-time\" value=\"12:00\">"
+       "<input type=\"time\" name=\"end-time\" value=\"13:00\">"
+       "<button type=\"submit\">Add daily break</button>"
+       "</div></form>"))
+
+(defn- one-off-break-form [date]
+  (str "<form class=\"input-panel\" method=\"post\" action=\"/days/" (escape-html date) "/breaks\">"
+       "<h2 class=\"pane-title\">One-off break</h2>"
+       "<div class=\"input-grid\">"
+       "<input name=\"break-title\" value=\"Break\" placeholder=\"Break title\">"
+       "<input type=\"time\" name=\"start-time\" value=\"12:00\">"
+       "<input type=\"time\" name=\"end-time\" value=\"12:15\">"
+       "<button type=\"submit\">Add break</button>"
+       "</div></form>"))
+
+(defn- break-row [categories break]
+  (str "<article class=\"break-row\" data-break-id=\"" (escape-html (:id break)) "\">"
+       "<div><span class=\"time-range\">"
+       (escape-html (str (time-string (:start-minute break))
+                         "-"
+                         (time-string (:end-minute break))))
+       "</span> <span class=\"title\">" (escape-html (:title break)) "</span></div>"
+       "<div class=\"break-actions\">"
+       "<form class=\"range-form\" method=\"post\" action=\"/breaks/"
+       (escape-html (:id break)) "/range\">"
+       "<input type=\"time\" name=\"start-time\" value=\"" (escape-html (time-string (:start-minute break))) "\">"
+       "<input type=\"time\" name=\"end-time\" value=\"" (escape-html (time-string (:end-minute break))) "\">"
+       "<button type=\"submit\">Range</button></form>"
+       "<form class=\"category-form controls\" method=\"post\" action=\"/breaks/"
+       (escape-html (:id break)) "/convert\">"
+       "<input name=\"title\" value=\"" (escape-html (:title break)) "\">"
+       (category-select categories nil)
+       "<button type=\"submit\">Convert to work</button></form>"
+       "</div></article>"))
+
+(defn- breaks-panel [date categories breaks]
+  (str "<section><h2 class=\"pane-title\">Breaks</h2>"
+       "<div class=\"break-list\">"
+       (if (seq breaks)
+         (apply str (map #(break-row categories %) breaks))
+         "<p class=\"state\">No breaks set.</p>")
+       "</div>"
+       (daily-break-rule-form date)
+       (one-off-break-form date)
+       "</section>"))
+
 (defn- warning-item [warning]
   (case (:type warning)
     :uncategorized (str "<li class=\"warn\">Uncategorized: "
@@ -408,11 +510,12 @@
                          "</li>")
     (str "<li class=\"warn\">" (escape-html warning) "</li>")))
 
-(defn- day-timeline [date work-logs source-events]
+(defn- day-timeline [date work-logs source-events breaks]
   (str "<div class=\"day-timeline\" data-date=\"" (escape-html date) "\">"
        "<div class=\"timeline-hours\">" (timeline-hour-labels) "</div>"
        "<div class=\"timeline-track\" data-minute-quantum=\"15\">"
        "<div class=\"timeline-selection\" hidden></div>"
+       (apply str (map timeline-break-block breaks))
        (apply str (map timeline-confirmed-block
                        (filter #(= :confirmed (:state %)) work-logs)))
        (apply str (map #(timeline-imported-block work-logs %) source-events))
@@ -578,7 +681,7 @@
 })();
 </script>")
 
-(defn day-page [{:keys [date work-logs source-events summary]} categories]
+(defn day-page [{:keys [date work-logs source-events attendance breaks summary]} categories]
   (let [categories-map (categories-by-id categories)]
     (page (str "worklog-timeblock " date)
           (str "<main class=\"day-workspace\">"
@@ -590,7 +693,7 @@
                "</div></header>"
                "<div class=\"workspace-grid\">"
                "<section class=\"timeline-pane\"><h2 class=\"pane-title\">Timeline</h2>"
-               (day-timeline date work-logs source-events)
+               (day-timeline date work-logs source-events breaks)
                (candidate-menu categories)
                "</section>"
                "<section class=\"entry-pane\">"
@@ -599,7 +702,10 @@
                "<div class=\"work-log-list\">"
                (apply str (map #(work-log-row categories categories-map %) work-logs))
                "</div></section>"
-               "<aside class=\"summary-pane\"><h2 class=\"pane-title\">Category totals</h2>"
+               "<aside class=\"summary-pane\">"
+               (attendance-panel date attendance summary)
+               (breaks-panel date categories breaks)
+               "<h2 class=\"pane-title\">Category totals</h2>"
                (new-category-form date categories)
                (category-management-list date categories)
                "<table><thead><tr><th>Category</th><th>Hours</th></tr></thead><tbody>"

@@ -246,6 +246,66 @@
             (is (= 303 (:status response)))
             (is (< backend-pos frontend-pos))))))))
 
+(deftest web-attendance-and-breaks-test
+  (let [{:keys [handler ds]} (empty-temp-system)]
+    (request handler :post "/categories"
+             "category-name=Development&redirect-to=%2Fdays%2F2026-07-11")
+    (let [dev-id (:id (db/find-category-by-name-and-parent ds "Development" nil))]
+      (testing "day page exposes attendance and break controls"
+        (let [html (response-body (request handler "/days/2026-07-11"))]
+          (is (str/includes? html "Attendance"))
+          (is (str/includes? html "Clock in now"))
+          (is (str/includes? html "Clock out now"))
+          (is (str/includes? html "name=\"clock-in-time\""))
+          (is (str/includes? html "name=\"clock-out-time\""))
+          (is (str/includes? html "Daily break"))
+          (is (str/includes? html "name=\"break-title\""))))
+
+      (testing "manual attendance form updates the day summary"
+        (let [response (request handler :post "/days/2026-07-11/attendance"
+                                "clock-in-time=09%3A00&clock-out-time=18%3A00")
+              html (response-body (request handler "/days/2026-07-11"))]
+          (is (= 303 (:status response)))
+          (is (= "/days/2026-07-11" (get-in response [:headers "location"])))
+          (is (str/includes? html "09:00-18:00"))
+          (is (str/includes? html "Unallocated"))
+          (is (str/includes? html "9.00h"))))
+
+      (testing "daily break rule materializes a break on the day page"
+        (let [response (request handler :post "/break-rules"
+                                "break-title=Lunch&start-time=12%3A00&end-time=13%3A00&redirect-to=%2Fdays%2F2026-07-11")
+              html (response-body (request handler "/days/2026-07-11"))
+              break-id (:id (first (db/breaks-by-date ds "2026-07-11")))]
+          (is (= 303 (:status response)))
+          (is (= "/days/2026-07-11" (get-in response [:headers "location"])))
+          (is (pos-int? break-id))
+          (is (str/includes? html "class=\"timeline-block break-block\""))
+          (is (str/includes? html "Lunch"))
+          (is (str/includes? html "Breaks"))
+          (is (str/includes? html "1.00h"))
+          (is (str/includes? html (str "action=\"/breaks/" break-id "/range\"")))
+          (is (str/includes? html (str "action=\"/breaks/" break-id "/convert\"")))))
+
+      (testing "break range form updates the rendered break"
+        (let [break-id (:id (first (db/breaks-by-date ds "2026-07-11")))
+              response (request handler :post
+                                (str "/breaks/" break-id "/range")
+                                "start-time=12%3A15&end-time=13%3A15")
+              html (response-body (request handler "/days/2026-07-11"))]
+          (is (= 303 (:status response)))
+          (is (str/includes? html "12:15-13:15"))))
+
+      (testing "break convert form creates categorized effort and removes the break"
+        (let [break-id (:id (first (db/breaks-by-date ds "2026-07-11")))
+              response (request handler :post
+                                (str "/breaks/" break-id "/convert")
+                                (str "title=Lunch%20support&category-id=" dev-id))
+              html (response-body (request handler "/days/2026-07-11"))]
+          (is (= 303 (:status response)))
+          (is (str/includes? html "Lunch support"))
+          (is (str/includes? html "confirmed"))
+          (is (not (str/includes? html "class=\"timeline-block break-block\""))))))))
+
 (deftest web-import-source-test
   (let [{:keys [handler ds]} (empty-temp-system)
         dev (db/upsert-category! ds {:name "Development"})

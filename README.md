@@ -26,11 +26,14 @@ The left pane is a compact one-day timeline with snapped mouse drag selection.
 Clicking a confirmed timeline block selects and highlights the matching editor
 row in the center pane. The center pane contains the work-log input form,
 imported candidate queue, and editable log list. The right pane keeps category
-totals, category groups, and warnings visible. Child categories are indented
-under their parent, root groups use stable colors, and parent total rows show
-child subtotals. Imported candidates can be confirmed or excluded from the
-candidate queue or the timeline context menu, and overlapping drafts are blocked
-instead of silently double-counted.
+totals, category groups, attendance, breaks, and warnings visible. Child
+categories are indented under their parent, root groups use stable colors, and
+parent total rows show child subtotals. Attendance can be set manually or from
+the current time. Daily break rules materialize editable day breaks; breaks do
+not count as work effort and can be converted into categorized work when needed.
+Imported candidates can be confirmed or excluded from the candidate queue or
+the timeline context menu, and overlapping drafts are blocked instead of
+silently double-counted.
 
 The import source page can store zero or more iCal file/URL sources. Manual
 fetch stores imported events as `source_events` and creates initial work-log

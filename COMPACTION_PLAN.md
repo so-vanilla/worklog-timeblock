@@ -535,6 +535,28 @@ Goal 3:
 - Add at least 30 DB/API/domain assertions and at least 10 Web/browser
   assertions.
 
+Goal 3 implementation status:
+
+- Added `day_attendance`, `break_rules`, and `breaks`.
+- Added JSON APIs and form routes for attendance, daily break rules, one-off
+  breaks, break range edit, and break-to-work conversion.
+- Day reads materialize enabled daily break rules into editable day breaks.
+- Summary reports attendance span, confirmed work, break total, and
+  unallocated minutes.
+- Break-covered gaps are excluded from large-gap warnings.
+- Web timeline renders break bands.
+- Right pane exposes current-time and manual attendance controls, daily break
+  setup, one-off breaks, range edits, and conversion to categorized work.
+- Current local validation before Goal 3 commit:
+  - `devenv shell e2e-all`: Clojure E2E 12 tests / 278 assertions, browser
+    E2E 8 cases / 79 assertions, zellij 8 cases / 220 assertions / 0 failures.
+  - `devenv shell test`: 26 tests / 436 assertions / 0 failures.
+  - `devenv shell lint`: errors 0 / warnings 0.
+  - `nix flake check`: success.
+  - `git diff --check --cached`: success.
+  - `git diff --check`: success.
+  - `zellij --session wz-10 action list-tabs`: only `Tab #1`.
+
 Goal 4:
 
 - Add confirmed-block move by center drag.

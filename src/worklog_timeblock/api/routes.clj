@@ -7,7 +7,8 @@
             [worklog-timeblock.domain.worklog :as worklog]
             [worklog-timeblock.importer.core :as importer]
             [worklog-timeblock.web.pages :as pages])
-  (:import [java.net URLDecoder]))
+  (:import [java.net URLDecoder]
+           [java.time LocalTime]))
 
 (def default-summary-options
   {:rounding-minutes 15
@@ -15,6 +16,8 @@
    :other-category-id "other"})
 
 (def valid-states #{:confirmed :uncategorized :excluded})
+
+(declare create-work-log! normalize-bool)
 
 (defn- parse-json-body [request]
   (if-let [body (:body request)]
@@ -66,6 +69,12 @@
 (defn- invalid-import-source-response [reason]
   (json-response 400 {:error "invalid-import-source" :reason reason}))
 
+(defn- invalid-attendance-response [reason]
+  (json-response 400 {:error "invalid-attendance" :reason reason}))
+
+(defn- invalid-break-response [reason]
+  (json-response 400 {:error "invalid-break" :reason reason}))
+
 (defn- import-candidates! [ds events]
   (let [result (importer/import-candidates! ds {:events events})]
     (assoc result :imported (:fetched result))))
@@ -76,12 +85,20 @@
          :assignable-category-ids (db/assignable-category-ids ds)))
 
 (defn- day-state [ds date]
+  (db/materialize-breaks-for-date! ds date)
   (let [work-logs (db/work-logs-by-date ds date)
         source-events (db/source-events-by-date ds date)
-        summary (summary/summarize-day (summary-options ds) work-logs)]
+        attendance (db/get-attendance ds date)
+        breaks (db/breaks-by-date ds date)
+        summary (summary/summarize-day (assoc (summary-options ds)
+                                              :attendance attendance
+                                              :breaks breaks)
+                                       work-logs)]
     {:date date
      :work-logs work-logs
      :source-events source-events
+     :attendance attendance
+     :breaks breaks
      :summary (update summary :warnings into
                       (summary/source-diff-warnings work-logs source-events))}))
 
@@ -184,6 +201,178 @@
         (and (= 24 hour) (zero? minute)) 1440
         (and (<= 0 hour 23) (<= 0 minute 59)) (+ (* hour 60) minute)
         :else nil))))
+
+(defn- normalize-minute [value]
+  (cond
+    (integer? value) value
+    (string? value) (or (parse-clock-minute value) (parse-id value))
+    (nil? value) nil
+    :else nil))
+
+(defn- current-clock-minute []
+  (let [time (LocalTime/now)]
+    (+ (* (.getHour time) 60) (.getMinute time))))
+
+(defn- valid-optional-minute? [minute]
+  (or (nil? minute) (valid-minute? minute)))
+
+(defn- normalize-attendance [date attrs]
+  (let [clock-in (normalize-minute (:clock-in-minute attrs))
+        clock-out (normalize-minute (:clock-out-minute attrs))]
+    (cond
+      (not (valid-date-string? date))
+      {:error (invalid-attendance-response "invalid-date")}
+
+      (not (and (valid-optional-minute? clock-in)
+                (valid-optional-minute? clock-out)))
+      {:error (invalid-attendance-response "invalid-minute")}
+
+      (and clock-in clock-out (not (< clock-in clock-out)))
+      {:error (invalid-attendance-response "invalid-time-range")}
+
+      :else
+      {:attrs {:date date
+               :clock-in-minute clock-in
+               :clock-out-minute clock-out}})))
+
+(defn- upsert-attendance-response! [ds date attrs]
+  (let [normalized (normalize-attendance date attrs)]
+    (if-let [error (:error normalized)]
+      error
+      (json-response (db/upsert-attendance! ds (:attrs normalized))))))
+
+(defn- upsert-attendance-form-response! [ds date form]
+  (let [normalized (normalize-attendance
+                    date
+                    {:clock-in-minute (:clock-in-time form)
+                     :clock-out-minute (:clock-out-time form)})]
+    (if-let [error (:error normalized)]
+      error
+      (do
+        (db/upsert-attendance! ds (:attrs normalized))
+        (redirect-response (str "/days/" date))))))
+
+(defn- clock-now-form-response! [ds date field]
+  (let [current (or (db/get-attendance ds date)
+                    {:date date})
+        attrs (assoc current field (current-clock-minute))
+        normalized (normalize-attendance date attrs)]
+    (if-let [error (:error normalized)]
+      error
+      (do
+        (db/upsert-attendance! ds (:attrs normalized))
+        (redirect-response (str "/days/" date))))))
+
+(defn- normalize-break-range [attrs]
+  (let [start-minute (normalize-minute (:start-minute attrs))
+        end-minute (normalize-minute (:end-minute attrs))]
+    (cond
+      (not (and (valid-minute? start-minute)
+                (valid-minute? end-minute)
+                (< start-minute end-minute)))
+      {:error (invalid-break-response "invalid-time-range")}
+
+      :else
+      {:start-minute start-minute
+       :end-minute end-minute})))
+
+(defn- normalize-break [date attrs]
+  (let [title (or (normalize-text (:title attrs)) "Break")
+        range (normalize-break-range attrs)]
+    (cond
+      (not (valid-date-string? date))
+      {:error (invalid-break-response "invalid-date")}
+
+      (:error range)
+      range
+
+      :else
+      {:attrs (merge {:date date
+                      :title title}
+                     range)})))
+
+(defn- create-break-response! [ds date attrs]
+  (let [normalized (normalize-break date attrs)]
+    (if-let [error (:error normalized)]
+      error
+      (json-response (db/create-break! ds (:attrs normalized))))))
+
+(defn- normalize-break-rule [attrs]
+  (let [title (or (normalize-text (:title attrs)) "Break")
+        range (normalize-break-range attrs)]
+    (if-let [error (:error range)]
+      {:error error}
+      {:attrs (merge {:title title
+                      :enabled? (normalize-bool (:enabled attrs) true)}
+                     range)})))
+
+(defn- create-break-rule-response! [ds attrs]
+  (let [normalized (normalize-break-rule attrs)]
+    (if-let [error (:error normalized)]
+      error
+      (json-response (db/create-break-rule! ds (:attrs normalized))))))
+
+(defn- create-break-rule-form-response! [ds form]
+  (let [normalized (normalize-break-rule {:title (:break-title form)
+                                          :start-minute (:start-time form)
+                                          :end-minute (:end-time form)
+                                          :enabled true})]
+    (if-let [error (:error normalized)]
+      error
+      (do
+        (db/create-break-rule! ds (:attrs normalized))
+        (redirect-response (safe-redirect-path (:redirect-to form) "/"))))))
+
+(defn- update-break-response! [ds id attrs]
+  (if-let [break (db/get-break ds id)]
+    (let [range (normalize-break-range attrs)]
+      (if-let [error (:error range)]
+        error
+        (json-response (db/update-break! ds (:id break) range))))
+    (json-response 404 {:error "not-found"})))
+
+(defn- update-break-form-response! [ds id form]
+  (if-let [break (db/get-break ds id)]
+    (let [range (normalize-break-range {:start-minute (:start-time form)
+                                        :end-minute (:end-time form)})]
+      (if-let [error (:error range)]
+        error
+        (do
+          (db/update-break! ds (:id break) range)
+          (redirect-response (str "/days/" (:date break))))))
+    (json-response 404 {:error "not-found"})))
+
+(defn- convert-break-response! [ds id attrs]
+  (if-let [break (db/get-break ds id)]
+    (let [work-log-result (create-work-log!
+                           ds
+                           (:date break)
+                           {:title (or (normalize-text (:title attrs)) (:title break))
+                            :start-minute (:start-minute break)
+                            :end-minute (:end-minute break)
+                            :category-id (:category-id attrs)})]
+      (if-let [error (:error work-log-result)]
+        error
+        (do
+          (db/update-break! ds id {:active? false})
+          (json-response (:work-log work-log-result)))))
+    (json-response 404 {:error "not-found"})))
+
+(defn- convert-break-form-response! [ds id form]
+  (if-let [break (db/get-break ds id)]
+    (let [result (create-work-log!
+                  ds
+                  (:date break)
+                  {:title (or (normalize-text (:title form)) (:title break))
+                   :start-minute (:start-minute break)
+                   :end-minute (:end-minute break)
+                   :category-id (:category-id form)})]
+      (if-let [error (:error result)]
+        error
+        (do
+          (db/update-break! ds id {:active? false})
+          (redirect-response (str "/days/" (:date break))))))
+    (json-response 404 {:error "not-found"})))
 
 (defn- form-update-response! [ds id attrs]
   (let [result (persist-work-log-update! ds id attrs)]
@@ -449,6 +638,37 @@
                (let [date (get-in request [:path-params :date])
                      form (parse-form-body request)]
                  (create-work-log-form-response! ds date form)))}]
+     ["/days/:date/attendance"
+      {:post (fn [request]
+               (upsert-attendance-form-response!
+                ds
+                (get-in request [:path-params :date])
+                (parse-form-body request)))}]
+     ["/days/:date/attendance/clock-in-now"
+      {:post (fn [request]
+               (clock-now-form-response!
+                ds
+                (get-in request [:path-params :date])
+                :clock-in-minute))}]
+     ["/days/:date/attendance/clock-out-now"
+      {:post (fn [request]
+               (clock-now-form-response!
+                ds
+                (get-in request [:path-params :date])
+                :clock-out-minute))}]
+     ["/days/:date/breaks"
+      {:post (fn [request]
+               (let [date (get-in request [:path-params :date])
+                     form (parse-form-body request)
+                     result (create-break-response!
+                             ds
+                             date
+                             {:title (:break-title form)
+                              :start-minute (:start-time form)
+                              :end-minute (:end-time form)})]
+                 (if (= 200 (:status result))
+                   (redirect-response (str "/days/" date))
+                   result)))}]
      ["/health" {:get (fn [_] (json-response {:status "ok"}))}]
      ["/categories"
       {:post (fn [request]
@@ -458,6 +678,21 @@
                (move-category-form-response! ds
                                              (parse-id (get-in request [:path-params :id]))
                                              (parse-form-body request)))}]
+     ["/break-rules"
+      {:post (fn [request]
+               (create-break-rule-form-response! ds (parse-form-body request)))}]
+     ["/breaks/:id/range"
+      {:post (fn [request]
+               (update-break-form-response!
+                ds
+                (parse-id (get-in request [:path-params :id]))
+                (parse-form-body request)))}]
+     ["/breaks/:id/convert"
+      {:post (fn [request]
+               (convert-break-form-response!
+                ds
+                (parse-id (get-in request [:path-params :id]))
+                (parse-form-body request)))}]
      ["/import-sources"
       {:get (fn [_]
               (html-response (pages/import-sources-page (db/list-import-sources ds))))
@@ -527,12 +762,25 @@
      ["/api/days/:date"
       {:get (fn [request]
               (json-response (select-keys (day-state ds (get-in request [:path-params :date]))
-                                          [:date :work-logs :source-events])))}]
+                                          [:date :work-logs :source-events
+                                           :attendance :breaks])))}]
+     ["/api/days/:date/attendance"
+      {:put (fn [request]
+              (upsert-attendance-response!
+               ds
+               (get-in request [:path-params :date])
+               (parse-json-body request)))}]
      ["/api/days/:date/worklogs"
       {:post (fn [request]
                (create-work-log-response! ds
                                           (get-in request [:path-params :date])
                                           (parse-json-body request)))}]
+     ["/api/days/:date/breaks"
+      {:post (fn [request]
+               (create-break-response!
+                ds
+                (get-in request [:path-params :date])
+                (parse-json-body request)))}]
      ["/api/days/:date/summary"
       {:get (fn [request]
               (json-response (:summary (day-state ds (get-in request [:path-params :date])))))}]
@@ -540,6 +788,22 @@
       {:patch (fn [request]
                 (let [id (parse-id (get-in request [:path-params :id]))
                       attrs (parse-json-body request)]
-                  (patch-work-log-response! ds id attrs)))}]])
+                  (patch-work-log-response! ds id attrs)))}]
+     ["/api/break-rules"
+      {:get (fn [_] (json-response {:break-rules (db/list-break-rules ds)}))
+       :post (fn [request]
+               (create-break-rule-response! ds (parse-json-body request)))}]
+     ["/api/breaks/:id"
+      {:patch (fn [request]
+                (update-break-response!
+                 ds
+                 (parse-id (get-in request [:path-params :id]))
+                 (parse-json-body request)))}]
+     ["/api/breaks/:id/convert"
+      {:post (fn [request]
+               (convert-break-response!
+                ds
+                (parse-id (get-in request [:path-params :id]))
+                (parse-json-body request)))}]])
    (ring/create-default-handler
     {:not-found (constantly (json-response 404 {:error "not-found"}))})))

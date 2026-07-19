@@ -98,3 +98,50 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_source_events_identity
 
 CREATE INDEX IF NOT EXISTS idx_source_events_date
   ON source_events(date);
+
+CREATE TABLE IF NOT EXISTS day_attendance (
+  date TEXT PRIMARY KEY,
+  clock_in_minute INTEGER,
+  clock_out_minute INTEGER,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CHECK (clock_in_minute IS NULL OR (clock_in_minute >= 0 AND clock_in_minute <= 1440)),
+  CHECK (clock_out_minute IS NULL OR (clock_out_minute >= 0 AND clock_out_minute <= 1440)),
+  CHECK (clock_in_minute IS NULL OR clock_out_minute IS NULL OR clock_out_minute > clock_in_minute)
+);
+
+CREATE TABLE IF NOT EXISTS break_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  start_minute INTEGER NOT NULL,
+  end_minute INTEGER NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CHECK (start_minute >= 0),
+  CHECK (end_minute > start_minute),
+  CHECK (end_minute <= 1440)
+);
+
+CREATE TABLE IF NOT EXISTS breaks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  date TEXT NOT NULL,
+  title TEXT NOT NULL,
+  start_minute INTEGER NOT NULL,
+  end_minute INTEGER NOT NULL,
+  break_rule_id INTEGER,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (break_rule_id) REFERENCES break_rules(id),
+  CHECK (start_minute >= 0),
+  CHECK (end_minute > start_minute),
+  CHECK (end_minute <= 1440)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_breaks_rule_date
+  ON breaks(date, break_rule_id)
+  WHERE break_rule_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_breaks_date
+  ON breaks(date);
