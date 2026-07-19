@@ -18,12 +18,12 @@
        "a{color:var(--accent);}button,select,input{font:inherit;}button{border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:6px;padding:6px 10px;cursor:pointer;}"
        "select,input{border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--text);padding:5px 8px;min-height:34px;}"
        "table{border-collapse:collapse;width:100%;}td,th{border-bottom:1px solid var(--line);padding:7px 6px;text-align:left;}th{color:var(--muted);font-size:12px;text-transform:uppercase;}"
-       ".home{max-width:880px;margin:40px auto;padding:0 24px;}.day-workspace{min-height:100vh;display:grid;grid-template-rows:auto minmax(0,1fr);}"
+       ".home{max-width:980px;margin:40px auto;padding:0 24px;}.days-shell{max-width:1180px;margin:28px auto;padding:0 24px;display:grid;gap:16px;}.days-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;}.view-tabs,.edit-tabs{display:flex;gap:8px;align-items:center;}.days-calendar{display:grid;gap:10px;}.month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;}.weekday-header{color:var(--muted);font-size:12px;text-transform:uppercase;padding:0 6px;}.calendar-day{position:relative;min-height:104px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px;display:grid;align-content:start;gap:5px;}.calendar-day.range-selected{outline:2px solid var(--accent);outline-offset:2px;}.calendar-day a,.week-day-card a{color:inherit;text-decoration:none;}.calendar-day button{all:unset;display:block;cursor:pointer;}.day-number{font-weight:700;font-variant-numeric:tabular-nums;}.day-status{display:inline-flex;width:max-content;border-radius:999px;padding:2px 7px;font-size:11px;font-weight:650;text-transform:uppercase;}.day-status-done{border-color:#86efac;background:#f0fdf4;}.day-status-done .day-status{background:#dcfce7;color:#166534;}.day-status-missing{border-color:#fdba74;background:#fff7ed;}.day-status-missing .day-status{background:#ffedd5;color:#9a3412;}.day-status-holiday{border-color:#c4b5fd;background:#f5f3ff;}.day-status-holiday .day-status{background:#ede9fe;color:#5b21b6;}.day-status-workday{border-color:#d7dde5;background:#fbfcfd;}.day-status-workday .day-status{background:#eef2f7;color:#475569;}.calendar-detail{color:var(--muted);font-size:12px;line-height:1.25;}.range-action-popover{position:fixed;z-index:30;display:grid;gap:8px;width:min(300px,calc(100vw - 24px));padding:12px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 12px 30px rgba(23,32,42,.18);}.range-action-popover[hidden]{display:none;}.range-action-popover form{display:grid;gap:8px;}.range-actions{display:flex;gap:8px;}.week-calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;}.week-day-card{min-height:180px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:10px;display:grid;align-content:start;gap:8px;}.day-workspace{height:100vh;overflow:hidden;display:grid;grid-template-rows:auto minmax(0,1fr);}"
        ".workspace-header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:18px 28px;border-bottom:1px solid var(--line);background:var(--surface);}"
        ".workspace-header h1{font-size:22px;line-height:1.2;margin:0;letter-spacing:0;}.workspace-meta{color:var(--muted);font-size:13px;}"
        ".header-actions{display:grid;gap:8px;justify-items:end;}.day-navigation{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;}.nav-button{display:inline-flex;align-items:center;min-height:34px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--text);text-decoration:none;}.day-navigation form{display:flex;gap:6px;align-items:center;}.day-navigation input{width:142px;}"
        ".workspace-grid{display:grid;grid-template-columns:minmax(280px,.95fr) minmax(340px,1.25fr) minmax(300px,.85fr);min-height:0;}"
-       ".timeline-pane,.entry-pane,.summary-pane{min-width:0;overflow:auto;padding:18px 22px 28px;}.entry-pane,.summary-pane{border-left:1px solid var(--line);background:var(--surface);}"
+       ".timeline-pane,.entry-pane,.summary-pane{min-width:0;height:100%;overflow:auto;padding:18px 22px 28px;}.entry-pane,.summary-pane{border-left:1px solid var(--line);background:var(--surface);}"
        ".input-panel{display:grid;gap:10px;margin:0 0 18px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);}.input-grid{display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:8px;}.input-grid .wide{grid-column:1/-1;}.inline-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0;}.inline-form input{min-width:160px;}"
        ".draft-summary-preview{min-height:24px;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;}"
        ".day-timeline{display:grid;grid-template-columns:48px minmax(160px,1fr);gap:10px;height:calc(100vh - 142px);min-height:640px;max-height:1080px;}.timeline-hours{position:relative;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;}.timeline-hour-label{position:absolute;right:0;transform:translateY(-50%);}"
@@ -39,7 +39,7 @@
        ".time-range{font-variant-numeric:tabular-nums;font-weight:650;}.title{min-width:0;overflow-wrap:anywhere;}.state{color:var(--muted);}.state-excluded{opacity:.66;}.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0;}.controls select{min-width:0;max-width:100%;}.category-form select{flex:1 1 180px;}.range-form{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0;}.range-form input{width:92px;}.exclude-form{justify-self:end;}.exclude-form button,.delete-form button{border-color:#747b86;background:#747b86;}"
        ".category-create-form{display:grid;gap:8px;margin:0 0 14px;}.category-list{display:grid;gap:4px;list-style:none;margin:0;padding:0;}.category-row{display:grid;grid-template-columns:minmax(0,1fr) 48px auto;gap:8px;align-items:center;border:1px solid var(--line);border-left:5px solid var(--group-color,var(--line));border-radius:6px;padding:7px 8px;background:#fff;}.category-child{margin-left:20px;}.category-rename-form{display:flex;gap:6px;min-width:0;}.category-rename-form input{min-width:0;width:100%;}.category-row .controls{justify-content:flex-end;}.category-row button{padding:4px 8px;}.summary-row{border-left:5px solid var(--group-color,var(--line));}.summary-child td:first-child{padding-left:22px;}.summary-parent td:first-child{font-weight:700;}"
        ".metric-list{display:grid;grid-template-columns:1fr auto;gap:6px 10px;margin:0 0 14px;}.metric-list dt{color:var(--muted);}.metric-list dd{margin:0;font-variant-numeric:tabular-nums;font-weight:650;}.day-breaks{border-top:1px solid var(--line);padding-top:2px;}.break-list{display:grid;gap:8px;margin:0 0 12px;}.break-row{display:grid;gap:8px;border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff7ed;}.break-actions{display:grid;gap:8px;}.one-off-break-form{display:grid;gap:8px;margin-top:8px;}"
-       ".warn{color:var(--warn);font-weight:650;}.warnings{padding-left:18px;}@media (max-width:980px){.workspace-header{align-items:flex-start;flex-direction:column;}.header-actions{justify-items:start;}.day-navigation{justify-content:flex-start;}.workspace-grid{grid-template-columns:1fr;}.entry-pane,.summary-pane{border-left:0;border-top:1px solid var(--line);}.day-timeline{height:720px;}.work-log-main,.work-log-actions,.work-log-range-line,.input-grid,.category-row{grid-template-columns:1fr;}.range-form input{width:100%;}.controls,.range-form,.inline-form{align-items:stretch;}.controls form,.range-form,.inline-form input,.inline-form button,.exclude-form{width:100%;}.controls select,.controls button,.range-form input,.range-form button{width:100%;}}"
+       ".settings-grid{display:grid;grid-template-columns:1fr;gap:14px;}.settings-form{display:grid;gap:10px;}.weekday-options{display:flex;flex-wrap:wrap;gap:8px 12px;}.weekday-options label{display:flex;gap:5px;align-items:center;color:var(--muted);}.warn{color:var(--warn);font-weight:650;}.warnings{padding-left:18px;}@media (max-width:980px){.workspace-header{align-items:flex-start;flex-direction:column;}.header-actions{justify-items:start;}.day-navigation{justify-content:flex-start;}.workspace-grid,.week-calendar{grid-template-columns:1fr;}.month-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.entry-pane,.summary-pane{border-left:0;border-top:1px solid var(--line);}.day-timeline{height:720px;}.work-log-main,.work-log-actions,.work-log-range-line,.input-grid,.category-row{grid-template-columns:1fr;}.range-form input{width:100%;}.controls,.range-form,.inline-form{align-items:stretch;}.controls form,.range-form,.inline-form input,.inline-form button,.exclude-form{width:100%;}.controls select,.controls button,.range-form input,.range-form button{width:100%;}}"
        "</style>"
        "</head><body>" body "</body></html>"))
 
@@ -462,6 +462,198 @@
                            (:category-hours summary))]
     (concat ordered-rows inactive-hours orphan-hours)))
 
+(defn- query-href [view date edit?]
+  (str "/?view=" view "&date=" date (when edit? "&edit=1")))
+
+(defn- calendar-navigation [view reference-date]
+  (str "<div class=\"days-toolbar\"><div><h1>Days</h1>"
+       "<div class=\"workspace-meta\">" (escape-html reference-date) "</div></div>"
+       "<div class=\"view-tabs\">"
+       "<a class=\"nav-button\" href=\"" (escape-html (query-href "month" reference-date false)) "\">Month</a>"
+       "<a class=\"nav-button\" href=\"" (escape-html (query-href "week" reference-date false)) "\">Week</a>"
+       "</div>"
+       "<form class=\"inline-form\" method=\"post\" action=\"/days\">"
+       "<input type=\"date\" name=\"date\" value=\"" (escape-html reference-date) "\">"
+       "<button type=\"submit\">Open day</button></form>"
+       "<div class=\"edit-tabs\">"
+       "<a class=\"nav-button\" href=\"" (escape-html (query-href view reference-date false)) "\">Edit off</a>"
+       "<a class=\"nav-button\" href=\"" (escape-html (query-href view reference-date true)) "\">Edit on</a>"
+       "<a class=\"nav-button\" href=\"/settings\">Settings</a>"
+       "</div></div>"))
+
+(defn- calendar-detail [day]
+  (str "<div class=\"calendar-detail\">"
+       "<div>" (escape-html (hours-string (:confirmed-work-minutes day))) " work</div>"
+       "<div>" (escape-html (hours-string (:unallocated-minutes day))) " open</div>"
+       "</div>"))
+
+(defn- calendar-day-content [day]
+  (str "<span class=\"day-number\">" (escape-html (:day-of-month day)) "</span>"
+       "<span class=\"day-status\">" (escape-html (:status day)) "</span>"
+       (calendar-detail day)))
+
+(defn- month-day-cell [edit? day]
+  (let [date (:date day)
+        class-name (str "calendar-day day-status-" (:status day))]
+    (str "<div class=\"" (escape-html class-name) "\" data-date=\"" (escape-html date) "\""
+         (when edit? (str " data-calendar-day=\"" (escape-html date) "\""))
+         ">"
+         (if edit?
+           (str "<button type=\"button\" data-calendar-day=\"" (escape-html date) "\">"
+                (calendar-day-content day)
+                "</button>")
+           (str "<a href=\"/days/" (escape-html date) "\">"
+                (calendar-day-content day)
+                "</a>"))
+         "</div>")))
+
+(defn- weekday-headers []
+  (apply str
+         (map #(str "<div class=\"weekday-header\">" % "</div>")
+              ["Mon" "Tue" "Wed" "Thu" "Fri" "Sat" "Sun"])))
+
+(defn- day-status-popover [reference-date]
+  (str "<div id=\"range-action-popover\" class=\"range-action-popover\" hidden>"
+       "<form id=\"day-status-range-form\" method=\"post\" action=\"/day-status-ranges\">"
+       "<input type=\"hidden\" name=\"start-date\" value=\"\">"
+       "<input type=\"hidden\" name=\"end-date\" value=\"\">"
+       "<input type=\"hidden\" name=\"redirect-to\" value=\""
+       (escape-html (query-href "month" reference-date true)) "\">"
+       "<div class=\"title\" data-range-label></div>"
+       "<div class=\"range-actions\">"
+       "<button type=\"submit\" name=\"status\" value=\"workday\">Workday</button>"
+       "<button type=\"submit\" name=\"status\" value=\"holiday\">Holiday</button>"
+       "<a class=\"nav-button\" data-open-day href=\"/days/" (escape-html reference-date) "\">Open</a>"
+       "</div></form></div>"))
+
+(defn- month-calendar [state]
+  (let [edit? (:edit? state)]
+    (str "<section class=\"days-calendar\" data-calendar-view=\"month\" data-calendar-edit=\""
+         (if edit? "active" "inactive")
+         "\"><div class=\"month-grid\">"
+         (weekday-headers)
+         (apply str (map #(month-day-cell edit? %) (:days state)))
+         "</div>"
+         (when edit? (day-status-popover (:reference-date state)))
+         "</section>")))
+
+(defn- category-lines [categories day]
+  (let [rows (category-summary-rows categories {:category-hours (:category-hours day)})]
+    (if (seq rows)
+      (str "<ul class=\"calendar-detail\">"
+           (apply str
+                  (map (fn [{:keys [category hours]}]
+                         (str "<li>" (escape-html (:name category)) " "
+                              (escape-html (format "%.2fh" (double hours)))
+                              "</li>"))
+                       rows))
+           "</ul>")
+      "<div class=\"calendar-detail\">No work</div>")))
+
+(defn- week-day-card [categories day]
+  (let [date (:date day)
+        class-name (str "week-day-card day-status-" (:status day))]
+    (str "<article class=\"" (escape-html class-name) "\" data-date=\"" (escape-html date) "\">"
+         "<a href=\"/days/" (escape-html date) "\">"
+         "<div class=\"day-number\">" (escape-html date) "</div>"
+         "<span class=\"day-status\">" (escape-html (:status day)) "</span>"
+         (calendar-detail day)
+         (category-lines categories day)
+         "</a></article>")))
+
+(defn- week-calendar [state]
+  (str "<section class=\"week-calendar days-calendar\" data-calendar-view=\"week\" data-calendar-edit=\"inactive\">"
+       (apply str (map #(week-day-card (:categories state) %) (:days state)))
+       "</section>"))
+
+(def calendar-script
+  "<script>
+(function(){
+  const calendar = document.querySelector('.days-calendar[data-calendar-view=\"month\"][data-calendar-edit=\"active\"]');
+  const popover = document.getElementById('range-action-popover');
+  if (!calendar || !popover) return;
+  const form = document.getElementById('day-status-range-form');
+  const startInput = form.querySelector(\"input[name='start-date']\");
+  const endInput = form.querySelector(\"input[name='end-date']\");
+  const label = popover.querySelector('[data-range-label]');
+  const openDay = popover.querySelector('[data-open-day]');
+  let selecting = false;
+  let startDate = null;
+  let endDate = null;
+  let suppressNextClick = false;
+  function cellForEvent(event){
+    const node = document.elementFromPoint(event.clientX, event.clientY);
+    return node && node.closest('[data-calendar-day]');
+  }
+  function orderedRange(a, b){
+    return a <= b ? [a, b] : [b, a];
+  }
+  function paintRange(){
+    const range = orderedRange(startDate, endDate);
+    document.querySelectorAll('.calendar-day').forEach(function(cell){
+      const date = cell.dataset.date;
+      cell.classList.toggle('range-selected', date >= range[0] && date <= range[1]);
+    });
+    startInput.value = range[0];
+    endInput.value = range[1];
+    label.textContent = range[0] === range[1] ? range[0] : range[0] + ' - ' + range[1];
+    openDay.href = '/days/' + range[0];
+  }
+  function showPopover(event){
+    popover.style.left = Math.min(event.clientX + 8, window.innerWidth - 320) + 'px';
+    popover.style.top = Math.min(event.clientY + 8, window.innerHeight - 150) + 'px';
+    popover.hidden = false;
+  }
+  calendar.addEventListener('pointerdown', function(event){
+    if (event.button !== 0) return;
+    const cell = cellForEvent(event);
+    if (!cell) return;
+    selecting = true;
+    startDate = cell.dataset.calendarDay;
+    endDate = startDate;
+    calendar.setPointerCapture(event.pointerId);
+    popover.hidden = true;
+    paintRange();
+    event.preventDefault();
+  });
+  calendar.addEventListener('pointermove', function(event){
+    if (!selecting) return;
+    const cell = cellForEvent(event);
+    if (!cell) return;
+    endDate = cell.dataset.calendarDay;
+    paintRange();
+  });
+  calendar.addEventListener('pointerup', function(event){
+    if (!selecting) return;
+    selecting = false;
+    const cell = cellForEvent(event);
+    if (cell) endDate = cell.dataset.calendarDay;
+    paintRange();
+    showPopover(event);
+    suppressNextClick = true;
+  });
+  document.addEventListener('click', function(event){
+    if (suppressNextClick) {
+      suppressNextClick = false;
+      return;
+    }
+    if (!popover.contains(event.target) && !event.target.closest('[data-calendar-day]')) {
+      popover.hidden = true;
+    }
+  });
+})();
+</script>")
+
+(defn days-page [state]
+  (page "worklog-timeblock days"
+        (str "<main class=\"days-shell\">"
+             (calendar-navigation (:view state) (:reference-date state))
+             (if (= "week" (:view state))
+               (week-calendar state)
+               (month-calendar state))
+             "</main>"
+             calendar-script)))
+
 (defn- attendance-range-label [attendance]
   (let [clock-in (:clock-in-minute attendance)
         clock-out (:clock-out-minute attendance)]
@@ -471,7 +663,7 @@
 
 (declare day-breaks-section)
 
-(defn- attendance-panel [date attendance summary categories breaks]
+(defn- attendance-panel [date attendance summary break-mode breaks]
   (let [stats (:attendance summary)]
     (str "<section class=\"input-panel attendance-panel\"><h2 class=\"pane-title\">Attendance</h2>"
          "<dl class=\"metric-list\">"
@@ -493,7 +685,7 @@
          "<input type=\"time\" name=\"clock-out-time\" value=\""
          (escape-html (optional-time-string (:clock-out-minute attendance))) "\">"
          "<button type=\"submit\">Set attendance</button></form>"
-         (day-breaks-section date categories breaks)
+         (day-breaks-section date break-mode breaks)
          "</section>")))
 
 (defn- daily-break-rule-form [redirect-to]
@@ -517,7 +709,7 @@
        "<button type=\"submit\">Add break</button>"
        "</div></form>"))
 
-(defn- break-row [categories break]
+(defn- break-row [break]
   (str "<article class=\"break-row\" data-break-id=\"" (escape-html (:id break)) "\">"
        "<div><span class=\"time-range\">"
        (escape-html (str (time-string (:start-minute break))
@@ -530,22 +722,20 @@
        "<input type=\"time\" name=\"start-time\" value=\"" (escape-html (time-string (:start-minute break))) "\">"
        "<input type=\"time\" name=\"end-time\" value=\"" (escape-html (time-string (:end-minute break))) "\">"
        "<button type=\"submit\">Range</button></form>"
-       "<form class=\"category-form controls\" method=\"post\" action=\"/breaks/"
-       (escape-html (:id break)) "/convert\">"
-       "<input name=\"title\" value=\"" (escape-html (:title break)) "\">"
-       (category-select categories nil)
-       "<button type=\"submit\">Convert to work</button></form>"
        "</div></article>"))
 
-(defn- day-breaks-section [date categories breaks]
-  (str "<div class=\"day-breaks\"><h3 class=\"sub-title\">Breaks today</h3>"
+(defn- day-breaks-section [date break-mode breaks]
+  (let [fixed? (= :fixed break-mode)]
+    (str "<div class=\"day-breaks\"><h3 class=\"sub-title\">"
+       (if fixed? "Fixed breaks" "Break today")
+       "</h3>"
        "<div class=\"break-list\">"
        (if (seq breaks)
-         (apply str (map #(break-row categories %) breaks))
-         "<p class=\"state\">No breaks set.</p>")
+         (apply str (map break-row breaks))
+         (str "<p class=\"state\">No " (if fixed? "fixed " "") "breaks set.</p>"))
        "</div>"
-       (one-off-break-form date)
-       "</div>"))
+       (when-not fixed? (one-off-break-form date))
+       "</div>")))
 
 (defn- warning-item [warning]
   (case (:type warning)
@@ -742,11 +932,26 @@
     if (rect.bottom - event.clientY <= edge) return 'resize-end';
     return 'move';
   }
+  function selectedBoundaryCandidate(event){
+    const selected = document.querySelector('.confirmed-block.selected');
+    if (!selected) return null;
+    const blockRect = selected.getBoundingClientRect();
+    const trackRect = track.getBoundingClientRect();
+    if (event.clientX < trackRect.left || event.clientX > trackRect.right) return null;
+    const edge = Math.max(6, Math.min(12, blockRect.height / 3));
+    if (Math.abs(event.clientY - blockRect.top) <= edge) {
+      return { block: selected, mode: 'resize-start' };
+    }
+    if (Math.abs(event.clientY - blockRect.bottom) <= edge) {
+      return { block: selected, mode: 'resize-end' };
+    }
+    return null;
+  }
   function updateBlockCursor(block, event){
     if (blockDrag) return;
     block.style.cursor = blockDragMode(block, event) === 'move' ? 'move' : 'ns-resize';
   }
-  function startBlockDrag(block, event){
+  function startBlockDrag(block, event, forcedMode){
     const range = blockRange(block);
     hideMenu();
     hideTimelineWarning();
@@ -756,12 +961,12 @@
       start: range.start,
       end: range.end,
       pointerStart: minuteFromEvent(event),
-      mode: blockDragMode(block, event),
+      mode: forcedMode || blockDragMode(block, event),
       shift: event.shiftKey,
       moved: false,
       nextRange: range
     };
-    block.setPointerCapture(event.pointerId);
+    (event.currentTarget || track).setPointerCapture(event.pointerId);
     event.preventDefault();
     event.stopPropagation();
   }
@@ -878,6 +1083,11 @@
   }
   track.addEventListener('pointerdown', function(event){
     if (event.button !== 0) return;
+    const selectedBoundary = selectedBoundaryCandidate(event);
+    if (selectedBoundary) {
+      startBlockDrag(selectedBoundary.block, event, selectedBoundary.mode);
+      return;
+    }
     if (event.target.closest('.confirmed-block')) return;
     hideMenu();
     dragging = true;
@@ -914,7 +1124,12 @@
     });
     block.addEventListener('pointerdown', function(event){
       if (event.button !== 0) return;
-      startBlockDrag(block, event);
+      const selectedBoundary = selectedBoundaryCandidate(event);
+      if (selectedBoundary) {
+        startBlockDrag(selectedBoundary.block, event, selectedBoundary.mode);
+      } else {
+        startBlockDrag(block, event);
+      }
     });
     block.addEventListener('click', function(event){
       if (event.button !== 0) return;
@@ -958,14 +1173,14 @@
 })();
 </script>")
 
-(defn day-page [{:keys [date work-logs source-events attendance breaks summary]} categories]
+(defn day-page [{:keys [date break-mode work-logs source-events attendance breaks summary]} categories]
   (page (str "worklog-timeblock " date)
         (str "<main class=\"day-workspace\">"
              "<header class=\"workspace-header\"><div><h1>" (escape-html date)
              "</h1><div class=\"workspace-meta\">" (count work-logs) " logs</div></div>"
              "<div class=\"header-actions\">"
              (day-navigation date)
-             "<nav><a href=\"/\">Days</a> | <a href=\"/import-sources\">Import sources</a> | <a href=\"/settings\">Settings</a></nav>"
+             "<nav><a href=\"/\">Days</a> | <a href=\"/settings\">Settings</a></nav>"
              "</div></header>"
              "<div class=\"workspace-grid\">"
              "<section class=\"timeline-pane\"><h2 class=\"pane-title\">Timeline</h2>"
@@ -979,7 +1194,7 @@
              (apply str (map #(work-log-row categories %) work-logs))
              "</div></section>"
              "<aside class=\"summary-pane\">"
-             (attendance-panel date attendance summary categories breaks)
+             (attendance-panel date attendance summary break-mode breaks)
              (category-totals-panel categories summary)
              (category-settings-panel date categories)
              (when (seq (:warnings summary))
@@ -998,17 +1213,53 @@
        "</td><td>" (escape-html (if (:enabled? rule) "enabled" "disabled"))
        "</td></tr>"))
 
-(defn settings-page [break-rules]
-  (page "worklog-timeblock settings"
-        (str "<main class=\"home settings-page\"><h1>Settings</h1>"
-             "<p><a href=\"/\">Days</a> | <a href=\"/import-sources\">Import sources</a></p>"
-             (daily-break-rule-form "/settings")
-             "<section class=\"input-panel break-rule-list-panel\"><h2 class=\"pane-title\">Daily break rules</h2>"
-             "<table><thead><tr><th>Title</th><th>Range</th><th>Status</th></tr></thead><tbody>"
-             (if (seq break-rules)
-               (apply str (map break-rule-row break-rules))
-               "<tr><td colspan=\"3\" class=\"state\">No daily break rules yet.</td></tr>")
-             "</tbody></table></section></main>")))
+(defn- selected-attr [current value]
+  (when (= current value) " selected"))
+
+(defn- checked-attr [values value]
+  (when (contains? values value) " checked"))
+
+(defn- break-mode-settings-form [settings]
+  (let [mode (:break-mode settings)]
+    (str "<form class=\"input-panel settings-form\" method=\"post\" action=\"/settings/break-mode\">"
+         "<h2 class=\"pane-title\">Break mode</h2>"
+         "<input type=\"hidden\" name=\"redirect-to\" value=\"/settings\">"
+         "<select name=\"break-mode\">"
+         "<option value=\"fixed\"" (selected-attr mode "fixed") ">Fixed</option>"
+         "<option value=\"flexible\"" (selected-attr mode "flexible") ">Flexible</option>"
+         "</select>"
+         "<button type=\"submit\">Save</button></form>")))
+
+(defn- holiday-policy-form [settings]
+  (let [policy (:holiday-policy settings)
+        mode (:mode policy)
+        weekdays (set (:weekdays policy))
+        labels {1 "Mon" 2 "Tue" 3 "Wed" 4 "Thu" 5 "Fri" 6 "Sat" 7 "Sun"}]
+    (str "<form class=\"input-panel settings-form\" method=\"post\" action=\"/settings/holiday-policy\">"
+         "<h2 class=\"pane-title\">Holiday policy</h2>"
+         "<input type=\"hidden\" name=\"redirect-to\" value=\"/settings\">"
+         "<select name=\"holiday-policy-mode\">"
+         "<option value=\"complete-two-day\"" (selected-attr mode "complete-two-day") ">Complete two-day</option>"
+         "<option value=\"two-day\"" (selected-attr mode "two-day") ">Two-day</option>"
+         "<option value=\"manual\"" (selected-attr mode "manual") ">Manual</option>"
+         "</select>"
+         "<div class=\"weekday-options\">"
+         (apply str
+                (map (fn [weekday]
+                       (str "<label><input type=\"checkbox\" name=\"weekday-"
+                            weekday "\" value=\"1\"" (checked-attr weekdays weekday)
+                            "> " (get labels weekday) "</label>"))
+                     (range 1 8)))
+         "</div><button type=\"submit\">Save</button></form>")))
+
+(defn- break-rules-panel [break-rules]
+  (str (daily-break-rule-form "/settings")
+       "<section class=\"input-panel break-rule-list-panel\"><h2 class=\"pane-title\">Daily break rules</h2>"
+       "<table><thead><tr><th>Title</th><th>Range</th><th>Status</th></tr></thead><tbody>"
+       (if (seq break-rules)
+         (apply str (map break-rule-row break-rules))
+         "<tr><td colspan=\"3\" class=\"state\">No daily break rules yet.</td></tr>")
+       "</tbody></table></section>"))
 
 (defn- import-source-row [source]
   (str "<tr><td>" (escape-html (:name source))
@@ -1021,17 +1272,28 @@
        "<button type=\"submit\">Fetch</button></form>"
        "</td></tr>"))
 
-(defn import-sources-page [sources]
-  (page "worklog-timeblock import sources"
-        (str "<main class=\"home\"><h1>Import sources</h1>"
-             "<p><a href=\"/\">Days</a> | <a href=\"/settings\">Settings</a></p>"
-             "<form class=\"input-panel\" method=\"post\" action=\"/import-sources\">"
-             "<h2 class=\"pane-title\">Add iCal source</h2>"
-             "<input type=\"hidden\" name=\"kind\" value=\"ical\">"
-             "<input name=\"name\" placeholder=\"Name\">"
-             "<input name=\"uri\" placeholder=\"File path or URL\">"
-             "<input name=\"fetch-interval-minutes\" type=\"number\" min=\"1\" value=\"60\">"
-             "<button type=\"submit\">Add source</button></form>"
-             "<table><thead><tr><th>Name</th><th>Kind</th><th>URI</th><th>Interval</th><th>Status</th><th>Fetch</th></tr></thead><tbody>"
-             (apply str (map import-source-row sources))
-             "</tbody></table></main>")))
+(defn- import-sources-panel [sources]
+  (str "<section class=\"input-panel import-sources-panel\">"
+       "<form class=\"settings-form\" method=\"post\" action=\"/import-sources\">"
+       "<h2 class=\"pane-title\">Add iCal source</h2>"
+       "<input type=\"hidden\" name=\"kind\" value=\"ical\">"
+       "<input name=\"name\" placeholder=\"Name\">"
+       "<input name=\"uri\" placeholder=\"File path or URL\">"
+       "<input name=\"fetch-interval-minutes\" type=\"number\" min=\"1\" value=\"60\">"
+       "<button type=\"submit\">Add source</button></form>"
+       "<table><thead><tr><th>Name</th><th>Kind</th><th>URI</th><th>Interval</th><th>Status</th><th>Fetch</th></tr></thead><tbody>"
+       (if (seq sources)
+         (apply str (map import-source-row sources))
+         "<tr><td colspan=\"6\" class=\"state\">No import sources yet.</td></tr>")
+       "</tbody></table></section>"))
+
+(defn settings-page [{:keys [break-rules import-sources settings]}]
+  (page "worklog-timeblock settings"
+        (str "<main class=\"home settings-page\"><h1>Settings</h1>"
+             "<p><a href=\"/\">Days</a></p>"
+             "<div class=\"settings-grid\">"
+             (break-mode-settings-form settings)
+             (holiday-policy-form settings)
+             (break-rules-panel break-rules)
+             (import-sources-panel import-sources)
+             "</div></main>")))

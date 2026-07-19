@@ -1,6 +1,7 @@
 (ns worklog-timeblock.api-e2e.routes-test
   (:require [cheshire.core :as json]
             [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [worklog-timeblock.api.routes :as routes]
             [worklog-timeblock.db.core :as db]
@@ -28,11 +29,13 @@
     {:ds ds :handler (routes/app {:ds ds})}))
 
 (defn request [handler method uri & [body]]
-  (handler {:request-method method
-            :uri uri
+  (let [[path query] (str/split uri #"\?" 2)]
+    (handler {:request-method method
+            :uri path
+            :query-string query
             :headers {"content-type" "application/json"}
             :body (when body (java.io.ByteArrayInputStream.
-                              (.getBytes (json/generate-string body) "UTF-8")))}))
+                              (.getBytes (json/generate-string body) "UTF-8")))})))
 
 (defn parse-body [response]
   (json/parse-string (str (:body response)) keyword))
@@ -440,6 +443,83 @@
         (is (empty? (:breaks day)))
         (is (= 480 (category-minutes summary (:id dev))))
         (is (= 0 (get-in summary [:attendance :break-minutes])))))))
+
+(deftest api-settings-and-calendar-e2e-test
+  (let [{:keys [handler ds]} (empty-temp-system)
+        dev (db/upsert-category! ds {:name "Development"})
+        unallocated (db/upsert-category! ds {:name "Unallocated"})
+        dev-id (:id dev)]
+    (testing "settings endpoint exposes defaults and persists break/holiday policy"
+      (let [default-settings (parse-body (request handler :get "/api/settings"))
+            response (request handler :put "/api/settings"
+                              {:break-mode :flexible
+                               :holiday-policy-mode :manual
+                               :holiday-weekdays []})
+            updated (parse-body (request handler :get "/api/settings"))]
+        (is (= {:break-mode "fixed"
+                :holiday-policy {:mode "complete-two-day"
+                                 :weekdays [6 7]}}
+               (select-keys default-settings [:break-mode :holiday-policy])))
+        (is (= 200 (:status response)))
+        (is (= "flexible" (:break-mode (parse-body response))))
+        (is (= "flexible" (:break-mode updated)))
+        (is (= {:mode "manual" :weekdays []}
+               (:holiday-policy updated)))))
+
+    (testing "flexible break mode skips daily materialization but keeps one-off breaks"
+      (is (= 200 (:status (request handler :post "/api/break-rules"
+                                    {:title "Lunch"
+                                     :start-minute 720
+                                     :end-minute 780
+                                     :enabled true}))))
+      (is (= [] (:breaks (parse-body (request handler :get "/api/days/2026-07-13")))))
+      (let [one-off (request handler :post "/api/days/2026-07-13/breaks"
+                             {:title "Break"
+                              :start-minute 900
+                              :end-minute 915})
+            day (parse-body (request handler :get "/api/days/2026-07-13"))]
+        (is (= 200 (:status one-off)))
+        (is (= [{:title "Break"
+                 :start-minute 900
+                 :end-minute 915}]
+               (map #(select-keys % [:title :start-minute :end-minute])
+                    (:breaks day))))))
+
+    (testing "fixed break mode materializes daily rules"
+      (let [response (request handler :put "/api/settings" {:break-mode :fixed})
+            day (parse-body (request handler :get "/api/days/2026-07-14"))]
+        (is (= 200 (:status response)))
+        (is (= ["Lunch"] (map :title (:breaks day))))))
+
+    (testing "calendar endpoint classifies holidays, missing days, and complete days"
+      (is (= 200 (:status (request handler :put "/api/days/2026-07-15/attendance"
+                                    {:clock-in-minute 540
+                                     :clock-out-minute 1080}))))
+      (is (= 200 (:status (request handler :post "/api/days/2026-07-15/worklogs"
+                                    {:title "Build"
+                                     :start-minute 540
+                                     :end-minute 1020
+                                     :category-id dev-id}))))
+      (is (= 200 (:status (request handler :put "/api/days/2026-07-16/attendance"
+                                    {:clock-in-minute 540
+                                     :clock-out-minute 1080}))))
+      (is (= 200 (:status (request handler :post "/api/days/2026-07-16/worklogs"
+                                    {:title "Unallocated but intentional"
+                                     :start-minute 540
+                                     :end-minute 1080
+                                     :category-id (:id unallocated)}))))
+      (is (= 200 (:status (request handler :post "/api/day-status-ranges"
+                                    {:start-date "2026-07-20"
+                                     :end-date "2026-07-22"
+                                     :status :holiday}))))
+      (let [calendar (parse-body (request handler :get "/api/calendar?view=month&date=2026-07-15"))
+            days-by-date (into {} (map (juxt :date identity)) (:days calendar))]
+        (is (= "month" (:view calendar)))
+        (is (= "done" (get-in days-by-date ["2026-07-15" :status])))
+        (is (= "done" (get-in days-by-date ["2026-07-16" :status])))
+        (is (= "holiday" (get-in days-by-date ["2026-07-20" :status])))
+        (is (= "holiday" (get-in days-by-date ["2026-07-21" :status])))
+        (is (= "holiday" (get-in days-by-date ["2026-07-22" :status])))))))
 
 (deftest api-overlap-and-boundary-e2e-test
   (let [{:keys [handler ds]} (empty-temp-system)

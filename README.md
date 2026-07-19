@@ -16,10 +16,13 @@ time tracking service.
 
 ## Current UI
 
-The Web UI can be used from an empty database: open any date from the home page,
-create categories, add manual work logs, and immediately see ordered
+The Web UI can be used from an empty database: choose a date from the Days
+calendar, create categories, add manual work logs, and immediately see ordered
 per-category totals. Existing work logs can also be corrected from the day page
-by assigning a category, editing the time range, or excluding the log.
+by assigning a category, editing the time range, or excluding the log. The Days
+screen supports month and week views. Month edit mode can be switched on for
+click or drag range changes between workday and holiday; paid leave is treated
+as holiday/non-work time.
 
 The day page is a three-pane workspace with Prev/Next/TODAY/GOTO navigation.
 The left pane is a compact one-day timeline with snapped mouse drag selection.
@@ -28,21 +31,22 @@ row in the center pane. Confirmed blocks can be moved, resized from their top
 or bottom edge, and adjusted across an adjacent boundary. Shift edge dragging
 shrinks a block without moving its neighbor, and overlap attempts show a small
 warning bubble instead of saving. The center pane contains the work-log input form,
-imported candidate queue, and editable log list. The right pane keeps category
-totals, category groups, attendance, breaks, and warnings visible. Child
+imported candidate queue, and editable log list. The right pane shows attendance,
+category totals, category groups, breaks, and warnings in that order. Child
 categories are indented under their parent, root groups use stable colors, and
 parent total rows show child subtotals. Attendance can be set manually or from
-the current time. Daily break rules materialize editable day breaks; breaks do
-not count as work effort and can be converted into categorized work when needed.
+the current time. Break mode is configured in Settings: fixed mode materializes
+editable daily breaks, while flexible mode exposes a day-level break form.
+Breaks do not count as work effort.
 Imported candidates can be confirmed or excluded from the candidate queue or
 the timeline context menu, and overlapping drafts are blocked instead of
 silently double-counted.
 
-The import source page can store zero or more iCal file/URL sources. Manual
-fetch stores imported events as `source_events` and creates initial work-log
-snapshots only when a matching snapshot does not already exist. Re-fetching a
-changed calendar event updates the source event and raises a source-updated
-warning without silently mutating confirmed or excluded work logs.
+Settings can store zero or more iCal file/URL import sources. Manual fetch
+stores imported events as `source_events` and creates initial work-log snapshots
+only when a matching snapshot does not already exist. Re-fetching a changed
+calendar event updates the source event and raises a source-updated warning
+without silently mutating confirmed or excluded work logs.
 
 The TUI is currently display-focused. It renders the selected day, totals, and
 warnings, but interactive correction still belongs to the Web UI.

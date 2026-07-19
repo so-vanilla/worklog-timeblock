@@ -35,21 +35,28 @@
 (defn request
   ([handler uri] (request handler :get uri nil))
   ([handler method uri body]
-   (handler {:request-method method
-             :uri uri
+   (let [[path query] (str/split uri #"\?" 2)]
+     (handler {:request-method method
+             :uri path
+             :query-string query
              :headers {"content-type" "application/x-www-form-urlencoded"}
              :body (when body (java.io.ByteArrayInputStream.
-                               (.getBytes body "UTF-8")))})))
+                               (.getBytes body "UTF-8")))}))))
 
 (defn response-body [response]
   (str (:body response)))
 
 (deftest web-smoke-test
   (let [{:keys [handler ids category-ids]} (temp-system)]
-    (testing "home page links to a day view"
-      (let [html (response-body (request handler "/"))]
+    (testing "home page renders a Days calendar and links to a day view"
+      (let [html (response-body (request handler "/?view=month&date=2026-07-06"))]
         (is (str/includes? html "worklog-timeblock"))
-        (is (str/includes? html "/days/2026-07-06"))))
+        (is (str/includes? html "class=\"days-calendar\""))
+        (is (str/includes? html "data-calendar-view=\"month\""))
+        (is (str/includes? html "data-calendar-edit=\"inactive\""))
+        (is (str/includes? html "/days/2026-07-06"))
+        (is (str/includes? html "href=\"/?view=week&amp;date=2026-07-06\""))
+        (is (str/includes? html "href=\"/?view=month&amp;date=2026-07-06&amp;edit=1\""))))
 
     (testing "day page renders a full-viewport worklog workspace"
       (let [html (response-body (request handler "/days/2026-07-06"))]
@@ -134,12 +141,13 @@
 
 (deftest web-empty-input-test
   (let [{:keys [handler ds]} (empty-temp-system)]
-    (testing "home page exposes a date picker for an empty database"
-      (let [html (response-body (request handler "/"))]
-        (is (str/includes? html "No work logs yet."))
+    (testing "home page exposes a date picker and calendar for an empty database"
+      (let [html (response-body (request handler "/?view=month&date=2026-07-07"))]
+        (is (str/includes? html "class=\"days-calendar\""))
         (is (str/includes? html "action=\"/days\""))
         (is (str/includes? html "name=\"date\""))
-        (is (str/includes? html "type=\"date\""))))
+        (is (str/includes? html "type=\"date\""))
+        (is (str/includes? html "data-date=\"2026-07-07\""))))
 
     (testing "date picker redirects to the requested day"
       (let [response (request handler :post "/days" "date=2026-07-07")]
@@ -197,19 +205,90 @@
         (is (str/includes? html "Triage"))
         (is (str/includes? html "Uncategorized: Triage"))))))
 
+(deftest web-days-calendar-test
+  (let [{:keys [handler ds]} (empty-temp-system)
+        dev (db/upsert-category! ds {:name "Development"})
+        dev-id (:id dev)]
+    (request handler :post "/days/2026-07-15/attendance"
+             "clock-in-time=09%3A00&clock-out-time=18%3A00")
+    (request handler :post "/break-rules"
+             "break-title=Lunch&start-time=12%3A00&end-time=13%3A00&redirect-to=%2F")
+    (request handler :post "/days/2026-07-15/worklogs"
+             (str "title=Build&start-time=09%3A00&end-time=17%3A00&category-id=" dev-id))
+    (request handler :post "/days/2026-07-16/attendance"
+             "clock-in-time=09%3A00&clock-out-time=18%3A00")
+    (request handler :post "/day-status-ranges"
+             "start-date=2026-07-20&end-date=2026-07-22&status=holiday&redirect-to=%2F%3Fview%3Dmonth%26date%3D2026-07-15")
+
+    (testing "month view shows done, missing, and holiday day states"
+      (let [html (response-body (request handler "/?view=month&date=2026-07-15"))]
+        (is (str/includes? html "class=\"days-calendar\""))
+        (is (str/includes? html "data-calendar-view=\"month\""))
+        (is (str/includes? html "class=\"calendar-day day-status-done\" data-date=\"2026-07-15\""))
+        (is (str/includes? html "class=\"calendar-day day-status-missing\" data-date=\"2026-07-16\""))
+        (is (str/includes? html "class=\"calendar-day day-status-holiday\" data-date=\"2026-07-20\""))
+        (is (str/includes? html "href=\"/days/2026-07-15\""))
+        (is (not (str/includes? html "id=\"day-status-range-form\"")))))
+
+    (testing "active month edit mode exposes click and range status actions"
+      (let [html (response-body (request handler "/?view=month&date=2026-07-15&edit=1"))]
+        (is (str/includes? html "data-calendar-edit=\"active\""))
+        (is (str/includes? html "id=\"day-status-range-form\""))
+        (is (str/includes? html "name=\"start-date\""))
+        (is (str/includes? html "name=\"end-date\""))
+        (is (str/includes? html "name=\"status\" value=\"workday\""))
+        (is (str/includes? html "name=\"status\" value=\"holiday\""))))
+
+    (testing "status range form can bulk-change days"
+      (let [response (request handler :post "/day-status-ranges"
+                              "start-date=2026-07-21&end-date=2026-07-22&status=workday&redirect-to=%2F%3Fview%3Dmonth%26date%3D2026-07-15%26edit%3D1")
+            html (response-body (request handler "/?view=month&date=2026-07-15&edit=1"))]
+        (is (= 303 (:status response)))
+        (is (= "/?view=month&date=2026-07-15&edit=1" (get-in response [:headers "location"])))
+        (is (str/includes? html "class=\"calendar-day day-status-workday\" data-date=\"2026-07-21\""))
+        (is (str/includes? html "class=\"calendar-day day-status-workday\" data-date=\"2026-07-22\""))))
+
+    (testing "week view shows all seven days and links to day input pages"
+      (let [html (response-body (request handler "/?view=week&date=2026-07-15"))]
+        (is (str/includes? html "class=\"week-calendar days-calendar\""))
+        (is (str/includes? html "data-calendar-view=\"week\""))
+        (is (str/includes? html "data-date=\"2026-07-13\""))
+        (is (str/includes? html "data-date=\"2026-07-19\""))
+        (is (str/includes? html "href=\"/days/2026-07-15\""))
+        (is (str/includes? html "Development"))
+        (is (str/includes? html "8.00h"))))))
+
 (deftest web-settings-page-test
   (let [{:keys [handler]} (empty-temp-system)]
-    (testing "settings page owns daily break rules"
+    (testing "settings page owns break mode, daily break rules, holidays, and imports"
       (let [day-html (response-body (request handler "/days/2026-07-11"))
             settings-html (response-body (request handler "/settings"))]
         (is (str/includes? day-html "href=\"/settings\""))
         (is (not (str/includes? day-html "Daily break")))
         (is (not (str/includes? day-html "action=\"/break-rules\"")))
         (is (str/includes? settings-html "Settings"))
+        (is (str/includes? settings-html "action=\"/settings/break-mode\""))
+        (is (str/includes? settings-html "value=\"fixed\" selected"))
+        (is (str/includes? settings-html "action=\"/settings/holiday-policy\""))
+        (is (str/includes? settings-html "name=\"holiday-policy-mode\""))
         (is (str/includes? settings-html "Daily break"))
         (is (str/includes? settings-html "action=\"/break-rules\""))
         (is (str/includes? settings-html "value=\"/settings\""))
-        (is (str/includes? settings-html "Daily break rules"))))
+        (is (str/includes? settings-html "Daily break rules"))
+        (is (str/includes? settings-html "Add iCal source"))
+        (is (str/includes? settings-html "name=\"uri\""))
+        (is (not (str/includes? settings-html "href=\"/import-sources\"")))))
+
+    (testing "break mode form switches the day break controls"
+      (let [response (request handler :post "/settings/break-mode"
+                              "break-mode=flexible&redirect-to=%2Fsettings")
+            settings-html (response-body (request handler "/settings"))
+            day-html (response-body (request handler "/days/2026-07-11"))]
+        (is (= 303 (:status response)))
+        (is (= "/settings" (get-in response [:headers "location"])))
+        (is (str/includes? settings-html "value=\"flexible\" selected"))
+        (is (str/includes? day-html "Break today"))
+        (is (str/includes? day-html "One-off break"))))
 
     (testing "settings daily break form persists and returns to settings"
       (let [response (request handler :post "/break-rules"
@@ -330,7 +409,7 @@
   (let [{:keys [handler ds]} (empty-temp-system)]
     (request handler :post "/categories"
              "category-name=Development&redirect-to=%2Fdays%2F2026-07-11")
-    (let [dev-id (:id (db/find-category-by-name-and-parent ds "Development" nil))]
+    (let [_dev-id (:id (db/find-category-by-name-and-parent ds "Development" nil))]
       (testing "day page exposes attendance and break controls"
         (let [html (response-body (request handler "/days/2026-07-11"))]
           (is (str/includes? html "Attendance"))
@@ -338,9 +417,10 @@
           (is (str/includes? html "Clock out now"))
           (is (str/includes? html "name=\"clock-in-time\""))
           (is (str/includes? html "name=\"clock-out-time\""))
-          (is (str/includes? html "Breaks today"))
-          (is (str/includes? html "One-off break"))
-          (is (str/includes? html "name=\"break-title\""))
+          (is (str/includes? html "Fixed breaks"))
+          (is (not (str/includes? html "Break today")))
+          (is (not (str/includes? html "One-off break")))
+          (is (not (str/includes? html "name=\"break-title\"")))
           (is (not (str/includes? html "Daily break")))
           (is (not (str/includes? html "action=\"/break-rules\"")))))
 
@@ -367,10 +447,11 @@
           (is (pos-int? break-id))
           (is (str/includes? html "class=\"timeline-block break-block\""))
           (is (str/includes? html "Lunch"))
-          (is (str/includes? html "Breaks today"))
+          (is (str/includes? html "Fixed breaks"))
           (is (str/includes? html "1.00h"))
           (is (str/includes? html (str "action=\"/breaks/" break-id "/range\"")))
-          (is (str/includes? html (str "action=\"/breaks/" break-id "/convert\"")))))
+          (is (not (str/includes? html (str "action=\"/breaks/" break-id "/convert\""))))
+          (is (not (str/includes? html "Convert to work")))))
 
       (testing "break range form updates the rendered break"
         (let [break-id (:id (first (db/breaks-by-date ds "2026-07-11")))
@@ -381,28 +462,42 @@
           (is (= 303 (:status response)))
           (is (str/includes? html "12:15-13:15"))))
 
-      (testing "break convert form creates categorized effort and removes the break"
-        (let [break-id (:id (first (db/breaks-by-date ds "2026-07-11")))
-              response (request handler :post
-                                (str "/breaks/" break-id "/convert")
-                                (str "title=Lunch%20support&category-id=" dev-id))
-              html (response-body (request handler "/days/2026-07-11"))]
+      (testing "flexible mode shows day-level break creation without materializing rules"
+        (let [mode-response (request handler :post "/settings/break-mode"
+                                     "break-mode=flexible&redirect-to=%2Fdays%2F2026-07-12")
+              html (response-body (request handler "/days/2026-07-12"))]
+          (is (= 303 (:status mode-response)))
+          (is (= "/days/2026-07-12" (get-in mode-response [:headers "location"])))
+          (is (str/includes? html "Break today"))
+          (is (str/includes? html "One-off break"))
+          (is (str/includes? html "name=\"break-title\""))
+          (is (not (str/includes? html "class=\"timeline-block break-block\"")))))
+
+      (testing "flexible one-off break is excluded from work effort"
+        (let [response (request handler :post "/days/2026-07-12/breaks"
+                                "break-title=Coffee&start-time=15%3A00&end-time=15%3A15")
+              html (response-body (request handler "/days/2026-07-12"))]
           (is (= 303 (:status response)))
-          (is (str/includes? html "Lunch support"))
-          (is (str/includes? html "confirmed"))
-          (is (not (str/includes? html "class=\"timeline-block break-block\""))))))))
+          (is (str/includes? html "Coffee"))
+          (is (str/includes? html "class=\"timeline-block break-block\""))
+          (is (not (str/includes? html "Convert to work"))))))))
 
 (deftest web-import-source-test
   (let [{:keys [handler ds]} (empty-temp-system)
         dev (db/upsert-category! ds {:name "Development"})
         fixture-path (.getPath (io/file (io/resource "fixtures/ical/basic.ics")))]
-    (testing "home page links to import source settings"
-      (let [html (response-body (request handler "/"))]
-        (is (str/includes? html "/import-sources"))
-        (is (str/includes? html "Import sources"))))
+    (testing "home page links to Settings instead of a standalone import page"
+      (let [html (response-body (request handler "/?view=month&date=2026-07-06"))]
+        (is (str/includes? html "href=\"/settings\""))
+        (is (not (str/includes? html "href=\"/import-sources\"")))))
 
-    (testing "import source page exposes add form"
-      (let [html (response-body (request handler "/import-sources"))]
+    (testing "legacy import source page redirects to settings"
+      (let [response (request handler "/import-sources")]
+        (is (= 303 (:status response)))
+        (is (= "/settings" (get-in response [:headers "location"])))))
+
+    (testing "settings page exposes import source add form"
+      (let [html (response-body (request handler "/settings"))]
         (is (str/includes? html "Add iCal source"))
         (is (str/includes? html "name=\"name\""))
         (is (str/includes? html "name=\"uri\""))
@@ -413,19 +508,19 @@
                               (str "kind=ical&name=Fixture%20calendar&uri="
                                    fixture-path
                                    "&fetch-interval-minutes=15"))
-            html (response-body (request handler "/import-sources"))]
+            html (response-body (request handler "/settings"))]
         (is (= 303 (:status response)))
-        (is (= "/import-sources" (get-in response [:headers "location"])))
+        (is (= "/settings" (get-in response [:headers "location"])))
         (is (str/includes? html "Fixture calendar"))
         (is (str/includes? html "/fetch"))))
 
     (testing "manual fetch imports the source and day page shows the snapshot"
-      (let [settings-html (response-body (request handler "/import-sources"))
+      (let [settings-html (response-body (request handler "/settings"))
             source-id (second (re-find #"/import-sources/(\d+)/fetch" settings-html))
             response (request handler :post (str "/import-sources/" source-id "/fetch") "")
             day-html (response-body (request handler "/days/2026-07-06"))]
         (is (= 303 (:status response)))
-        (is (= "/import-sources" (get-in response [:headers "location"])))
+        (is (= "/settings" (get-in response [:headers "location"])))
         (is (str/includes? day-html "Build"))
         (is (str/includes? day-html "09:00-10:00"))
         (is (str/includes? day-html "imported-block"))

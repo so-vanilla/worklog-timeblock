@@ -206,6 +206,38 @@
                (select-keys (db/get-break ds break-id)
                             [:start-minute :end-minute])))))))
 
+(deftest settings-and-day-status-test
+  (let [path (temp-db)
+        ds (db/datasource path)]
+    (migration/migrate! ds)
+
+    (testing "global settings have safe defaults and persist changes"
+      (is (= :fixed (db/break-mode ds)))
+      (is (= {:mode :complete-two-day
+              :weekdays #{6 7}}
+             (db/holiday-policy ds)))
+      (is (= :flexible (db/set-break-mode! ds :flexible)))
+      (is (= :flexible (db/break-mode (db/datasource path))))
+      (is (= {:mode :manual
+              :weekdays #{}}
+             (db/set-holiday-policy! ds {:mode :manual :weekdays #{}})))
+      (is (= {:mode :manual
+              :weekdays #{}}
+             (db/holiday-policy (db/datasource path)))))
+
+    (testing "day status overrides support single days and ranges"
+      (is (nil? (db/get-day-status-override ds "2026-07-20")))
+      (is (= {:date "2026-07-20" :status :holiday}
+             (db/upsert-day-status-override! ds "2026-07-20" :holiday)))
+      (is (= {:date "2026-07-21" :status :workday}
+             (db/upsert-day-status-override! ds "2026-07-21" :workday)))
+      (is (= [{:date "2026-07-20" :status :holiday}
+              {:date "2026-07-21" :status :workday}]
+             (db/day-status-overrides-between ds "2026-07-19" "2026-07-22")))
+      (db/delete-day-status-override! ds "2026-07-20")
+      (is (= [{:date "2026-07-21" :status :workday}]
+             (db/day-status-overrides-between ds "2026-07-19" "2026-07-22"))))))
+
 (deftest legacy-category-schema-migration-test
   (let [path (temp-db)
         ds (db/datasource path)]

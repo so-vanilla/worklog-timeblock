@@ -145,3 +145,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_breaks_rule_date
 
 CREATE INDEX IF NOT EXISTS idx_breaks_date
   ON breaks(date);
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS day_status_overrides (
+  date TEXT PRIMARY KEY,
+  status TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CHECK (status IN ('workday', 'holiday'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_day_status_overrides_date
+  ON day_status_overrides(date);

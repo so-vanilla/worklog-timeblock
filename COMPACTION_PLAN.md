@@ -379,6 +379,86 @@ find e2e-artifacts/zellij-tui-layout -maxdepth 2 -type f -name index.md -print |
 
 ## Roadmap
 
+### Approved Continuous Goal Sequence: 2026-07-19 Calendar, Settings, And Break Modes
+
+This sequence is approved for implementation and validation.
+
+User-confirmed constraints:
+
+- Paid leave is represented as holiday/non-work day. Do not add a separate PTO
+  state.
+- Import sources belong in Settings. A standalone import-sources page should not
+  remain as a visible destination.
+- Month edit mode defaults to inactive.
+- In inactive month mode, day clicks open `/days/YYYY-MM-DD`.
+- Week view day clicks also open `/days/YYYY-MM-DD`.
+- In active month edit mode, clicking a day shows workday/holiday choices.
+- Dragging across month cells selects a range for bulk workday/holiday updates,
+  intended for long holidays.
+
+Goal:
+
+- Add persistence and API support for app settings, break mode, holiday policy,
+  and day status overrides.
+- Add fixed/flexible break behavior:
+  - fixed mode materializes daily break rules and hides the day-level
+    `Break today` creation UI,
+  - flexible mode skips daily materialization and exposes day-level break
+    creation,
+  - breaks always stay outside work effort and the break category/convert UI is
+    removed.
+- Replace the old home list with a Days calendar screen supporting month/week
+  modes, status badges, inactive click-through, and active click/drag range
+  editing.
+- Treat confirmed ranges assigned to an `Unallocated` category as intentional
+  input, not as missing-time evidence for the 1-hour threshold.
+- Integrate import-source configuration into Settings.
+- Keep the full day workspace as the actual worklog input page.
+- Preserve and test selected confirmed-block boundary priority in the timeline.
+
+Done criteria:
+
+- DB tests cover settings and day status overrides.
+- API tests cover fixed/flexible break behavior and day status changes.
+- Web tests cover Settings integration, no visible standalone import-source
+  page, calendar links, and changed break controls.
+- Browser E2E covers three independent scroll panes, month inactive navigation,
+  month active drag-range workday/holiday update, week click navigation, and
+  selected-boundary priority.
+- Full gate passes:
+  - `devenv shell e2e-all`
+  - `devenv shell test`
+  - `devenv shell lint`
+  - `nix flake check`
+  - `git diff --check --cached`
+  - `git diff --check`
+  - `zellij --session wz-10 action list-tabs`
+- Commit and push to `origin/main`.
+
+Implementation status:
+
+- Done on 2026-07-19.
+- Added `app_settings` and `day_status_overrides`.
+- Added Web/API settings for break mode and holiday policy.
+- Added month/week Days calendar with status classification and edit-mode range
+  updates.
+- Moved import-source configuration into Settings; `/import-sources` redirects
+  to `/settings`.
+- Fixed mode materializes daily breaks; flexible mode exposes day-level break
+  creation.
+- Break category/convert UI was removed from the day screen.
+- Browser E2E covers inactive month click-through, active month drag range
+  update, week click-through, independent pane scrolling, and selected-boundary
+  priority.
+- Latest local validation before commit:
+  - `devenv shell e2e-all`: Clojure E2E 17 tests / 432 assertions, browser
+    24 cases / 149 assertions, zellij 8 cases / 220 assertions / 0 failures.
+  - `devenv shell test`: 32 tests / 614 assertions / 0 failures.
+  - `devenv shell lint`: errors 0 / warnings 0.
+  - `nix flake check`: success.
+  - `git diff --check`: success.
+  - `zellij --session wz-10 action list-tabs`: `Tab #1` only.
+
 Do not jump to calendar sync first. The highest-value next step remains app-side category/title-mapping management.
 
 ### Approved Continuous Goal Sequence

@@ -6,6 +6,10 @@
 
 (def builder rs/as-unqualified-lower-maps)
 
+(def valid-break-modes #{:fixed :flexible})
+(def valid-holiday-policy-modes #{:complete-two-day :two-day :manual})
+(def valid-day-statuses #{:workday :holiday})
+
 (defn datasource [path]
   (jdbc/get-datasource {:jdbcUrl (str "jdbc:sqlite:" path)}))
 
@@ -120,6 +124,14 @@
    :end-minute (:end_minute row)
    :break-rule-id (:break_rule_id row)
    :active? (db-bool (:active row))})
+
+(defn- row->setting [row]
+  {:key (:key row)
+   :value (:value row)})
+
+(defn- row->day-status-override [row]
+  {:date (:date row)
+   :status (keyword (:status row))})
 
 (declare get-title-mapping list-categories get-import-source get-import-run
          get-source-event get-source-event-by-identity get-break-rule get-break)
@@ -743,6 +755,141 @@
                     (:end-minute rule)
                     (:id rule)]))
   (breaks-by-date ds date))
+
+(defn get-setting [ds key]
+  (some-> (jdbc/execute-one! ds
+                             ["SELECT key, value
+                               FROM app_settings
+                               WHERE key = ?"
+                              (name key)]
+                             {:builder-fn builder})
+          row->setting))
+
+(defn upsert-setting! [ds key value]
+  (jdbc/execute! ds
+                 ["INSERT INTO app_settings (key, value)
+                   VALUES (?, ?)
+                   ON CONFLICT(key) DO UPDATE SET
+                     value = excluded.value,
+                     updated_at = CURRENT_TIMESTAMP"
+                  (name key)
+                  (str value)])
+  (get-setting ds key))
+
+(defn setting-value [ds key default]
+  (or (:value (get-setting ds key)) default))
+
+(defn- normalize-keyword [value]
+  (some-> value normalize-state keyword))
+
+(defn- normalize-break-mode [mode]
+  (let [mode (normalize-keyword mode)]
+    (when (contains? valid-break-modes mode)
+      mode)))
+
+(defn break-mode [ds]
+  (or (normalize-break-mode (setting-value ds :break-mode "fixed"))
+      :fixed))
+
+(defn set-break-mode! [ds mode]
+  (if-let [mode (normalize-break-mode mode)]
+    (do
+      (upsert-setting! ds :break-mode (name mode))
+      mode)
+    (throw (ex-info "Invalid break mode" {:mode mode}))))
+
+(defn- normalize-holiday-policy-mode [mode]
+  (let [mode (normalize-keyword mode)]
+    (when (contains? valid-holiday-policy-modes mode)
+      mode)))
+
+(defn- parse-weekday [value]
+  (let [value (cond
+                (integer? value) value
+                (string? value) (try
+                                  (parse-long (str/trim value))
+                                  (catch NumberFormatException _
+                                    nil))
+                :else nil)]
+    (when (and value (<= 1 value 7))
+      value)))
+
+(defn- normalize-weekdays [weekdays]
+  (let [items (cond
+                (nil? weekdays) []
+                (string? weekdays) (str/split weekdays #",")
+                (sequential? weekdays) weekdays
+                (set? weekdays) weekdays
+                :else [weekdays])]
+    (set (keep parse-weekday items))))
+
+(defn holiday-policy [ds]
+  (let [mode (or (normalize-holiday-policy-mode
+                  (setting-value ds :holiday-policy-mode "complete-two-day"))
+                 :complete-two-day)
+        stored-weekdays (normalize-weekdays
+                         (setting-value ds :holiday-weekdays "6,7"))
+        weekdays (case mode
+                   :complete-two-day #{6 7}
+                   :two-day (if (seq stored-weekdays) stored-weekdays #{6 7})
+                   :manual #{})]
+    {:mode mode
+     :weekdays weekdays}))
+
+(defn set-holiday-policy! [ds {:keys [mode weekdays]}]
+  (if-let [mode (normalize-holiday-policy-mode mode)]
+    (let [weekdays (case mode
+                     :complete-two-day #{6 7}
+                     :two-day (let [weekdays (normalize-weekdays weekdays)]
+                                (if (seq weekdays) weekdays #{6 7}))
+                     :manual #{})]
+      (upsert-setting! ds :holiday-policy-mode (name mode))
+      (upsert-setting! ds :holiday-weekdays (str/join "," (sort weekdays)))
+      {:mode mode
+       :weekdays weekdays})
+    (throw (ex-info "Invalid holiday policy mode" {:mode mode}))))
+
+(defn- normalize-day-status [status]
+  (let [status (normalize-keyword status)]
+    (when (contains? valid-day-statuses status)
+      status)))
+
+(defn get-day-status-override [ds date]
+  (some-> (jdbc/execute-one! ds
+                             ["SELECT date, status
+                               FROM day_status_overrides
+                               WHERE date = ?"
+                              date]
+                             {:builder-fn builder})
+          row->day-status-override))
+
+(defn upsert-day-status-override! [ds date status]
+  (if-let [status (normalize-day-status status)]
+    (do
+      (jdbc/execute! ds
+                     ["INSERT INTO day_status_overrides (date, status)
+                       VALUES (?, ?)
+                       ON CONFLICT(date) DO UPDATE SET
+                         status = excluded.status,
+                         updated_at = CURRENT_TIMESTAMP"
+                      date
+                      (name status)])
+      (get-day-status-override ds date))
+    (throw (ex-info "Invalid day status" {:status status}))))
+
+(defn delete-day-status-override! [ds date]
+  (jdbc/execute! ds ["DELETE FROM day_status_overrides WHERE date = ?" date])
+  nil)
+
+(defn day-status-overrides-between [ds start-date end-date]
+  (mapv row->day-status-override
+        (jdbc/execute! ds
+                       ["SELECT date, status
+                         FROM day_status_overrides
+                         WHERE date >= ? AND date <= ?
+                         ORDER BY date"
+                        start-date end-date]
+                       {:builder-fn builder})))
 
 (defn work-log-by-source [ds source-id external-id]
   (some-> (jdbc/execute-one! ds

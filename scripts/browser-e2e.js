@@ -223,6 +223,12 @@ async function waitForBlockText(page, selector, expected) {
   );
 }
 
+async function centerOf(locator) {
+  const box = await locator.boundingBox();
+  assert(Boolean(box), "locator should have a box");
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2, box };
+}
+
 async function run() {
   await ensureChromium();
 
@@ -257,6 +263,48 @@ async function run() {
     const ids = await seed(baseUrl);
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 1440, height: 920 } });
+
+    await page.goto(`${baseUrl}/?view=month&date=2026-07-06`);
+    assert(await page.locator(".days-calendar[data-calendar-view='month'][data-calendar-edit='inactive']").count() === 1, "month calendar should render in inactive edit mode by default");
+    assert(await page.locator(".calendar-day[data-date='2026-07-06'] a[href='/days/2026-07-06']").count() === 1, "inactive month day should link to the day workspace");
+    await Promise.all([
+      page.waitForURL(`${baseUrl}/days/2026-07-06`),
+      page.locator(".calendar-day[data-date='2026-07-06'] a").click(),
+    ]);
+
+    await page.goto(`${baseUrl}/?view=week&date=2026-07-06`);
+    assert(await page.locator(".week-calendar[data-calendar-view='week']").count() === 1, "week calendar should render");
+    assert(await page.locator(".week-day-card[data-date='2026-07-07'] a[href='/days/2026-07-07']").count() === 1, "week day should link to the day workspace");
+    await Promise.all([
+      page.waitForURL(`${baseUrl}/days/2026-07-07`),
+      page.locator(".week-day-card[data-date='2026-07-07'] a").click(),
+    ]);
+
+    await page.goto(`${baseUrl}/?view=month&date=2026-07-06&edit=1`);
+    assert(await page.locator(".days-calendar[data-calendar-view='month'][data-calendar-edit='active']").count() === 1, "active month edit mode should render");
+    const july13 = await centerOf(page.locator(".calendar-day[data-date='2026-07-13']"));
+    const july15 = await centerOf(page.locator(".calendar-day[data-date='2026-07-15']"));
+    await page.mouse.move(july13.x, july13.y);
+    await page.mouse.down();
+    await page.mouse.move(july15.x, july15.y);
+    await page.mouse.up();
+    assert(await page.locator("#range-action-popover:not([hidden])").count() === 1, "month drag should open workday/holiday choices");
+    assert(await page.locator("#day-status-range-form input[name='start-date']").inputValue() === "2026-07-13", "drag range should set start date");
+    assert(await page.locator("#day-status-range-form input[name='end-date']").inputValue() === "2026-07-15", "drag range should set end date");
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: "domcontentloaded" }),
+      page.locator("#day-status-range-form button[value='holiday']").click(),
+    ]);
+    assert(await page.locator(".calendar-day.day-status-holiday[data-date='2026-07-13']").count() === 1, "bulk holiday should update first selected date");
+    assert(await page.locator(".calendar-day.day-status-holiday[data-date='2026-07-15']").count() === 1, "bulk holiday should update last selected date");
+
+    await page.goto(`${baseUrl}/import-sources`);
+    await page.waitForURL(`${baseUrl}/settings`);
+    assert(await page.locator("form[action='/settings/break-mode']").count() === 1, "settings should own break mode form");
+    assert(await page.locator("form[action='/settings/holiday-policy']").count() === 1, "settings should own holiday policy form");
+    assert(await page.locator(".import-sources-panel form[action='/import-sources']").count() === 1, "settings should own import source form");
+    assert(await page.locator("a[href='/import-sources']").count() === 0, "standalone import source page should not be linked from settings");
+
     await page.goto(`${baseUrl}/days/2026-07-06`);
 
     const ratio = await page.locator(".timeline-pane").evaluate((pane) => {
@@ -266,6 +314,28 @@ async function run() {
     assert(ratio >= 0.28 && ratio <= 0.36, `timeline width ratio should be about one third, got ${ratio}`);
     assert(await page.locator(".entry-pane").count() === 1, "entry pane should exist");
     assert(await page.locator(".summary-pane").count() === 1, "summary pane should exist");
+    const paneScroll = await page.locator(".day-workspace").evaluate(() => {
+      const timeline = document.querySelector(".timeline-pane");
+      const entry = document.querySelector(".entry-pane");
+      const summary = document.querySelector(".summary-pane");
+      window.scrollTo(0, 0);
+      timeline.scrollTop = 0;
+      entry.scrollTop = 0;
+      summary.scrollTop = 0;
+      entry.scrollTop = Math.min(160, Math.max(0, entry.scrollHeight - entry.clientHeight));
+      return {
+        bodyScroll: window.scrollY,
+        timelineScroll: timeline.scrollTop,
+        entryScroll: entry.scrollTop,
+        summaryScroll: summary.scrollTop,
+        overflow: [timeline, entry, summary].map((pane) => getComputedStyle(pane).overflowY),
+      };
+    });
+    assert(paneScroll.overflow.every((value) => value === "auto"), `workspace panes should have independent auto overflow: ${JSON.stringify(paneScroll)}`);
+    assert(paneScroll.entryScroll > 0, "entry pane should scroll independently when it overflows");
+    assert(paneScroll.timelineScroll === 0, "entry pane scrolling should not move timeline pane");
+    assert(paneScroll.summaryScroll === 0, "entry pane scrolling should not move summary pane");
+    assert(paneScroll.bodyScroll === 0, "workspace pane scrolling should not scroll the body");
     assert(await page.locator(".day-navigation").count() === 1, "day navigation should exist");
     assert(await page.locator(".day-navigation a[href='/days/2026-07-05']").count() === 1, "previous day link should exist");
     assert(await page.locator(".day-navigation a[href='/days/2026-07-07']").count() === 1, "next day link should exist");
@@ -285,7 +355,8 @@ async function run() {
     assert(await page.locator(".timeline-block.break-block").count() === 1, "break should render on timeline");
     assert((await page.locator(".timeline-block.break-block").textContent()).includes("Lunch"), "break timeline block should show title");
     assert(await page.locator(".break-row form[action*='/range']").count() === 1, "break range form should exist");
-    assert(await page.locator(".break-row form[action*='/convert']").count() === 1, "break convert form should exist");
+    assert(await page.locator(".break-row form[action*='/convert']").count() === 0, "break convert form should not be exposed");
+    assert(!(await page.locator(".attendance-panel").textContent()).includes("Convert to work"), "break category conversion should not be visible");
     assert(await page.locator(".summary-pane > .attendance-panel").count() === 1, "attendance should be first right-pane panel");
     const paneOrder = await page.locator(".summary-pane > .input-panel").evaluateAll((panels) =>
       panels.slice(0, 3).map((panel) =>
@@ -469,6 +540,18 @@ async function run() {
     await waitForBlockText(page, buildSelector, "09:45-10:45");
     assert((await page.locator(buildSelector).textContent()).includes("09:45-10:45"), "shift bottom edge drag should shrink the block");
 
+    await page.locator(buildSelector).click();
+    box = await timelineBox(page);
+    const selectedBuildBox = await page.locator(buildSelector).boundingBox();
+    assert(Boolean(selectedBuildBox), "selected build block should have geometry");
+    const outsideSelectedLaneX = box.x + box.width * 0.96;
+    await page.mouse.move(outsideSelectedLaneX, selectedBuildBox.y + selectedBuildBox.height - 1);
+    await page.mouse.down();
+    await page.mouse.move(outsideSelectedLaneX, yForMinute(box, 630));
+    await page.mouse.up();
+    await waitForBlockText(page, buildSelector, "09:45-10:30");
+    assert((await page.locator(buildSelector).textContent()).includes("09:45-10:30"), "selected boundary drag should resize the selected block even outside its lane");
+
     const leftSelector = `.confirmed-block[data-worklog-id='${ids.boundaryLeftId}']`;
     const rightSelector = `.confirmed-block[data-worklog-id='${ids.boundaryRightId}']`;
     await dragConfirmedBlock(page, leftSelector, "bottom", 1305);
@@ -479,14 +562,14 @@ async function run() {
     await dragConfirmedBlock(page, buildSelector, "middle", 795);
     assert(await page.locator(".timeline-warning-bubble:not([hidden])").count() === 1, "overlap drag should show warning bubble");
     assert((await page.locator(".timeline-warning-bubble").textContent()).includes("Overlaps confirmed work"), "warning bubble should explain overlap");
-    assert((await page.locator(buildSelector).textContent()).includes("09:45-10:45"), "overlap drag should not save the move");
+    assert((await page.locator(buildSelector).textContent()).includes("09:45-10:30"), "overlap drag should not save the move");
 
     await dragConfirmedBlock(page, buildSelector, "bottom", 690, { shift: true });
     assert(await page.locator(".timeline-warning-bubble:not([hidden])").count() === 1, "shift expansion should show warning bubble");
     assert((await page.locator(".timeline-warning-bubble").textContent()).includes("only shrinks"), "shift expansion warning should explain shrink-only behavior");
-    assert((await page.locator(buildSelector).textContent()).includes("09:45-10:45"), "shift expansion should not save");
+    assert((await page.locator(buildSelector).textContent()).includes("09:45-10:30"), "shift expansion should not save");
 
-    console.log(`browser-e2e cases=16 assertions=${assertions} failures=0`);
+    console.log(`browser-e2e cases=24 assertions=${assertions} failures=0`);
   } finally {
     if (browser) {
       await browser.close();

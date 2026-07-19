@@ -8,7 +8,7 @@
             [worklog-timeblock.importer.core :as importer]
             [worklog-timeblock.web.pages :as pages])
   (:import [java.net URLDecoder]
-           [java.time LocalTime]))
+           [java.time LocalDate LocalTime]))
 
 (def default-summary-options
   {:rounding-minutes 15
@@ -17,7 +17,8 @@
 
 (def valid-states #{:confirmed :uncategorized :excluded})
 
-(declare create-work-log! normalize-bool)
+(declare active-edit? calendar-dates create-work-log! date-string day-of-week-value
+         normalize-bool normalize-view reference-date)
 
 (defn- parse-json-body [request]
   (if-let [body (:body request)]
@@ -42,6 +43,17 @@
                         (decode-form-component v)])))
               (str/split content #"&"))))
     {}))
+
+(defn- parse-query-params [request]
+  (let [content (:query-string request)]
+    (if (str/blank? content)
+      {}
+      (into {}
+            (map (fn [part]
+                   (let [[k v] (str/split part #"=" 2)]
+                     [(keyword (decode-form-component k))
+                      (decode-form-component v)])))
+            (str/split content #"&")))))
 
 (defn- json-response
   ([body] (json-response 200 body))
@@ -84,9 +96,32 @@
          :other-category-id (or (db/other-category-id ds) "other")
          :assignable-category-ids (db/summarizable-category-ids ds)))
 
+(defn- rule->virtual-break [date rule]
+  {:id nil
+   :date date
+   :title (:title rule)
+   :start-minute (:start-minute rule)
+   :end-minute (:end-minute rule)
+   :break-rule-id (:id rule)
+   :active? true})
+
+(defn- summary-breaks [ds date break-mode]
+  (let [breaks (db/breaks-by-date ds date)]
+    (if (= :fixed break-mode)
+      (let [materialized-rule-ids (set (keep :break-rule-id breaks))
+            virtual-breaks (->> (db/list-break-rules ds)
+                                (filter :enabled?)
+                                (remove #(contains? materialized-rule-ids (:id %)))
+                                (mapv #(rule->virtual-break date %)))]
+        (vec (sort-by (juxt :start-minute #(or (:id %) 0))
+                      (concat breaks virtual-breaks))))
+      breaks)))
+
 (defn- day-state [ds date]
-  (db/materialize-breaks-for-date! ds date)
-  (let [work-logs (db/work-logs-by-date ds date)
+  (let [break-mode (db/break-mode ds)]
+    (when (= :fixed break-mode)
+      (db/materialize-breaks-for-date! ds date))
+    (let [work-logs (db/work-logs-by-date ds date)
         source-events (db/source-events-by-date ds date)
         attendance (db/get-attendance ds date)
         breaks (db/breaks-by-date ds date)
@@ -94,13 +129,87 @@
                                               :attendance attendance
                                               :breaks breaks)
                                        work-logs)]
+      {:date date
+       :break-mode break-mode
+       :work-logs work-logs
+       :source-events source-events
+       :attendance attendance
+       :breaks breaks
+       :summary (update summary :warnings into
+                        (summary/source-diff-warnings work-logs source-events))})))
+
+(defn- holiday-policy-json [policy]
+  {:mode (name (:mode policy))
+   :weekdays (vec (sort (:weekdays policy)))})
+
+(defn- settings-json [ds]
+  {:break-mode (name (db/break-mode ds))
+   :holiday-policy (holiday-policy-json (db/holiday-policy ds))})
+
+(defn- holiday-or-workday [policy override date]
+  (cond
+    (:status override) (:status override)
+    (contains? (:weekdays policy) (day-of-week-value date)) :holiday
+    :else :workday))
+
+(defn- future-date? [date today]
+  (.isAfter (LocalDate/parse date) today))
+
+(defn- meaningful-work-log? [log]
+  (not= :excluded (:state log)))
+
+(defn- classify-calendar-status [date today base-status attendance work-logs summary]
+  (if (= :holiday base-status)
+    :holiday
+    (let [unallocated (get-in summary [:attendance :unallocated-minutes] 0)]
+      (cond
+        (>= unallocated 60) :missing
+        (and (nil? attendance)
+             (not (future-date? date today))
+             (not-any? meaningful-work-log? work-logs)) :missing
+        (future-date? date today) :workday
+        :else :done))))
+
+(defn- calendar-day-state [ds policy today date]
+  (let [break-mode (db/break-mode ds)
+        work-logs (db/work-logs-by-date ds date)
+        attendance (db/get-attendance ds date)
+        breaks (summary-breaks ds date break-mode)
+        summary (summary/summarize-day (assoc (summary-options ds)
+                                              :attendance attendance
+                                              :breaks breaks)
+                                       work-logs)
+        override (db/get-day-status-override ds date)
+        base-status (holiday-or-workday policy override date)
+        status (classify-calendar-status date today base-status attendance work-logs summary)]
     {:date date
-     :work-logs work-logs
-     :source-events source-events
-     :attendance attendance
-     :breaks breaks
-     :summary (update summary :warnings into
-                      (summary/source-diff-warnings work-logs source-events))}))
+     :day-of-month (.getDayOfMonth (LocalDate/parse date))
+     :weekday (day-of-week-value date)
+     :status (name status)
+     :base-status (name base-status)
+     :override-status (some-> (:status override) name)
+     :unallocated-minutes (get-in summary [:attendance :unallocated-minutes] 0)
+     :confirmed-work-minutes (get-in summary [:attendance :confirmed-work-minutes] 0)
+     :break-minutes (get-in summary [:attendance :break-minutes] 0)
+     :category-hours (:category-hours summary)
+     :category-minutes (:category-minutes summary)}))
+
+(defn- calendar-state [ds request]
+  (let [params (parse-query-params request)
+        view (normalize-view (:view params))
+        date (reference-date params)
+        dates (calendar-dates view date)
+        categories (db/list-categories ds)
+        policy (db/holiday-policy ds)
+        today (LocalDate/now)]
+    {:view view
+     :edit? (active-edit? (:edit params))
+     :reference-date (date-string date)
+     :month (subs (date-string (.withDayOfMonth date 1)) 0 7)
+     :break-mode (name (db/break-mode ds))
+     :holiday-policy (holiday-policy-json policy)
+     :days (mapv #(calendar-day-state ds policy today %) dates)
+     :categories categories}))
 
 (defn- parse-id [value]
   (cond
@@ -138,6 +247,55 @@
 
 (defn- valid-date-string? [value]
   (boolean (re-matches #"\d{4}-\d{2}-\d{2}" (or value ""))))
+
+(defn- parse-local-date [value]
+  (when (valid-date-string? value)
+    (try
+      (LocalDate/parse value)
+      (catch Exception _
+        nil))))
+
+(defn- date-string [date]
+  (str date))
+
+(defn- dates-between [start-date end-date]
+  (let [start (parse-local-date start-date)
+        end (parse-local-date end-date)]
+    (when (and start end)
+      (let [[start end] (if (.isAfter start end) [end start] [start end])]
+        (loop [date start
+               dates []]
+          (if (.isAfter date end)
+            dates
+            (recur (.plusDays date 1) (conj dates (date-string date)))))))))
+
+(defn- normalize-view [value]
+  (if (= "week" value) "week" "month"))
+
+(defn- active-edit? [value]
+  (#{"1" "true" "active"} (str/lower-case (or value ""))))
+
+(defn- reference-date [params]
+  (or (parse-local-date (:date params))
+      (some-> (:month params) (str "-01") parse-local-date)
+      (LocalDate/now)))
+
+(defn- month-dates [date]
+  (let [start (.withDayOfMonth date 1)
+        end (.withDayOfMonth date (.lengthOfMonth date))]
+    (dates-between (date-string start) (date-string end))))
+
+(defn- week-dates [date]
+  (let [start (.minusDays date (dec (.getValue (.getDayOfWeek date))))]
+    (mapv #(date-string (.plusDays start %)) (range 7))))
+
+(defn- calendar-dates [view date]
+  (case view
+    "week" (week-dates date)
+    (month-dates date)))
+
+(defn- day-of-week-value [date]
+  (.getValue (.getDayOfWeek (LocalDate/parse date))))
 
 (defn- safe-redirect-path [value fallback]
   (let [value (normalize-text value)]
@@ -647,7 +805,7 @@
       error
       (do
         (db/create-import-source! ds (:attrs normalized))
-        (redirect-response "/import-sources")))))
+        (redirect-response "/settings")))))
 
 (defn- fetch-import-source-response! [ds id]
   (if-let [source (db/get-import-source ds id)]
@@ -665,7 +823,83 @@
 (defn- fetch-import-source-form-response! [ds id]
   (let [response (fetch-import-source-response! ds id)]
     (if (= 200 (:status response))
-      (redirect-response "/import-sources")
+      (redirect-response "/settings")
+      response)))
+
+(defn- update-settings-response! [ds attrs]
+  (try
+    (when (contains? attrs :break-mode)
+      (db/set-break-mode! ds (:break-mode attrs)))
+    (when (or (contains? attrs :holiday-policy-mode)
+              (contains? attrs :holiday-weekdays))
+      (db/set-holiday-policy!
+       ds
+       {:mode (:holiday-policy-mode attrs)
+        :weekdays (:holiday-weekdays attrs)}))
+    (json-response (settings-json ds))
+    (catch Exception error
+      (json-response 400 {:error "invalid-settings"
+                          :reason (.getMessage error)}))))
+
+(defn- update-break-mode-form-response! [ds form]
+  (try
+    (db/set-break-mode! ds (:break-mode form))
+    (redirect-response (safe-redirect-path (:redirect-to form) "/settings"))
+    (catch Exception error
+      (json-response 400 {:error "invalid-settings"
+                          :reason (.getMessage error)}))))
+
+(defn- holiday-weekdays-from-form [form]
+  (keep (fn [weekday]
+          (when (contains? form (keyword (str "weekday-" weekday)))
+            weekday))
+        (range 1 8)))
+
+(defn- update-holiday-policy-form-response! [ds form]
+  (try
+    (db/set-holiday-policy!
+     ds
+     {:mode (:holiday-policy-mode form)
+      :weekdays (holiday-weekdays-from-form form)})
+    (redirect-response (safe-redirect-path (:redirect-to form) "/settings"))
+    (catch Exception error
+      (json-response 400 {:error "invalid-settings"
+                          :reason (.getMessage error)}))))
+
+(defn- normalize-day-status-range [attrs]
+  (let [start-date (:start-date attrs)
+        end-date (:end-date attrs)
+        dates (dates-between start-date end-date)
+        status (some-> (:status attrs) normalize-state name)]
+    (cond
+      (empty? dates)
+      {:error (json-response 400 {:error "invalid-day-status-range"
+                                  :reason "invalid-date"})}
+
+      (not (#{"workday" "holiday"} status))
+      {:error (json-response 400 {:error "invalid-day-status-range"
+                                  :reason "invalid-status"})}
+
+      :else
+      {:dates dates
+       :status (keyword status)})))
+
+(defn- update-day-status-range-response! [ds attrs]
+  (let [normalized (normalize-day-status-range attrs)]
+    (if-let [error (:error normalized)]
+      error
+      (do
+        (doseq [date (:dates normalized)]
+          (db/upsert-day-status-override! ds date (:status normalized)))
+        (json-response {:updated (count (:dates normalized))
+                        :status (name (:status normalized))
+                        :start-date (first (:dates normalized))
+                        :end-date (last (:dates normalized))})))))
+
+(defn- update-day-status-range-form-response! [ds form]
+  (let [response (update-day-status-range-response! ds form)]
+    (if (= 200 (:status response))
+      (redirect-response (safe-redirect-path (:redirect-to form) "/"))
       response)))
 
 (defn- source-event->candidate [source-event]
@@ -713,8 +947,8 @@
 (defn app [{:keys [ds]}]
   (ring/ring-handler
    (ring/router
-    [["/" {:get (fn [_]
-                  (html-response (pages/home-page (db/list-dates ds))))}]
+    [["/" {:get (fn [request]
+                  (html-response (pages/days-page (calendar-state ds request))))}]
      ["/days"
       {:post (fn [request]
                (let [form (parse-form-body request)
@@ -729,7 +963,18 @@
                                                (db/list-categories ds)))))}]
      ["/settings"
       {:get (fn [_]
-              (html-response (pages/settings-page (db/list-break-rules ds))))}]
+              (html-response (pages/settings-page {:break-rules (db/list-break-rules ds)
+                                                   :import-sources (db/list-import-sources ds)
+                                                   :settings (settings-json ds)})))}]
+     ["/settings/break-mode"
+      {:post (fn [request]
+               (update-break-mode-form-response! ds (parse-form-body request)))}]
+     ["/settings/holiday-policy"
+      {:post (fn [request]
+               (update-holiday-policy-form-response! ds (parse-form-body request)))}]
+     ["/day-status-ranges"
+      {:post (fn [request]
+               (update-day-status-range-form-response! ds (parse-form-body request)))}]
      ["/days/:date/worklogs"
       {:post (fn [request]
                (let [date (get-in request [:path-params :date])
@@ -802,7 +1047,7 @@
                 (parse-form-body request)))}]
      ["/import-sources"
       {:get (fn [_]
-              (html-response (pages/import-sources-page (db/list-import-sources ds))))
+              (redirect-response "/settings"))
        :post (fn [request]
                (create-import-source-form-response! ds (parse-form-body request)))}]
      ["/import-sources/:id/fetch"
@@ -874,6 +1119,16 @@
                 (if (db/get-import-source ds id)
                   (json-response {:import-runs (db/list-import-runs ds id)})
                   (json-response 404 {:error "not-found"}))))}]
+     ["/api/settings"
+      {:get (fn [_] (json-response (settings-json ds)))
+       :put (fn [request]
+              (update-settings-response! ds (parse-json-body request)))}]
+     ["/api/calendar"
+      {:get (fn [request]
+              (json-response (calendar-state ds request)))}]
+     ["/api/day-status-ranges"
+      {:post (fn [request]
+               (update-day-status-range-response! ds (parse-json-body request)))}]
      ["/api/days/:date"
       {:get (fn [request]
               (json-response (select-keys (day-state ds (get-in request [:path-params :date]))
