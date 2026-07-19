@@ -1061,6 +1061,47 @@ Implementation status:
   - `git diff --check && git diff --check --cached`: success.
   - `zellij --session wz-10 action list-tabs`: `Tab #1` only.
 
+## Completed Work: Work Log Title Suggestions
+
+Status: Done in this session.
+
+User request:
+
+- In the day work-log input form, show title suggestions while typing.
+- Suggestions must come from past manual/confirmed work-log input, fuzzy-find
+  style.
+- Clicking a suggestion completes title and category.
+- Suggestion rows must show category.
+- Clicking outside or pressing Enter with no active suggestion keeps the typed
+  value and must not complete from a suggestion.
+- While suggestions are open, Up/Down activates selection. Initial state is
+  visible but inactive. Enter applies only the active suggestion.
+
+Implementation:
+
+- Added a `work_logs`-backed DB query, grouped by title/category, excluding
+  `excluded` state and non-assignable inactive categories.
+- Added `GET /api/worklog-title-suggestions?q=...&limit=8`.
+- Added title suggestion DOM under the title input without reusing import
+  `candidate` naming.
+- Added browser logic with default inactive selection, keyboard navigation,
+  click-to-apply, outside-click close, Escape close, stale fetch protection,
+  and IME-safe Enter behavior.
+- Added DB/API/Web/browser E2E tests before completion.
+
+Validation:
+
+- `devenv shell e2e-all`: Clojure E2E 19 tests / 560 assertions, browser
+  29 cases / 213 assertions, zellij 8 cases / 230 assertions / 0 failures.
+- `devenv shell test`: 36 tests / 790 assertions / 0 failures.
+- `devenv shell lint`: errors 0 / warnings 0.
+- `nix flake check`: success.
+- `nix run --no-warn-dirty . -- --db <empty-temp-db>` smoke:
+  5 assertions / 0 failures.
+- `git diff --check`: success.
+- `git diff --check --cached`: success.
+- `zellij --session wz-10 action list-tabs`: `Tab #1` only.
+
 ## Known Remaining Work
 
 Not implemented yet:

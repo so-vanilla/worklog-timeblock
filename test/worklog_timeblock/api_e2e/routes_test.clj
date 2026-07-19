@@ -222,6 +222,113 @@
         (is (= "invalid-time-range" (:reason (parse-body response))))
         (is (= [] (:work-logs (parse-body (request handler :get "/api/days/2026-07-08")))))))))
 
+(deftest api-title-suggestions-e2e-test
+  (let [{:keys [handler ds]} (empty-temp-system)
+        dev (db/upsert-category! ds {:name "Development"})
+        meetings (db/upsert-category! ds {:name "Meetings"})
+        engineering (db/upsert-category! ds {:name "Engineering"})
+        backend (db/upsert-category! ds {:name "Backend" :parent-id (:id engineering)})]
+    (db/upsert-title-mapping! ds {:title "Mapping only" :state :confirmed :category-id (:id dev)})
+    (doseq [work-log [{:date "2026-07-01"
+                       :title "Build API"
+                       :start-minute 540
+                       :end-minute 600
+                       :state :confirmed
+                       :category-id (:id dev)}
+                      {:date "2026-07-02"
+                       :title "Build API"
+                       :start-minute 600
+                       :end-minute 660
+                       :state :confirmed
+                       :category-id (:id dev)}
+                      {:date "2026-07-03"
+                       :title "Backend planning"
+                       :start-minute 660
+                       :end-minute 720
+                       :state :confirmed
+                       :category-id (:id backend)}
+                      {:date "2026-07-04"
+                       :title "Design sync"
+                       :start-minute 720
+                       :end-minute 780
+                       :state :confirmed
+                       :category-id (:id meetings)}
+                      {:date "2026-07-05"
+                       :title "Loose task"
+                       :start-minute 780
+                       :end-minute 840
+                       :state :uncategorized}
+                      {:date "2026-07-06"
+                       :title "Excluded lunch"
+                       :start-minute 840
+                       :end-minute 900
+                       :state :excluded
+                       :category-id (:id meetings)}
+                      {:date "2026-07-07"
+                       :title "Parent planning"
+                       :start-minute 900
+                       :end-minute 960
+                       :state :confirmed
+                       :category-id (:id engineering)}]]
+      (db/insert-work-log! ds work-log))
+
+    (testing "endpoint returns fuzzy suggestions with category metadata"
+      (let [response (request handler :get "/api/worklog-title-suggestions?q=bapi")
+            suggestions (:suggestions (parse-body response))
+            first-suggestion (first suggestions)]
+        (is (= 200 (:status response)))
+        (is (<= 1 (count suggestions)))
+        (is (= "Build API" (:title first-suggestion)))
+        (is (= (:id dev) (:category-id first-suggestion)))
+        (is (= "Development" (:category-name first-suggestion)))
+        (is (= "confirmed" (:state first-suggestion)))
+        (is (= "subsequence" (:match-kind first-suggestion)))
+        (is (= "work-logs" (:source first-suggestion)))
+        (is (= 2 (:use-count first-suggestion)))
+        (is (= "2026-07-02" (:last-used-date first-suggestion)))))
+
+    (testing "endpoint includes parent path and uncategorized suggestions"
+      (let [backend-suggestion (first (:suggestions
+                                       (parse-body (request handler :get
+                                                            "/api/worklog-title-suggestions?q=plan"))))
+            loose-suggestion (first (:suggestions
+                                     (parse-body (request handler :get
+                                                          "/api/worklog-title-suggestions?q=loose"))))]
+        (is (= "Backend planning" (:title backend-suggestion)))
+        (is (= "Engineering / Backend" (:category-name backend-suggestion)))
+        (is (= (:id backend) (:category-id backend-suggestion)))
+        (is (= "Loose task" (:title loose-suggestion)))
+        (is (nil? (:category-id loose-suggestion)))
+        (is (= "Uncategorized" (:category-name loose-suggestion)))))
+
+    (testing "blank query and limit are bounded"
+      (is (= [] (:suggestions (parse-body (request handler :get
+                                                   "/api/worklog-title-suggestions?q=")))))
+      (is (= 1 (count (:suggestions (parse-body (request handler :get
+                                                         "/api/worklog-title-suggestions?q=i&limit=1"))))))
+      (is (<= (count (:suggestions (parse-body (request handler :get
+                                                        "/api/worklog-title-suggestions?q=i&limit=100"))))
+              20)))
+
+    (testing "title mappings, excluded logs, imported drafts, and parents do not leak into suggestions"
+      (let [import-response (request handler :post "/api/candidates/import"
+                                     {:events [{:source-id "ical:test"
+                                                :external-id "evt-imported-draft"
+                                                :title "Imported draft"
+                                                :starts-at "2026-07-08T09:00+09:00"
+                                                :ends-at "2026-07-08T10:00+09:00"
+                                                :timezone "Asia/Tokyo"
+                                                :updated-at "2026-07-08T00:00:00Z"}]})
+            titles (set (map :title (:suggestions
+                                     (parse-body (request handler :get
+                                                          "/api/worklog-title-suggestions?q=i&limit=20")))))]
+        (is (= 200 (:status import-response)))
+        (is (= 1 (:work-logs-created (parse-body import-response))))
+        (is (not (contains? titles "Mapping only")))
+        (is (not (contains? titles "Excluded lunch")))
+        (is (not (contains? titles "Imported draft")))
+        (is (not (contains? titles "Parent planning")))))))
+
 (deftest api-category-hierarchy-e2e-test
   (let [{:keys [handler]} (empty-temp-system)]
     (testing "parent categories are visible but not assignable after a child is created"

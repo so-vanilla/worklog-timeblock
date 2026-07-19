@@ -25,6 +25,7 @@
        ".workspace-grid{display:grid;grid-template-columns:minmax(280px,.95fr) minmax(340px,1.25fr) minmax(300px,.85fr);min-height:0;}"
        ".timeline-pane,.entry-pane,.summary-pane{min-width:0;height:100%;overflow:auto;padding:18px 22px 28px;}.entry-pane,.summary-pane{border-left:1px solid var(--line);background:var(--surface);}"
        ".input-panel{display:grid;gap:10px;margin:0 0 18px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);}.input-grid{display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:8px;}.input-grid .wide{grid-column:1/-1;}.inline-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0;}.inline-form input{min-width:160px;}"
+       ".title-suggestion-wrap{position:relative;}.title-suggestion-wrap input{width:100%;}.title-suggestion-list{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:26;display:grid;gap:2px;max-height:220px;overflow:auto;padding:6px;border:1px solid var(--line);border-radius:7px;background:#fff;box-shadow:0 12px 30px rgba(23,32,42,.16);}.title-suggestion-list[hidden]{display:none;}.title-suggestion-option{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;width:100%;border:0;border-radius:5px;background:#fff;color:var(--text);padding:7px 8px;text-align:left;}.title-suggestion-option.active{background:#e6f5f3;}.title-suggestion-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:650;}.title-suggestion-category{color:var(--muted);font-size:12px;white-space:nowrap;}"
        ".draft-summary-preview{min-height:24px;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;}"
        ".day-timeline{display:grid;grid-template-columns:48px minmax(160px,1fr);gap:10px;height:calc(100vh - 142px);min-height:640px;max-height:1080px;}.timeline-hours{position:relative;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;}.timeline-hour-label{position:absolute;right:0;transform:translateY(-50%);}"
        ".timeline-track{position:relative;min-height:100%;border:1px solid var(--line);border-radius:8px;background:repeating-linear-gradient(to bottom,#fff 0,#fff calc(100% / 24 - 1px),#e8edf3 calc(100% / 24 - 1px),#e8edf3 calc(100% / 24));touch-action:none;overflow:hidden;}"
@@ -335,7 +336,12 @@
        (escape-html date) "/worklogs\">"
        "<h2 class=\"pane-title\">Add work log</h2>"
        "<div class=\"input-grid\">"
-       "<input class=\"wide\" name=\"title\" placeholder=\"Title\">"
+       "<div class=\"title-suggestion-wrap wide\">"
+       "<input name=\"title\" placeholder=\"Title\" autocomplete=\"off\""
+       " aria-autocomplete=\"list\" aria-controls=\"title-suggestion-list\""
+       " aria-expanded=\"false\">"
+       "<div id=\"title-suggestion-list\" class=\"title-suggestion-list\""
+       " role=\"listbox\" hidden></div></div>"
        "<input type=\"time\" name=\"start-time\" value=\"09:00\">"
        "<input type=\"time\" name=\"end-time\" value=\"10:00\">"
        (category-select categories nil)
@@ -895,7 +901,8 @@
   const warningBubble = document.querySelector('.timeline-warning-bubble');
   const preview = document.getElementById('draft-summary-preview');
   const menu = document.getElementById('candidate-menu');
-  if (!form || !track || !entryPane || !selection || !warningBubble || !preview || !menu) return;
+  const titleSuggestionList = document.getElementById('title-suggestion-list');
+  if (!form || !track || !entryPane || !selection || !warningBubble || !preview || !menu || !titleSuggestionList) return;
   const startInput = form.querySelector(\"input[name='start-time']\");
   const endInput = form.querySelector(\"input[name='end-time']\");
   const categorySelect = form.querySelector(\"select[name='category-id']\");
@@ -906,6 +913,12 @@
   let dragStart = null;
   let blockDrag = null;
   let suppressBlockClick = false;
+  let titleSuggestionItems = [];
+  let activeTitleSuggestionIndex = -1;
+  let titleSuggestionTimer = null;
+  let titleSuggestionRequest = 0;
+  let titleSuggestionAbort = null;
+  let titleSuggestionComposing = false;
   function pad(value){ return String(value).padStart(2, '0'); }
   function minuteToTime(minute){
     const bounded = Math.max(0, Math.min(1440, minute));
@@ -1005,6 +1018,124 @@
     const label = selected && selected.value ? selected.textContent.trim() : 'Uncategorized';
     preview.textContent = label + ' ' + ((end - start) / 60).toFixed(2) + 'h';
   }
+  function titleSuggestionOpen(){
+    return !titleSuggestionList.hidden && titleSuggestionItems.length > 0;
+  }
+  function closeTitleSuggestions(){
+    titleSuggestionItems = [];
+    activeTitleSuggestionIndex = -1;
+    titleSuggestionList.replaceChildren();
+    titleSuggestionList.hidden = true;
+    titleInput.setAttribute('aria-expanded', 'false');
+  }
+  function setActiveTitleSuggestion(index){
+    const buttons = Array.from(titleSuggestionList.querySelectorAll('.title-suggestion-option'));
+    buttons.forEach(function(button){
+      button.classList.remove('active');
+      button.setAttribute('aria-selected', 'false');
+    });
+    activeTitleSuggestionIndex = index;
+    if (index < 0 || index >= buttons.length) return;
+    const button = buttons[index];
+    button.classList.add('active');
+    button.setAttribute('aria-selected', 'true');
+    button.scrollIntoView({ block: 'nearest' });
+  }
+  function applyTitleSuggestion(index){
+    const item = titleSuggestionItems[index];
+    if (!item) return false;
+    const categoryId = item['category-id'];
+    titleInput.value = item.title || '';
+    if (categoryId === null || categoryId === undefined) {
+      categorySelect.value = '';
+    } else {
+      const nextValue = String(categoryId);
+      categorySelect.value = nextValue;
+      if (categorySelect.value !== nextValue) {
+        categorySelect.value = '';
+      }
+    }
+    updatePreview();
+    closeTitleSuggestions();
+    return true;
+  }
+  function renderTitleSuggestions(suggestions){
+    titleSuggestionItems = suggestions;
+    activeTitleSuggestionIndex = -1;
+    titleSuggestionList.replaceChildren();
+    if (suggestions.length === 0) {
+      closeTitleSuggestions();
+      return;
+    }
+    suggestions.forEach(function(item, index){
+      const button = document.createElement('button');
+      const title = document.createElement('span');
+      const category = document.createElement('span');
+      button.type = 'button';
+      button.className = 'title-suggestion-option';
+      button.setAttribute('role', 'option');
+      button.setAttribute('aria-selected', 'false');
+      button.dataset.index = String(index);
+      title.className = 'title-suggestion-title';
+      title.textContent = item.title || '';
+      category.className = 'title-suggestion-category';
+      category.textContent = item['category-name'] || 'Uncategorized';
+      button.append(title, category);
+      button.addEventListener('pointerdown', function(event){
+        event.preventDefault();
+        applyTitleSuggestion(index);
+      });
+      button.addEventListener('click', function(event){
+        event.preventDefault();
+        applyTitleSuggestion(index);
+      });
+      titleSuggestionList.append(button);
+    });
+    titleSuggestionList.hidden = false;
+    titleInput.setAttribute('aria-expanded', 'true');
+  }
+  async function fetchTitleSuggestions(query){
+    const requestId = titleSuggestionRequest + 1;
+    titleSuggestionRequest = requestId;
+    if (titleSuggestionAbort) titleSuggestionAbort.abort();
+    titleSuggestionAbort = new AbortController();
+    try {
+      const response = await fetch('/api/worklog-title-suggestions?q=' + encodeURIComponent(query) + '&limit=8', {
+        signal: titleSuggestionAbort.signal
+      });
+      if (!response.ok) {
+        closeTitleSuggestions();
+        return;
+      }
+      const body = await response.json();
+      if (requestId !== titleSuggestionRequest) return;
+      if (titleInput.value.trim() !== query.trim()) return;
+      renderTitleSuggestions(Array.isArray(body.suggestions) ? body.suggestions : []);
+    } catch (error) {
+      if (error.name !== 'AbortError') closeTitleSuggestions();
+    }
+  }
+  function scheduleTitleSuggestions(){
+    if (titleSuggestionComposing) return;
+    window.clearTimeout(titleSuggestionTimer);
+    const query = titleInput.value.trim();
+    if (!query) {
+      closeTitleSuggestions();
+      return;
+    }
+    titleSuggestionTimer = window.setTimeout(function(){
+      fetchTitleSuggestions(query);
+    }, 120);
+  }
+  function moveTitleSuggestion(delta){
+    if (!titleSuggestionOpen()) return false;
+    const maxIndex = titleSuggestionItems.length - 1;
+    const nextIndex = activeTitleSuggestionIndex < 0
+      ? (delta > 0 ? 0 : maxIndex)
+      : Math.max(0, Math.min(maxIndex, activeTitleSuggestionIndex + delta));
+    setActiveTitleSuggestion(nextIndex);
+    return true;
+  }
   function hideMenu(){ menu.hidden = true; }
   async function patchWorkLogRange(id, start, end){
     const response = await fetch('/api/worklogs/' + id, {
@@ -1056,6 +1187,7 @@
   function startBlockDrag(block, event, forcedMode){
     const range = blockRange(block);
     hideMenu();
+    closeTitleSuggestions();
     hideTimelineWarning();
     blockDrag = {
       block: block,
@@ -1192,6 +1324,7 @@
     }
     if (event.target.closest('.confirmed-block')) return;
     hideMenu();
+    closeTitleSuggestions();
     dragging = true;
     dragStart = minuteFromEvent(event);
     track.setPointerCapture(event.pointerId);
@@ -1215,6 +1348,34 @@
     input.addEventListener('input', updatePreview);
     input.addEventListener('change', updatePreview);
   });
+  titleInput.addEventListener('compositionstart', function(){
+    titleSuggestionComposing = true;
+  });
+  titleInput.addEventListener('compositionend', function(){
+    titleSuggestionComposing = false;
+    scheduleTitleSuggestions();
+  });
+  titleInput.addEventListener('input', scheduleTitleSuggestions);
+  titleInput.addEventListener('keydown', function(event){
+    if (titleSuggestionComposing || event.isComposing) return;
+    if (event.key === 'ArrowDown' && titleSuggestionOpen()) {
+      event.preventDefault();
+      moveTitleSuggestion(1);
+    } else if (event.key === 'ArrowUp' && titleSuggestionOpen()) {
+      event.preventDefault();
+      moveTitleSuggestion(-1);
+    } else if (event.key === 'Enter') {
+      if (titleSuggestionOpen() && activeTitleSuggestionIndex >= 0) {
+        event.preventDefault();
+        applyTitleSuggestion(activeTitleSuggestionIndex);
+      } else {
+        closeTitleSuggestions();
+      }
+    } else if (event.key === 'Escape') {
+      closeTitleSuggestions();
+    }
+  });
+  form.addEventListener('submit', closeTitleSuggestions);
   document.addEventListener('pointermove', updateBlockDrag);
   document.addEventListener('pointerup', finishBlockDrag);
   document.querySelectorAll('.confirmed-block').forEach(function(block){
@@ -1259,6 +1420,7 @@
   document.querySelectorAll('.imported-block').forEach(function(block){
     block.addEventListener('contextmenu', function(event){
       event.preventDefault();
+      closeTitleSuggestions();
       const id = block.dataset.sourceEventId;
       menu.querySelector('[data-menu-title]').textContent = block.dataset.title || '';
       menu.querySelector('[data-confirm-form]').action = '/source-events/' + id + '/confirm';
@@ -1270,6 +1432,7 @@
   });
   document.addEventListener('click', function(event){
     if (!menu.contains(event.target)) hideMenu();
+    if (!event.target.closest('.title-suggestion-wrap')) closeTitleSuggestions();
   });
   updateFromInputs();
 })();

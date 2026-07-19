@@ -871,6 +871,17 @@
                 :else nil)]
     (if (and value (pos-int? value)) value default)))
 
+(defn- title-suggestion-limit [value]
+  (min 20 (max 1 (normalize-positive-int value 8))))
+
+(defn- title-suggestions-response [ds request]
+  (let [params (parse-query-params request)]
+    (json-response
+     {:suggestions (db/suggest-work-log-titles
+                    ds
+                    (:q params)
+                    {:limit (title-suggestion-limit (:limit params))})})))
+
 (defn- normalize-import-source [attrs]
   (let [kind (normalize-state (or (:kind attrs) :ical))
         name (normalize-text (:name attrs))
@@ -1245,6 +1256,9 @@
                (let [body (parse-json-body request)
                      result (import-candidates! ds (:events body))]
                  (json-response result)))}]
+     ["/api/worklog-title-suggestions"
+      {:get (fn [request]
+              (title-suggestions-response ds request))}]
      ["/api/categories"
       {:get (fn [_] (json-response {:categories (db/list-categories ds)}))
        :post (fn [request]

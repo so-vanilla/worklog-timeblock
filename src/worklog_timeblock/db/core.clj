@@ -134,6 +134,12 @@
   {:date (:date row)
    :status (keyword (:status row))})
 
+(defn- row->work-log-title-suggestion-source [row]
+  {:title (:title row)
+   :category-id (:category_id row)
+   :use-count (:use_count row)
+   :last-used-date (:last_used_date row)})
+
 (declare get-title-mapping list-categories get-import-source get-import-run
          get-source-event get-source-event-by-identity get-break-rule get-break)
 
@@ -329,6 +335,85 @@
 (defn other-category-id [ds]
   (:id (first (filter #(and (:active? %) (= :other (:kind %)))
                       (list-categories ds)))))
+
+(defn- category-path [categories-map category-id]
+  (if-let [category (get categories-map category-id)]
+    (if-let [parent (get categories-map (:parent-id category))]
+      (str (:name parent) " / " (:name category))
+      (:name category))
+    "Uncategorized"))
+
+(defn- clean-search-text [value]
+  (str/lower-case (str/trim (str value))))
+
+(defn- ordered-subsequence? [needle haystack]
+  (loop [needle (seq needle)
+         haystack (seq haystack)]
+    (cond
+      (nil? needle) true
+      (nil? haystack) false
+      (= (first needle) (first haystack)) (recur (next needle) (next haystack))
+      :else (recur needle (next haystack)))))
+
+(defn- title-match [query title]
+  (let [query (clean-search-text query)
+        title (clean-search-text title)]
+    (cond
+      (str/blank? query)
+      nil
+
+      (str/starts-with? title query)
+      {:match-kind :prefix
+       :score (+ 3000 (max 0 (- 200 (count title))))}
+
+      (str/includes? title query)
+      {:match-kind :substring
+       :score (+ 2000 (max 0 (- 200 (.indexOf title query))))}
+
+      (ordered-subsequence? query title)
+      {:match-kind :subsequence
+       :score (+ 1000 (max 0 (- 200 (count title))))}
+
+      :else
+      nil)))
+
+(defn suggest-work-log-titles
+  ([ds query] (suggest-work-log-titles ds query {}))
+  ([ds query {:keys [limit] :or {limit 8}}]
+   (let [limit (-> (or limit 8) (max 1) (min 20))
+         categories-map (categories-by-id ds)
+         assignable-ids (assignable-category-ids ds)
+         rows (mapv row->work-log-title-suggestion-source
+                    (jdbc/execute! ds
+                                   ["SELECT title,
+                                            category_id,
+                                            COUNT(*) AS use_count,
+                                            MAX(date) AS last_used_date
+                                      FROM work_logs
+                                      WHERE state <> 'excluded'
+                                        AND TRIM(title) <> ''
+                                        AND (source_id IS NULL OR state = 'confirmed')
+                                      GROUP BY title, category_id"]
+                                   {:builder-fn builder}))]
+     (->> rows
+          (keep (fn [row]
+                  (when-let [match (title-match query (:title row))]
+                    (let [category-id (:category-id row)]
+                      (when (or (nil? category-id)
+                                (contains? assignable-ids category-id))
+                        {:title (:title row)
+                         :category-id category-id
+                         :category-name (category-path categories-map category-id)
+                         :state (if category-id :confirmed :uncategorized)
+                         :match-kind (:match-kind match)
+                         :score (:score match)
+                         :last-used-date (:last-used-date row)
+                         :use-count (:use-count row)
+                         :source :work-logs})))))
+          (sort-by (juxt :score :last-used-date :use-count #(-> % :title count -))
+                   #(compare %2 %1))
+          (take limit)
+          vec))))
 
 (defn- unallocated-category? [{:keys [legacy-key name kind]}]
   (let [legacy-key (some-> legacy-key str/lower-case)

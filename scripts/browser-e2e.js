@@ -143,6 +143,40 @@ async function seed(baseUrl) {
   });
   assert(boundaryLeft.status === 200, "left boundary worklog should be created");
   assert(boundaryRight.status === 200, "right boundary worklog should be created");
+  const suggestionBuildOne = await requestJson(baseUrl, "POST", "/api/days/2026-07-01/worklogs", {
+    title: "Build API",
+    "start-minute": 540,
+    "end-minute": 600,
+    "category-id": dev.body.id,
+  });
+  const suggestionBuildTwo = await requestJson(baseUrl, "POST", "/api/days/2026-07-02/worklogs", {
+    title: "Build API",
+    "start-minute": 540,
+    "end-minute": 600,
+    "category-id": dev.body.id,
+  });
+  const suggestionBackend = await requestJson(baseUrl, "POST", "/api/days/2026-07-03/worklogs", {
+    title: "Backend planning",
+    "start-minute": 540,
+    "end-minute": 600,
+    "category-id": backend.body.id,
+  });
+  const suggestionDesign = await requestJson(baseUrl, "POST", "/api/days/2026-07-04/worklogs", {
+    title: "Design sync",
+    "start-minute": 540,
+    "end-minute": 600,
+    "category-id": meetings.body.id,
+  });
+  const suggestionLoose = await requestJson(baseUrl, "POST", "/api/days/2026-07-05/worklogs", {
+    title: "Loose task",
+    "start-minute": 540,
+    "end-minute": 600,
+  });
+  assert(suggestionBuildOne.status === 200, "first title suggestion seed should be created");
+  assert(suggestionBuildTwo.status === 200, "second title suggestion seed should be created");
+  assert(suggestionBackend.status === 200, "backend title suggestion seed should be created");
+  assert(suggestionDesign.status === 200, "design title suggestion seed should be created");
+  assert(suggestionLoose.status === 200, "uncategorized title suggestion seed should be created");
 
   const imported = await requestJson(baseUrl, "POST", "/api/candidates/import", {
     events: [
@@ -227,6 +261,17 @@ async function centerOf(locator) {
   const box = await locator.boundingBox();
   assert(Boolean(box), "locator should have a box");
   return { x: box.x + box.width / 2, y: box.y + box.height / 2, box };
+}
+
+async function waitForTitleSuggestions(page) {
+  await page.waitForSelector("#title-suggestion-list:not([hidden]) .title-suggestion-option");
+  return page.locator("#title-suggestion-list .title-suggestion-option").evaluateAll((options) =>
+    options.map((option) => ({
+      text: option.textContent,
+      active: option.classList.contains("active"),
+      selected: option.getAttribute("aria-selected"),
+    })),
+  );
 }
 
 async function run() {
@@ -356,6 +401,59 @@ async function run() {
     assert(await page.locator(".day-navigation input[name='date']").inputValue() === "2026-07-06", "goto date should default to current day");
     assert(await page.locator(".manual-entry-output").count() === 0, "manual entry output should be removed");
     assert(await page.locator("a[href='/settings']").count() >= 1, "settings link should exist on day page");
+    const titleInput = page.locator("#new-work-log-form input[name='title']");
+    const titleSuggestionList = page.locator("#title-suggestion-list");
+    await page.fill("#new-work-log-form input[name='start-time']", "11:00");
+    await page.fill("#new-work-log-form input[name='end-time']", "12:00");
+    await titleInput.fill("bapi");
+    let titleSuggestions = await waitForTitleSuggestions(page);
+    assert(titleSuggestions.length >= 2, "fuzzy title suggestions should include subsequence matches");
+    assert(titleSuggestions[0].text.includes("Build API"), "best title suggestion should be ranked first");
+    assert(titleSuggestions[0].text.includes("Development"), "title suggestion should show its category");
+    assert(titleSuggestions.some((suggestion) => suggestion.text.includes("Backend planning")), "subsequence matching should include another fuzzy hit");
+    assert(titleSuggestions.every((suggestion) => !suggestion.active), "title suggestions should start inactive");
+    assert(titleSuggestions.every((suggestion) => suggestion.selected === "false"), "inactive suggestions should not be aria-selected");
+    assert(await titleInput.getAttribute("aria-expanded") === "true", "title input should mark suggestions as expanded");
+    assert(!(await titleSuggestionList.textContent()).includes("Candidate block"), "imported draft titles should not appear as suggestions");
+    await titleSuggestionList.locator(".title-suggestion-option").first().click();
+    assert(await titleInput.inputValue() === "Build API", "clicking a title suggestion should complete the title");
+    assert(await page.locator("#new-work-log-form select[name='category-id']").inputValue() === String(ids.devId), "clicking a title suggestion should complete the category");
+    assert(await page.locator("#title-suggestion-list[hidden]").count() === 1, "clicking a suggestion should close the suggestion list");
+    assert((await page.locator("#draft-summary-preview").textContent()).includes("Development"), "suggestion category should update the draft preview");
+    await titleInput.fill("planning");
+    titleSuggestions = await waitForTitleSuggestions(page);
+    assert(titleSuggestions[0].text.includes("Backend planning"), "planning query should suggest backend planning");
+    assert(await page.locator("#title-suggestion-list .title-suggestion-option.active").count() === 0, "keyboard selection should still start inactive");
+    await page.keyboard.press("ArrowDown");
+    assert(await page.locator("#title-suggestion-list .title-suggestion-option.active").count() === 1, "ArrowDown should activate one title suggestion");
+    assert((await page.locator("#title-suggestion-list .title-suggestion-option.active").textContent()).includes("Backend planning"), "ArrowDown should activate the first suggestion");
+    await page.keyboard.press("Enter");
+    assert(await titleInput.inputValue() === "Backend planning", "Enter with an active suggestion should complete the title");
+    assert(await page.locator("#new-work-log-form select[name='category-id']").inputValue() === String(ids.backendId), "Enter with an active suggestion should complete the category");
+    assert(await page.locator("#title-suggestion-list[hidden]").count() === 1, "Enter completion should close suggestions");
+    assert(await page.locator(".work-log-row .title", { hasText: "Backend planning" }).count() === 0, "Enter completion should not submit a new work log");
+    await titleInput.fill("desi");
+    titleSuggestions = await waitForTitleSuggestions(page);
+    assert(titleSuggestions[0].text.includes("Design sync"), "design query should show a suggestion before outside click");
+    await page.locator("body").click({ position: { x: 5, y: 5 } });
+    assert(await page.locator("#title-suggestion-list[hidden]").count() === 1, "outside click should close suggestions");
+    assert(await titleInput.inputValue() === "desi", "outside click should keep the typed title");
+    assert(await page.locator("#new-work-log-form select[name='category-id']").inputValue() === String(ids.backendId), "outside click should not change the category");
+    await titleInput.fill("buil");
+    titleSuggestions = await waitForTitleSuggestions(page);
+    assert(titleSuggestions.some((suggestion) => suggestion.text.includes("Build")), "unselected Enter case should start with visible suggestions");
+    assert(await page.locator("#title-suggestion-list .title-suggestion-option.active").count() === 0, "unselected Enter case should have no active suggestion");
+    await page.locator("#new-work-log-form").evaluate((form) => {
+      form.addEventListener("submit", (event) => event.preventDefault(), { once: true });
+    });
+    await page.keyboard.press("Enter");
+    assert(await titleInput.inputValue() === "buil", "Enter with no active suggestion should keep the typed title");
+    assert(await page.locator("#new-work-log-form select[name='category-id']").inputValue() === String(ids.backendId), "Enter with no active suggestion should not change the category");
+    assert(await page.locator("#title-suggestion-list[hidden]").count() === 1, "Enter with no active suggestion should close suggestions");
+    await titleInput.fill("cand");
+    await sleep(350);
+    assert(await page.locator("#title-suggestion-list[hidden]").count() === 1, "import-only candidate titles should leave suggestions hidden");
+    assert(await page.locator("#title-suggestion-list .title-suggestion-option").count() === 0, "import-only candidate titles should render no suggestion options");
     assert(await page.locator(".attendance-panel").count() === 1, "attendance panel should exist");
     assert((await page.locator(".attendance-panel").textContent()).includes("09:00-18:00"), "attendance panel should show clock range");
     assert((await page.locator(".attendance-panel").textContent()).includes("Unallocated"), "attendance panel should show unallocated time");

@@ -70,6 +70,113 @@
     (testing "summary reads confirmed work logs only by date"
       (is (= #{"2026-07-06"} (set (map :date (db/work-logs-by-date ds "2026-07-06"))))))))
 
+(deftest work-log-title-suggestions-test
+  (let [path (temp-db)
+        ds (db/datasource path)]
+    (migration/migrate! ds)
+    (let [dev (db/upsert-category! ds {:name "Development"})
+          meetings (db/upsert-category! ds {:name "Meetings"})
+          engineering (db/upsert-category! ds {:name "Engineering"})
+          backend (db/upsert-category! ds {:name "Backend" :parent-id (:id engineering)})
+          retired (db/upsert-category! ds {:name "Retired" :active? false})]
+      (db/upsert-title-mapping! ds {:title "Mapping only" :state :confirmed :category-id (:id dev)})
+      (doseq [work-log [{:date "2026-07-01"
+                         :title "Build API"
+                         :start-minute 540
+                         :end-minute 600
+                         :state :confirmed
+                         :category-id (:id dev)}
+                        {:date "2026-07-03"
+                         :title "Build API"
+                         :start-minute 600
+                         :end-minute 660
+                         :state :confirmed
+                         :category-id (:id dev)}
+                        {:date "2026-07-02"
+                         :title "Backend planning"
+                         :start-minute 660
+                         :end-minute 720
+                         :state :confirmed
+                         :category-id (:id backend)}
+                        {:date "2026-07-04"
+                         :title "Design sync"
+                         :start-minute 720
+                         :end-minute 780
+                         :state :confirmed
+                         :category-id (:id meetings)}
+                        {:date "2026-07-05"
+                         :title "Loose task"
+                         :start-minute 780
+                         :end-minute 840
+                         :state :uncategorized}
+                        {:date "2026-07-06"
+                         :title "Imported draft"
+                         :start-minute 840
+                         :end-minute 900
+                         :state :uncategorized
+                         :source-id "ical:test"
+                         :external-id "evt-draft"}
+                        {:date "2026-07-07"
+                         :title "Excluded lunch"
+                         :start-minute 900
+                         :end-minute 960
+                         :state :excluded
+                         :category-id (:id meetings)}
+                        {:date "2026-07-08"
+                         :title "Parent planning"
+                         :start-minute 960
+                         :end-minute 1020
+                         :state :confirmed
+                         :category-id (:id engineering)}
+                        {:date "2026-07-09"
+                         :title "Retired cleanup"
+                         :start-minute 1020
+                         :end-minute 1080
+                         :state :confirmed
+                         :category-id (:id retired)}]]
+        (db/insert-work-log! ds work-log))
+
+      (testing "blank queries never return suggestions"
+        (is (= [] (db/suggest-work-log-titles ds "")))
+        (is (= [] (db/suggest-work-log-titles ds "   "))))
+
+      (testing "fuzzy subsequence matches past work log titles"
+        (let [suggestions (db/suggest-work-log-titles ds "bapi")
+              first-suggestion (first suggestions)]
+          (is (= "Build API" (:title first-suggestion)))
+          (is (= (:id dev) (:category-id first-suggestion)))
+          (is (= "Development" (:category-name first-suggestion)))
+          (is (= :confirmed (:state first-suggestion)))
+          (is (= :subsequence (:match-kind first-suggestion)))
+          (is (= 2 (:use-count first-suggestion)))
+          (is (= "2026-07-03" (:last-used-date first-suggestion)))
+          (is (= :work-logs (:source first-suggestion)))))
+
+      (testing "child category labels include the parent path"
+        (let [suggestion (first (db/suggest-work-log-titles ds "plan"))]
+          (is (= "Backend planning" (:title suggestion)))
+          (is (= (:id backend) (:category-id suggestion)))
+          (is (= "Engineering / Backend" (:category-name suggestion)))))
+
+      (testing "uncategorized manual work can be suggested"
+        (let [suggestion (first (db/suggest-work-log-titles ds "loose"))]
+          (is (= "Loose task" (:title suggestion)))
+          (is (nil? (:category-id suggestion)))
+          (is (= "Uncategorized" (:category-name suggestion)))
+          (is (= :uncategorized (:state suggestion)))))
+
+      (testing "title mappings, excluded logs, imported drafts, and non-assignable categories are ignored"
+        (let [titles (set (map :title (db/suggest-work-log-titles ds "ing" {:limit 20})))]
+          (is (not (contains? titles "Mapping only")))
+          (is (not (contains? titles "Excluded lunch")))
+          (is (not (contains? titles "Imported draft")))
+          (is (not (contains? titles "Parent planning")))
+          (is (not (contains? titles "Retired cleanup")))))
+
+      (testing "limit clamps result count"
+        (is (= 1 (count (db/suggest-work-log-titles ds "i" {:limit 1}))))
+        (is (<= (count (db/suggest-work-log-titles ds "i" {:limit 100})) 20))))))
+
 (deftest category-hierarchy-test
   (let [path (temp-db)
         ds (db/datasource path)]

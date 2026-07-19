@@ -1174,6 +1174,45 @@ Quantitative done criteria:
 
 ## Immediate Next Session Checklist
 
+### Completed Feature: Work Log Title Suggestions
+
+Status: Done in this session.
+
+Scope:
+
+- Add title suggestions to the day work-log input form.
+- Suggestions are sourced from persisted `work_logs`, not from imported source
+  events alone.
+- Match titles with a small fuzzy matcher: prefix, substring, and ordered
+  subsequence matches.
+- Display each suggestion with its category label.
+- Keep suggestions visible but inactive by default.
+- Apply completion only when the user clicks a suggestion or presses Enter
+  while a suggestion is active.
+- When a suggestion is applied, fill both title and category.
+- Outside click, Escape, and Enter with no active suggestion must not apply a
+  suggestion.
+
+Implementation ownership:
+
+- Product/UX: day input interaction rules and no-accidental-completion behavior.
+- Backend/API: `work_logs`-backed suggestion query and JSON route.
+- QA: DB/API/Web/browser E2E assertions for keyboard and pointer behavior.
+
+Quantitative result:
+
+- Clojure E2E now has 19 tests / 560 assertions.
+- Browser E2E now has 29 cases / 213 assertions.
+- Full test now has 36 tests / 790 assertions.
+- `devenv shell e2e-all`: success.
+- `devenv shell test`: success.
+- `devenv shell lint`: errors 0 / warnings 0.
+- `nix flake check`: success.
+- `nix run --no-warn-dirty . -- --db <empty-temp-db>` smoke:
+  5 assertions / 0 failures.
+- `git diff --check`: success.
+- `git diff --check --cached`: success.
+
 Run:
 
 ```sh
