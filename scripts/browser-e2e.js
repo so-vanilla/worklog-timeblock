@@ -266,6 +266,11 @@ async function run() {
 
     await page.goto(`${baseUrl}/?view=month&date=2026-07-06`);
     assert(await page.locator(".days-calendar[data-calendar-view='month'][data-calendar-edit='inactive']").count() === 1, "month calendar should render in inactive edit mode by default");
+    assert(await page.locator(".view-tabs .toggle-option.active:has-text('Month')").count() === 1, "month view should be shown as active toggle");
+    assert(await page.locator("a[href='/?view=month&date=2026-06-06']").count() === 1, "month navigation should include previous month");
+    assert(await page.locator("a[href='/?view=month&date=2026-08-06']").count() === 1, "month navigation should include next month");
+    assert((await page.locator(".days-toolbar").textContent()).includes("Prev month"), "month navigation should label previous month");
+    assert((await page.locator(".days-toolbar").textContent()).includes("Next month"), "month navigation should label next month");
     assert(await page.locator(".calendar-day[data-date='2026-07-06'] a[href='/days/2026-07-06']").count() === 1, "inactive month day should link to the day workspace");
     await Promise.all([
       page.waitForURL(`${baseUrl}/days/2026-07-06`),
@@ -274,8 +279,11 @@ async function run() {
 
     await page.goto(`${baseUrl}/?view=week&date=2026-07-06`);
     assert(await page.locator(".week-calendar[data-calendar-view='week']").count() === 1, "week calendar should render");
+    assert(await page.locator(".view-tabs .toggle-option.active:has-text('Week')").count() === 1, "week view should be shown as active toggle");
     assert(await page.locator("a[href='/?view=week&date=2026-06-29']").count() === 1, "days navigation should include previous week");
     assert(await page.locator("a[href='/?view=week&date=2026-07-13']").count() === 1, "days navigation should include next week");
+    assert((await page.locator(".days-toolbar").textContent()).includes("Prev week"), "week navigation should label previous week");
+    assert((await page.locator(".days-toolbar").textContent()).includes("Next week"), "week navigation should label next week");
     assert(await page.locator(".week-day-card[data-date='2026-07-07'] a[href='/days/2026-07-07']").count() === 1, "week day should link to the day workspace");
     await Promise.all([
       page.waitForURL(`${baseUrl}/days/2026-07-07`),
@@ -284,6 +292,7 @@ async function run() {
 
     await page.goto(`${baseUrl}/?view=month&date=2026-07-06&edit=1`);
     assert(await page.locator(".days-calendar[data-calendar-view='month'][data-calendar-edit='active']").count() === 1, "active month edit mode should render");
+    assert(await page.locator(".edit-tabs .toggle-option.active:has-text('Edit on')").count() === 1, "month edit should be shown as active toggle");
     const july13 = await centerOf(page.locator(".calendar-day[data-date='2026-07-13']"));
     const july15 = await centerOf(page.locator(".calendar-day[data-date='2026-07-15']"));
     await page.mouse.move(july13.x, july13.y);
@@ -357,6 +366,8 @@ async function run() {
     assert(await page.locator(".attendance-band[data-attendance-start-minute='540'][data-attendance-end-minute='1080']").count() === 1, "attendance should render on timeline");
     assert((await page.locator(".attendance-band").textContent()).includes("09:00-18:00"), "attendance timeline band should show clock range");
     assert(await page.locator("form[action='/break-rules']").count() === 0, "daily break rule form should be moved off the day page");
+    assert(await page.locator(".page-actions .nav-button[href='/']").count() === 1, "day page should expose Days as a button");
+    assert(await page.locator(".page-actions .nav-button[href='/settings']").count() === 1, "day page should expose Settings as a button");
     assert(await page.locator(".timeline-block.break-block").count() === 1, "break should render on timeline");
     assert((await page.locator(".timeline-block.break-block").textContent()).includes("Lunch"), "break timeline block should show title");
     assert(await page.locator(".break-row form[action*='/range']").count() === 1, "break range form should exist");
@@ -370,7 +381,10 @@ async function run() {
     assert(await page.locator(".break-row").count() === 0, "deleted fixed break should not reappear on reload");
     assert(await page.locator(".timeline-block.break-block").count() === 0, "deleted fixed break should disappear from timeline");
     await page.goto(`${baseUrl}/settings`);
-    assert((await page.locator(".break-rule-list-panel").textContent()).includes("Lunch"), "deleting a materialized break should not delete the daily rule");
+    assert(await page.locator(".settings-nav .nav-button[href='/']").count() === 1, "settings page should expose Days as a button");
+    assert((await page.locator("form[action='/settings/break-mode']").textContent()).includes("Fixed inserts configured default breaks"), "settings break mode should describe fixed and flexible behavior");
+    assert(await page.locator("form[action='/settings/break-mode'] .toggle-option.active[value='fixed']").count() === 1, "fixed break mode should be shown as active toggle");
+    assert(await page.locator(".break-rule-card input[name='break-title'][value='Lunch']").count() === 1, "deleting a materialized break should not delete the daily rule");
     await page.goto(`${baseUrl}/days/2026-07-06`);
     assert(await page.locator(".summary-pane > .attendance-panel").count() === 1, "attendance should be first right-pane panel");
     const paneOrder = await page.locator(".summary-pane > .input-panel").evaluateAll((panels) =>
@@ -388,8 +402,24 @@ async function run() {
 
     await page.goto(`${baseUrl}/settings`);
     assert(await page.locator("form[action='/break-rules']").count() === 1, "settings page should expose daily break form");
-    assert((await page.locator(".break-rule-list-panel").textContent()).includes("Lunch"), "settings page should list existing daily break rule");
-    assert((await page.locator(".break-rule-list-panel").textContent()).includes("12:00-13:00"), "settings page should show daily break range");
+    assert(await page.locator(".break-rule-card input[name='break-title'][value='Lunch']").count() === 1, "settings page should list existing daily break rule");
+    assert(await page.locator(".break-rule-card input[name='start-time'][value='12:00']").count() === 1, "settings page should show daily break start");
+    assert(await page.locator(".break-rule-card input[name='end-time'][value='13:00']").count() === 1, "settings page should show daily break end");
+    await page.fill(".break-rule-card input[name='break-title']", "Coffee");
+    await page.fill(".break-rule-card input[name='start-time']", "15:00");
+    await page.fill(".break-rule-card input[name='end-time']", "15:15");
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: "domcontentloaded" }),
+      page.locator(".break-rule-card form[action$='/update'] button").click(),
+    ]);
+    assert(await page.locator(".break-rule-card input[name='break-title'][value='Coffee']").count() === 1, "settings break rule edit should persist title");
+    assert(await page.locator(".break-rule-card input[name='start-time'][value='15:00']").count() === 1, "settings break rule edit should persist start");
+    assert(await page.locator(".break-rule-card input[name='end-time'][value='15:15']").count() === 1, "settings break rule edit should persist end");
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: "domcontentloaded" }),
+      page.locator(".break-rule-card form[action$='/delete'] button").click(),
+    ]);
+    assert(await page.locator(".break-rule-card").count() === 0, "settings break rule delete should remove the default rule from settings");
     await page.goto(`${baseUrl}/days/2026-07-06`);
 
     const categoryRows = await page.locator(".category-list .category-row").evaluateAll((rows) =>

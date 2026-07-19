@@ -114,7 +114,8 @@
    :title (:title row)
    :start-minute (:start_minute row)
    :end-minute (:end_minute row)
-   :enabled? (db-bool (:enabled row))})
+   :enabled? (db-bool (:enabled row))
+   :active? (db-bool (:active row))})
 
 (defn- row->break [row]
   {:id (:id row)
@@ -668,8 +669,8 @@
                      true))
         id (:id (jdbc/execute-one! ds
                                    ["INSERT INTO break_rules
-                                     (title, start_minute, end_minute, enabled)
-                                     VALUES (?, ?, ?, ?)
+                                     (title, start_minute, end_minute, enabled, active)
+                                     VALUES (?, ?, ?, ?, 1)
                                      RETURNING id"
                                     (:title rule)
                                     (:start-minute rule)
@@ -680,7 +681,7 @@
 
 (defn get-break-rule [ds id]
   (some-> (jdbc/execute-one! ds
-                             ["SELECT id, title, start_minute, end_minute, enabled
+                             ["SELECT id, title, start_minute, end_minute, enabled, active
                                FROM break_rules
                                WHERE id = ?"
                               id]
@@ -690,10 +691,44 @@
 (defn list-break-rules [ds]
   (mapv row->break-rule
         (jdbc/execute! ds
-                       ["SELECT id, title, start_minute, end_minute, enabled
+                       ["SELECT id, title, start_minute, end_minute, enabled, active
                          FROM break_rules
+                         WHERE active = 1
                          ORDER BY id"]
                        {:builder-fn builder})))
+
+(defn update-break-rule! [ds id attrs]
+  (let [current (or (get-break-rule ds id)
+                    (throw (ex-info "Break rule not found" {:id id})))
+        enabled? (cond
+                   (contains? attrs :enabled?) (:enabled? attrs)
+                   (contains? attrs :enabled) (:enabled attrs)
+                   :else (:enabled? current))
+        active? (if (contains? attrs :active?)
+                  (:active? attrs)
+                  (:active? current))
+        updated (merge current attrs {:enabled? enabled?
+                                      :active? active?})]
+    (jdbc/execute! ds
+                   ["UPDATE break_rules SET
+                       title = ?,
+                       start_minute = ?,
+                       end_minute = ?,
+                       enabled = ?,
+                       active = ?,
+                       updated_at = CURRENT_TIMESTAMP
+                     WHERE id = ?"
+                    (:title updated)
+                    (:start-minute updated)
+                    (:end-minute updated)
+                    (normalize-active (:enabled? updated))
+                    (normalize-active (:active? updated))
+                    id])
+    (get-break-rule ds id)))
+
+(defn delete-break-rule! [ds id]
+  (when (get-break-rule ds id)
+    (update-break-rule! ds id {:enabled? false :active? false})))
 
 (defn create-break! [ds break]
   (let [active? (if (contains? break :active?)

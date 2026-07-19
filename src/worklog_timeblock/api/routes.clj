@@ -117,13 +117,9 @@
     (assoc result :imported (:fetched result))))
 
 (defn- summary-options [ds]
-  (let [unallocated-category-ids (db/unallocated-category-ids ds)]
-    (assoc default-summary-options
-           :other-category-id (or (db/other-category-id ds)
-                                  (db/unallocated-category-id ds)
-                                  "other")
-           :assignable-category-ids (db/summarizable-category-ids ds)
-           :unallocated-category-ids unallocated-category-ids)))
+  (assoc default-summary-options
+         :other-category-id (or (db/other-category-id ds) "other")
+         :assignable-category-ids (db/summarizable-category-ids ds)))
 
 (defn- rule->virtual-break [date rule]
   {:id nil
@@ -192,8 +188,7 @@
 (defn- classify-calendar-status [date today base-status attendance work-logs summary]
   (if (= :holiday base-status)
     :holiday
-    (let [unallocated (+ (get-in summary [:attendance :unallocated-minutes] 0)
-                         (get-in summary [:other :unallocated-category-minutes] 0))]
+    (let [unallocated (get-in summary [:attendance :unallocated-minutes] 0)]
       (cond
         (>= unallocated 60) :missing
         (and (nil? attendance)
@@ -221,9 +216,9 @@
      :base-status (name base-status)
      :override-status (some-> (:status override) name)
      :unallocated-minutes (get-in summary [:attendance :unallocated-minutes] 0)
-     :unallocated-category-minutes (get-in summary [:other :unallocated-category-minutes] 0)
-     :uncategorized-minutes (get-in summary [:other :uncategorized-minutes] 0)
+     :uncategorized-minutes (:uncategorized-minutes summary 0)
      :confirmed-work-minutes (get-in summary [:attendance :confirmed-work-minutes] 0)
+     :recorded-work-minutes (get-in summary [:attendance :recorded-work-minutes] 0)
      :break-minutes (get-in summary [:attendance :break-minutes] 0)
      :category-hours (:category-hours summary)
      :category-minutes (:category-minutes summary)}))
@@ -555,6 +550,44 @@
       (do
         (db/create-break-rule! ds (:attrs normalized))
         (redirect-response (safe-redirect-path (:redirect-to form) "/"))))))
+
+(defn- update-break-rule-response! [ds id attrs]
+  (if (db/get-break-rule ds id)
+    (let [normalized (normalize-break-rule attrs)]
+      (if-let [error (:error normalized)]
+        error
+        (json-response (db/update-break-rule! ds id (:attrs normalized)))))
+    (json-response 404 {:error "not-found"})))
+
+(defn- update-break-rule-form-response! [ds id form]
+  (let [normalized (normalize-break-rule {:title (:break-title form)
+                                          :start-minute (:start-time form)
+                                          :end-minute (:end-time form)
+                                          :enabled true})
+        fallback (safe-redirect-path (:redirect-to form) "/settings")]
+    (cond
+      (nil? (db/get-break-rule ds id))
+      (form-warning-redirect fallback (json-response 404 {:error "not-found"}))
+
+      (:error normalized)
+      (form-warning-redirect fallback (:error normalized))
+
+      :else
+      (do
+        (db/update-break-rule! ds id (:attrs normalized))
+        (redirect-response fallback)))))
+
+(defn- delete-break-rule-response! [ds id]
+  (if-let [rule (db/delete-break-rule! ds id)]
+    (json-response rule)
+    (json-response 404 {:error "not-found"})))
+
+(defn- delete-break-rule-form-response! [ds id form]
+  (let [fallback (safe-redirect-path (:redirect-to form) "/settings")
+        response (delete-break-rule-response! ds id)]
+    (if (= 200 (:status response))
+      (redirect-response fallback)
+      (form-warning-redirect fallback response))))
 
 (defn- update-break-response! [ds id attrs]
   (if-let [break (db/get-break ds id)]
@@ -1136,6 +1169,18 @@
      ["/break-rules"
       {:post (fn [request]
                (create-break-rule-form-response! ds (parse-form-body request)))}]
+     ["/break-rules/:id/update"
+      {:post (fn [request]
+               (update-break-rule-form-response!
+                ds
+                (parse-id (get-in request [:path-params :id]))
+                (parse-form-body request)))}]
+     ["/break-rules/:id/delete"
+      {:post (fn [request]
+               (delete-break-rule-form-response!
+                ds
+                (parse-id (get-in request [:path-params :id]))
+                (parse-form-body request)))}]
      ["/breaks/:id/range"
       {:post (fn [request]
                (update-break-form-response!
@@ -1282,6 +1327,16 @@
       {:get (fn [_] (json-response {:break-rules (db/list-break-rules ds)}))
        :post (fn [request]
                (create-break-rule-response! ds (parse-json-body request)))}]
+     ["/api/break-rules/:id"
+      {:patch (fn [request]
+                (update-break-rule-response!
+                 ds
+                 (parse-id (get-in request [:path-params :id]))
+                 (parse-json-body request)))
+       :delete (fn [request]
+                 (delete-break-rule-response!
+                  ds
+                  (parse-id (get-in request [:path-params :id]))))}]
      ["/api/breaks/:id"
       {:patch (fn [request]
                 (update-break-response!

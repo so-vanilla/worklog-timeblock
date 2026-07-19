@@ -19,9 +19,9 @@
        "select,input{border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--text);padding:5px 8px;min-height:34px;}"
        "table{border-collapse:collapse;width:100%;}td,th{border-bottom:1px solid var(--line);padding:7px 6px;text-align:left;}th{color:var(--muted);font-size:12px;text-transform:uppercase;}"
        ".home{max-width:980px;margin:40px auto;padding:0 24px;}.days-shell{max-width:1180px;margin:28px auto;padding:0 24px;display:grid;gap:16px;}.days-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;}.view-tabs,.edit-tabs{display:flex;gap:8px;align-items:center;}.days-calendar{display:grid;gap:10px;}.month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;}.weekday-header{color:var(--muted);font-size:12px;text-transform:uppercase;padding:0 6px;}.calendar-day{position:relative;min-height:104px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px;display:grid;align-content:start;gap:5px;}.calendar-blank{background:transparent;border-style:dashed;}.calendar-day.range-selected{outline:2px solid var(--accent);outline-offset:2px;}.calendar-day a,.week-day-card a{color:inherit;text-decoration:none;}.calendar-day button{all:unset;display:block;cursor:pointer;}.day-number{font-weight:700;font-variant-numeric:tabular-nums;}.day-status{display:inline-flex;width:max-content;border-radius:999px;padding:2px 7px;font-size:11px;font-weight:650;text-transform:uppercase;}.day-status-done{border-color:#86efac;background:#f0fdf4;}.day-status-done .day-status{background:#dcfce7;color:#166534;}.day-status-missing{border-color:#fdba74;background:#fff7ed;}.day-status-missing .day-status{background:#ffedd5;color:#9a3412;}.day-status-holiday{border-color:#c4b5fd;background:#f5f3ff;}.day-status-holiday .day-status{background:#ede9fe;color:#5b21b6;}.day-status-workday{border-color:#d7dde5;background:#fbfcfd;}.day-status-workday .day-status{background:#eef2f7;color:#475569;}.calendar-detail{color:var(--muted);font-size:12px;line-height:1.25;}.calendar-detail .uncategorized{color:var(--warn);font-weight:650;}.range-action-popover{position:fixed;z-index:30;display:grid;gap:8px;width:min(300px,calc(100vw - 24px));padding:12px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 12px 30px rgba(23,32,42,.18);}.range-action-popover[hidden]{display:none;}.range-action-popover form{display:grid;gap:8px;}.range-actions{display:flex;gap:8px;}.week-calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;}.week-day-card{min-height:180px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:10px;display:grid;align-content:start;gap:8px;}.day-workspace{height:100vh;overflow:hidden;display:grid;grid-template-rows:auto auto minmax(0,1fr);}"
-       ".workspace-header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:18px 28px;border-bottom:1px solid var(--line);background:var(--surface);}"
+       ".workspace-header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:18px 28px;border-bottom:1px solid var(--line);background:var(--surface);}.workspace-title-area{display:grid;gap:6px;min-width:0;}.workspace-title-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;}"
        ".workspace-header h1{font-size:22px;line-height:1.2;margin:0;letter-spacing:0;}.workspace-meta{color:var(--muted);font-size:13px;}"
-       ".header-actions{display:grid;gap:8px;justify-items:end;}.day-navigation{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;}.nav-button{display:inline-flex;align-items:center;min-height:34px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--text);text-decoration:none;}.day-navigation form{display:flex;gap:6px;align-items:center;}.day-navigation input{width:142px;}"
+       ".header-actions{display:grid;gap:8px;justify-items:end;}.page-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;}.day-navigation{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;}.nav-button{display:inline-flex;align-items:center;min-height:34px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--text);text-decoration:none;}.day-navigation form{display:flex;gap:6px;align-items:center;}.day-navigation input{width:142px;}"
        ".workspace-grid{display:grid;grid-template-columns:minmax(280px,.95fr) minmax(340px,1.25fr) minmax(300px,.85fr);min-height:0;}"
        ".timeline-pane,.entry-pane,.summary-pane{min-width:0;height:100%;overflow:auto;padding:18px 22px 28px;}.entry-pane,.summary-pane{border-left:1px solid var(--line);background:var(--surface);}"
        ".input-panel{display:grid;gap:10px;margin:0 0 18px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);}.input-grid{display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:8px;}.input-grid .wide{grid-column:1/-1;}.inline-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0;}.inline-form input{min-width:160px;}"
@@ -32,14 +32,14 @@
        ".timeline-warning-bubble{position:absolute;left:18px;right:18px;z-index:18;padding:5px 7px;border:1px solid rgba(154,52,18,.5);border-radius:6px;background:#fff7ed;color:var(--warn);font-size:12px;line-height:1.2;pointer-events:none;box-shadow:0 6px 16px rgba(23,32,42,.16);}.timeline-warning-bubble[hidden]{display:none;}"
        ".attendance-band{position:absolute;z-index:1;left:2px;right:2px;border-left:4px solid rgba(15,118,110,.55);background:rgba(15,118,110,.06);color:#0f766e;font-size:11px;line-height:1.1;padding:4px 6px;pointer-events:none;}.attendance-marker{position:absolute;z-index:2;left:0;right:0;border-top:2px solid rgba(15,118,110,.72);color:#0f766e;font-size:11px;line-height:1;pointer-events:none;}.attendance-marker span{position:absolute;right:6px;top:-7px;background:#fff;padding:1px 4px;border-radius:4px;}"
        ".timeline-selection[hidden]{display:none;}.timeline-block{position:absolute;z-index:6;border-radius:6px;padding:5px 7px;overflow:hidden;font-size:12px;line-height:1.2;border:1px solid transparent;}"
-       ".confirmed-block{left:8px;width:66%;background:#dbeafe;border-color:#93c5fd;color:#172554;cursor:move;}.confirmed-block.selected{outline:2px solid #1d4ed8;outline-offset:2px;}.break-block{left:6%;width:88%;background:rgba(202,138,4,.14);border-color:rgba(202,138,4,.45);color:#713f12;}.imported-block{left:12%;width:78%;background:rgba(15,118,110,.12);border-color:rgba(15,118,110,.34);color:#064e3b;cursor:context-menu;}.overlap-block{left:76%;width:20%;padding-inline:4px;background:rgba(154,52,18,.12);border-color:rgba(154,52,18,.45);}"
+       ".confirmed-block{z-index:9;left:8px;width:66%;background:#dbeafe;border-color:#93c5fd;color:#172554;cursor:move;}.confirmed-block.selected{outline:2px solid #1d4ed8;outline-offset:2px;}.uncategorized-block{background:#fef3c7;border-color:#f59e0b;color:#713f12;}.break-block{left:6%;width:88%;background:rgba(202,138,4,.14);border-color:rgba(202,138,4,.45);color:#713f12;}.imported-block{left:12%;width:78%;background:rgba(15,118,110,.12);border-color:rgba(15,118,110,.34);color:#064e3b;cursor:context-menu;}.overlap-block{left:76%;width:20%;padding-inline:4px;background:rgba(154,52,18,.12);border-color:rgba(154,52,18,.45);}"
        ".block-time{font-variant-numeric:tabular-nums;font-weight:650;}.block-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.candidate-menu{position:fixed;z-index:20;width:min(320px,calc(100vw - 24px));padding:12px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 12px 30px rgba(23,32,42,.18);}.candidate-menu[hidden]{display:none;}.candidate-menu form{display:grid;gap:8px;margin-top:8px;}"
        ".attention-queue{display:grid;gap:8px;margin-bottom:18px;}.candidate-card{border:1px solid var(--line);border-radius:8px;padding:10px;background:#fbfcfd;}.candidate-card.covered{border-color:rgba(154,52,18,.45);}.candidate-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}.candidate-actions form{display:flex;gap:6px;align-items:center;}.candidate-badge{font-size:11px;color:var(--warn);text-transform:uppercase;}"
        ".pane-title{font-size:15px;margin:0 0 14px;}.sub-title{font-size:13px;margin:14px 0 8px;}.work-log-list{display:grid;gap:10px;}.work-log-row{display:grid;gap:10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:10px;overflow:hidden;}.work-log-row.selected{border-color:#1d4ed8;box-shadow:0 0 0 2px rgba(29,78,216,.14);}.work-log-main{display:grid;grid-template-columns:112px minmax(0,1fr) 92px;gap:10px;align-items:center;}.work-log-actions{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:start;}.work-log-range-line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;}"
        ".time-range{font-variant-numeric:tabular-nums;font-weight:650;}.title{min-width:0;overflow-wrap:anywhere;}.state{color:var(--muted);}.state-excluded{opacity:.66;}.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0;}.controls select{min-width:0;max-width:100%;}.category-form select{flex:1 1 180px;}.range-form{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0;}.range-form input{width:92px;}.exclude-form{justify-self:end;}.exclude-form button,.delete-form button{border-color:#747b86;background:#747b86;}"
        ".category-create-form{display:grid;gap:8px;margin:0 0 14px;}.category-list{display:grid;gap:4px;list-style:none;margin:0;padding:0;}.category-row{display:grid;grid-template-columns:minmax(0,1fr) 48px auto;gap:8px;align-items:center;border:1px solid var(--line);border-left:5px solid var(--group-color,var(--line));border-radius:6px;padding:7px 8px;background:#fff;}.category-child{margin-left:20px;}.category-rename-form{display:flex;gap:6px;min-width:0;}.category-rename-form input{min-width:0;width:100%;}.category-row .controls{justify-content:flex-end;}.category-row button{padding:4px 8px;}.summary-row{border-left:5px solid var(--group-color,var(--line));}.summary-child td:first-child{padding-left:22px;}.summary-parent td:first-child{font-weight:700;}"
        ".metric-list{display:grid;grid-template-columns:1fr auto;gap:6px 10px;margin:0 0 14px;}.metric-list dt{color:var(--muted);}.metric-list dd{margin:0;font-variant-numeric:tabular-nums;font-weight:650;}.day-breaks{border-top:1px solid var(--line);padding-top:2px;}.break-list{display:grid;gap:8px;margin:0 0 12px;}.break-row{display:grid;gap:8px;border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff7ed;}.break-actions{display:grid;gap:8px;}.one-off-break-form{display:grid;gap:8px;margin-top:8px;}"
-       ".settings-grid{display:grid;grid-template-columns:1fr;gap:14px;}.settings-form{display:grid;gap:10px;}.weekday-options{display:flex;flex-wrap:wrap;gap:8px 12px;}.weekday-options label{display:flex;gap:5px;align-items:center;color:var(--muted);}.flash-warning{border:1px solid rgba(154,52,18,.42);border-radius:8px;background:#fff7ed;color:var(--warn);padding:10px 12px;font-weight:650;}.day-workspace>.flash-warning{margin:12px 28px 0;}.warn{color:var(--warn);font-weight:650;}.warnings{padding-left:18px;}@media (max-width:980px){.workspace-header{align-items:flex-start;flex-direction:column;}.header-actions{justify-items:start;}.day-navigation{justify-content:flex-start;}.workspace-grid,.week-calendar{grid-template-columns:1fr;}.month-grid{grid-template-columns:repeat(7,minmax(86px,1fr));overflow:auto;}.entry-pane,.summary-pane{border-left:0;border-top:1px solid var(--line);}.day-timeline{height:720px;}.work-log-main,.work-log-actions,.work-log-range-line,.input-grid,.category-row{grid-template-columns:1fr;}.range-form input{width:100%;}.controls,.range-form,.inline-form{align-items:stretch;}.controls form,.range-form,.inline-form input,.inline-form button,.exclude-form{width:100%;}.controls select,.controls button,.range-form input,.range-form button{width:100%;}}"
+       ".settings-grid{display:grid;grid-template-columns:1fr;gap:14px;}.settings-form{display:grid;gap:10px;}.settings-nav{display:flex;gap:8px;align-items:center;margin:0 0 12px;}.field{display:grid;gap:4px;}.field-label{font-weight:650;}.field-help{color:var(--muted);font-size:12px;line-height:1.35;}.segmented-toggle{display:inline-flex;width:max-content;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:#fff;}.toggle-option{display:inline-flex;align-items:center;min-height:34px;padding:6px 12px;border:0;border-right:1px solid var(--line);border-radius:0;background:#fff;color:var(--text);text-decoration:none;}.toggle-option:last-child{border-right:0;}.toggle-option.active{background:#16a34a;color:#fff;}.break-rule-cards{display:grid;gap:10px;}.break-rule-card{display:grid;gap:8px;border:1px solid var(--line);border-radius:8px;padding:10px;background:#fbfcfd;}.break-rule-edit-form{display:grid;grid-template-columns:minmax(140px,1fr) 128px 128px auto;gap:8px;align-items:end;}.weekday-options{display:flex;flex-wrap:wrap;gap:8px 12px;}.weekday-options label{display:flex;gap:5px;align-items:center;color:var(--muted);}.flash-warning{border:1px solid rgba(154,52,18,.42);border-radius:8px;background:#fff7ed;color:var(--warn);padding:10px 12px;font-weight:650;}.day-workspace>.flash-warning{margin:12px 28px 0;}.warn{color:var(--warn);font-weight:650;}.warnings{padding-left:18px;}@media (max-width:980px){.workspace-header{align-items:flex-start;flex-direction:column;}.header-actions{justify-items:start;}.day-navigation,.page-actions{justify-content:flex-start;}.workspace-grid,.week-calendar{grid-template-columns:1fr;}.month-grid{grid-template-columns:repeat(7,minmax(86px,1fr));overflow:auto;}.entry-pane,.summary-pane{border-left:0;border-top:1px solid var(--line);}.day-timeline{height:720px;}.work-log-main,.work-log-actions,.work-log-range-line,.input-grid,.category-row,.break-rule-edit-form{grid-template-columns:1fr;}.range-form input{width:100%;}.controls,.range-form,.inline-form{align-items:stretch;}.controls form,.range-form,.inline-form input,.inline-form button,.exclude-form{width:100%;}.controls select,.controls button,.range-form input,.range-form button{width:100%;}}"
        "</style>"
        "</head><body>" body "</body></html>"))
 
@@ -66,7 +66,9 @@
   (into {} (map (juxt :id identity)) categories))
 
 (defn- category-name [categories category-id]
-  (or (get-in categories [category-id :name]) category-id "(uncategorized)"))
+  (cond
+    (= "uncategorized" (str category-id)) "Uncategorized"
+    :else (or (get-in categories [category-id :name]) category-id "(uncategorized)")))
 
 (defn- active-categories [categories]
   (filter :active? categories))
@@ -187,7 +189,9 @@
               (range 0 25 2))))
 
 (defn- timeline-confirmed-block [log]
-  (str "<div class=\"timeline-block confirmed-block\" style=\""
+  (str "<div class=\"timeline-block confirmed-block"
+       (when (= :uncategorized (:state log)) " uncategorized-block")
+       "\" style=\""
        (escape-html (block-style (:start-minute log) (:end-minute log)))
        "\" data-worklog-id=\"" (escape-html (:id log))
        "\" data-start-minute=\"" (escape-html (:start-minute log))
@@ -246,6 +250,12 @@
                                                         (time-string end-minute)))
          "</div><div class=\"block-title\">" (escape-html (:title event))
          "</div></div>")))
+
+(defn- timeline-work-block? [log]
+  (or (= :confirmed (:state log))
+      (and (= :uncategorized (:state log))
+           (nil? (:source-id log))
+           (nil? (:external-id log)))))
 
 (defn- category-option [selected-id category]
   (let [id (:id category)]
@@ -488,47 +498,62 @@
   (str "/?view=" view "&date=" date (when edit? "&edit=1")))
 
 (defn- calendar-date-link [view reference-date edit? offset]
-  (query-href view (str (.plusDays (LocalDate/parse reference-date) offset)) edit?))
+  (let [date (LocalDate/parse reference-date)
+        target (if (= "month" view)
+                 (.plusMonths date offset)
+                 (.plusDays date (* 7 offset)))]
+    (query-href view (str target) edit?)))
+
+(defn- toggle-link [label href active?]
+  (str "<a class=\"toggle-option" (when active? " active")
+       "\" href=\"" (escape-html href) "\">" (escape-html label) "</a>"))
 
 (defn- calendar-navigation [view reference-date edit?]
-  (str "<div class=\"days-toolbar\"><div><h1>Days</h1>"
+  (let [month? (= "month" view)
+        prev-label (if month? "Prev month" "Prev week")
+        next-label (if month? "Next month" "Next week")]
+    (str "<div class=\"days-toolbar\"><div><h1>Days</h1>"
        "<div class=\"workspace-meta\">" (escape-html reference-date) "</div></div>"
-       "<div class=\"view-tabs\">"
-       "<a class=\"nav-button\" href=\"" (escape-html (query-href "month" reference-date edit?)) "\">Month</a>"
-       "<a class=\"nav-button\" href=\"" (escape-html (query-href "week" reference-date edit?)) "\">Week</a>"
+       "<div class=\"view-tabs segmented-toggle\" role=\"group\" aria-label=\"Calendar view\">"
+       (toggle-link "Month" (query-href "month" reference-date edit?) month?)
+       (toggle-link "Week" (query-href "week" reference-date edit?) (not month?))
        "</div>"
        "<div class=\"day-navigation\">"
-       "<a class=\"nav-button\" href=\"" (escape-html (calendar-date-link view reference-date edit? -7)) "\">Prev week</a>"
+       "<a class=\"nav-button\" href=\"" (escape-html (calendar-date-link view reference-date edit? -1)) "\">"
+       prev-label "</a>"
        "<form class=\"inline-form\" method=\"get\" action=\"/\">"
        "<input type=\"hidden\" name=\"view\" value=\"" (escape-html view) "\">"
        (when edit? "<input type=\"hidden\" name=\"edit\" value=\"1\">")
        "<input type=\"date\" name=\"date\" value=\"" (escape-html reference-date) "\">"
        "<button type=\"submit\">GOTO</button></form>"
        "<a class=\"nav-button\" href=\"" (escape-html (query-href view (today-string) edit?)) "\">TODAY</a>"
-       "<a class=\"nav-button\" href=\"" (escape-html (calendar-date-link view reference-date edit? 7)) "\">Next week</a>"
+       "<a class=\"nav-button\" href=\"" (escape-html (calendar-date-link view reference-date edit? 1)) "\">"
+       next-label "</a>"
        "</div>"
        "<div class=\"edit-tabs\">"
-       "<a class=\"nav-button\" href=\"" (escape-html (query-href view reference-date false)) "\">Edit off</a>"
-       "<a class=\"nav-button\" href=\"" (escape-html (query-href view reference-date true)) "\">Edit on</a>"
+       (when month?
+         (str "<div class=\"segmented-toggle\" role=\"group\" aria-label=\"Month edit\">"
+              (toggle-link "Edit off" (query-href view reference-date false) (not edit?))
+              (toggle-link "Edit on" (query-href view reference-date true) edit?)
+              "</div>"))
        "<a class=\"nav-button\" href=\"/settings\">Settings</a>"
-       "</div></div>"))
+       "</div></div>")))
 
 (defn- calendar-detail [day]
   (str "<div class=\"calendar-detail\">"
        "<div>" (escape-html (hours-string (:confirmed-work-minutes day))) " work</div>"
        "<div>" (escape-html (hours-string (:unallocated-minutes day))) " open</div>"
-       (when (pos? (or (:uncategorized-minutes day) 0))
-         (str "<div class=\"uncategorized\">Uncategorized "
-              (escape-html (hours-string (:uncategorized-minutes day)))
-              "</div>"))
        "</div>"))
 
-(defn- calendar-day-content [day]
+(declare compact-category-lines)
+
+(defn- calendar-day-content [categories day]
   (str "<span class=\"day-number\">" (escape-html (:day-of-month day)) "</span>"
        "<span class=\"day-status\">" (escape-html (:status day)) "</span>"
-       (calendar-detail day)))
+       (calendar-detail day)
+       (compact-category-lines categories day)))
 
-(defn- month-day-cell [edit? day]
+(defn- month-day-cell [categories edit? day]
   (let [date (:date day)
         class-name (str "calendar-day day-status-" (:status day))]
     (str "<div class=\"" (escape-html class-name) "\" data-date=\"" (escape-html date) "\""
@@ -536,10 +561,10 @@
          ">"
          (if edit?
            (str "<button type=\"button\" data-calendar-day=\"" (escape-html date) "\">"
-                (calendar-day-content day)
+                (calendar-day-content categories day)
                 "</button>")
            (str "<a href=\"/days/" (escape-html date) "\">"
-                (calendar-day-content day)
+                (calendar-day-content categories day)
                 "</a>"))
          "</div>")))
 
@@ -588,7 +613,7 @@
          "\"><div class=\"month-grid\">"
          (weekday-headers (:week-start-day state))
          (apply str (repeat leading (calendar-blank-cell)))
-         (apply str (map #(month-day-cell edit? %) (:days state)))
+         (apply str (map #(month-day-cell (:categories state) edit? %) (:days state)))
          (apply str (repeat trailing (calendar-blank-cell)))
          "</div>"
          (when edit? (day-status-popover (:reference-date state)))
@@ -603,9 +628,21 @@
                          (str "<li>" (escape-html (:name category)) " "
                               (escape-html (format "%.2fh" (double hours)))
                               "</li>"))
-                       rows))
+                      rows))
            "</ul>")
       "<div class=\"calendar-detail\">No work</div>")))
+
+(defn- compact-category-lines [categories day]
+  (let [rows (category-summary-rows categories {:category-hours (:category-hours day)})]
+    (when (seq rows)
+      (str "<ul class=\"calendar-detail\">"
+           (apply str
+                  (map (fn [{:keys [category hours]}]
+                         (str "<li>" (escape-html (:name category)) " "
+                              (escape-html (format "%.2fh" (double hours)))
+                              "</li>"))
+                       rows))
+           "</ul>"))))
 
 (defn- week-day-card [categories day]
   (let [date (:date day)
@@ -727,7 +764,7 @@
          "<dl class=\"metric-list\">"
          "<dt>Clock range</dt><dd>" (escape-html (attendance-range-label attendance)) "</dd>"
          "<dt>Span</dt><dd>" (escape-html (hours-string (:span-minutes stats))) "</dd>"
-         "<dt>Confirmed work</dt><dd>" (escape-html (hours-string (:confirmed-work-minutes stats))) "</dd>"
+         "<dt>Recorded work</dt><dd>" (escape-html (hours-string (:confirmed-work-minutes stats))) "</dd>"
          "<dt>Breaks</dt><dd>" (escape-html (hours-string (:break-minutes stats))) "</dd>"
          "<dt>Unallocated</dt><dd>" (escape-html (hours-string (:unallocated-minutes stats))) "</dd>"
          "</dl>"
@@ -748,12 +785,16 @@
 
 (defn- daily-break-rule-form [redirect-to]
   (str "<form class=\"input-panel\" method=\"post\" action=\"/break-rules\">"
-       "<h2 class=\"pane-title\">Daily break</h2>"
+       "<h2 class=\"pane-title\">Default break</h2>"
+       "<div class=\"field-help\">Used when break mode is fixed. These rules create daily break blocks, but edited day breaks stay independent.</div>"
        "<input type=\"hidden\" name=\"redirect-to\" value=\"" (escape-html redirect-to) "\">"
        "<div class=\"input-grid\">"
-       "<input name=\"break-title\" value=\"Lunch\" placeholder=\"Break title\">"
-       "<input type=\"time\" name=\"start-time\" value=\"12:00\">"
-       "<input type=\"time\" name=\"end-time\" value=\"13:00\">"
+       "<label class=\"field wide\"><span class=\"field-label\">Title</span>"
+       "<input name=\"break-title\" value=\"Lunch\" placeholder=\"Break title\"></label>"
+       "<label class=\"field\"><span class=\"field-label\">Start</span>"
+       "<input type=\"time\" name=\"start-time\" value=\"12:00\"></label>"
+       "<label class=\"field\"><span class=\"field-label\">End</span>"
+       "<input type=\"time\" name=\"end-time\" value=\"13:00\"></label>"
        "<button type=\"submit\">Add daily break</button>"
        "</div></form>"))
 
@@ -840,7 +881,7 @@
        (timeline-attendance attendance)
        (apply str (map timeline-break-block breaks))
        (apply str (map timeline-confirmed-block
-                       (filter #(= :confirmed (:state %)) work-logs)))
+                       (filter timeline-work-block? work-logs)))
        (apply str (map #(timeline-imported-block work-logs %) source-events))
        "</div></div>"))
 
@@ -1238,12 +1279,14 @@
                  :as state} categories]
   (page (str "worklog-timeblock " date)
         (str "<main class=\"day-workspace\">"
-             "<header class=\"workspace-header\"><div><h1>" (escape-html date)
-             "</h1><div class=\"workspace-meta\">" (count work-logs) " logs</div></div>"
-             "<div class=\"header-actions\">"
-             (day-navigation date)
-             "<nav><a href=\"/\">Days</a> | <a href=\"/settings\">Settings</a></nav>"
-             "</div></header>"
+             "<header class=\"workspace-header\"><div class=\"workspace-title-area\">"
+             "<div class=\"workspace-title-row\"><h1>" (escape-html date)
+             "</h1>" (day-navigation date) "</div>"
+             "<div class=\"workspace-meta\">" (count work-logs) " logs</div></div>"
+             "<nav class=\"page-actions\">"
+             "<a class=\"nav-button\" href=\"/\">Days</a>"
+             "<a class=\"nav-button\" href=\"/settings\">Settings</a>"
+             "</nav></header>"
              (flash-warning (:flash-warning state))
              "<div class=\"workspace-grid\">"
              "<section class=\"timeline-pane\"><h2 class=\"pane-title\">Timeline</h2>"
@@ -1267,15 +1310,6 @@
              "</aside></div></main>"
              timeline-script)))
 
-(defn- break-rule-row [rule]
-  (str "<tr data-break-rule-id=\"" (escape-html (:id rule)) "\"><td>"
-       (escape-html (:title rule))
-       "</td><td>" (escape-html (str (time-string (:start-minute rule))
-                                     "-"
-                                     (time-string (:end-minute rule))))
-       "</td><td>" (escape-html (if (:enabled? rule) "enabled" "disabled"))
-       "</td></tr>"))
-
 (defn- selected-attr [current value]
   (when (= current value) " selected"))
 
@@ -1286,12 +1320,14 @@
   (let [mode (:break-mode settings)]
     (str "<form class=\"input-panel settings-form\" method=\"post\" action=\"/settings/break-mode\">"
          "<h2 class=\"pane-title\">Break mode</h2>"
+         "<div class=\"field-help\">Fixed inserts configured default breaks each day. Flexible keeps daily breaks manual and shows Break today on the worklog page.</div>"
          "<input type=\"hidden\" name=\"redirect-to\" value=\"/settings\">"
-         "<select name=\"break-mode\">"
-         "<option value=\"fixed\"" (selected-attr mode "fixed") ">Fixed</option>"
-         "<option value=\"flexible\"" (selected-attr mode "flexible") ">Flexible</option>"
-         "</select>"
-         "<button type=\"submit\">Save</button></form>")))
+         "<div class=\"segmented-toggle\" role=\"group\" aria-label=\"Break mode\">"
+         "<button class=\"toggle-option" (when (= mode "fixed") " active")
+         "\" type=\"submit\" name=\"break-mode\" value=\"fixed\">Fixed</button>"
+         "<button class=\"toggle-option" (when (= mode "flexible") " active")
+         "\" type=\"submit\" name=\"break-mode\" value=\"flexible\">Flexible</button>"
+         "</div></form>")))
 
 (defn- holiday-policy-form [settings]
   (let [policy (:holiday-policy settings)
@@ -1300,12 +1336,16 @@
         labels {1 "Mon" 2 "Tue" 3 "Wed" 4 "Thu" 5 "Fri" 6 "Sat" 7 "Sun"}]
     (str "<form class=\"input-panel settings-form\" method=\"post\" action=\"/settings/holiday-policy\">"
          "<h2 class=\"pane-title\">Holiday policy</h2>"
+         "<div class=\"field-help\">Controls the default workday/holiday status in Days. Manual overrides can still be made from Month edit.</div>"
          "<input type=\"hidden\" name=\"redirect-to\" value=\"/settings\">"
+         "<label class=\"field\"><span class=\"field-label\">Policy</span>"
          "<select name=\"holiday-policy-mode\">"
          "<option value=\"complete-two-day\"" (selected-attr mode "complete-two-day") ">Complete two-day</option>"
          "<option value=\"two-day\"" (selected-attr mode "two-day") ">Two-day</option>"
          "<option value=\"manual\"" (selected-attr mode "manual") ">Manual</option>"
-         "</select>"
+         "</select></label>"
+         "<div class=\"field\"><span class=\"field-label\">Default holidays</span>"
+         "<span class=\"field-help\">Used by Complete two-day and Two-day modes.</span>"
          "<div class=\"weekday-options\">"
          (apply str
                 (map (fn [weekday]
@@ -1313,14 +1353,16 @@
                             weekday "\" value=\"1\"" (checked-attr weekdays weekday)
                             "> " (get labels weekday) "</label>"))
                      (range 1 8)))
-         "</div><button type=\"submit\">Save</button></form>")))
+         "</div></div><button type=\"submit\">Save</button></form>")))
 
 (defn- calendar-settings-form [settings]
   (let [week-start-day (:week-start-day settings)
         fiscal-month-start-day (:fiscal-month-start-day settings)]
     (str "<form class=\"input-panel settings-form\" method=\"post\" action=\"/settings/calendar\">"
          "<h2 class=\"pane-title\">Calendar</h2>"
+         "<div class=\"field-help\">Controls Week/Month alignment and the company accounting period shown in Days.</div>"
          "<input type=\"hidden\" name=\"redirect-to\" value=\"/settings\">"
+         "<label class=\"field\"><span class=\"field-label\">Week starts on</span>"
          "<select name=\"week-start-day\">"
          (apply str
                 (map (fn [weekday]
@@ -1328,20 +1370,40 @@
                             (when (= weekday week-start-day) " selected")
                             ">" (weekday-labels weekday) "</option>"))
                      (range 1 8)))
-         "</select>"
+         "</select></label>"
+         "<label class=\"field\"><span class=\"field-label\">Fiscal month start day</span>"
+         "<span class=\"field-help\">Use 21 for a period from the previous 21st through the current 20th.</span>"
          "<input name=\"fiscal-month-start-day\" type=\"number\" min=\"1\" max=\"31\" value=\""
          (escape-html fiscal-month-start-day)
-         "\">"
+         "\"></label>"
          "<button type=\"submit\">Save</button></form>")))
+
+(defn- break-rule-card [rule]
+  (str "<article class=\"break-rule-card\" data-break-rule-id=\"" (escape-html (:id rule)) "\">"
+       "<form class=\"break-rule-edit-form\" method=\"post\" action=\"/break-rules/"
+       (escape-html (:id rule)) "/update\">"
+       "<input type=\"hidden\" name=\"redirect-to\" value=\"/settings\">"
+       "<label class=\"field\"><span class=\"field-label\">Title</span>"
+       "<input name=\"break-title\" value=\"" (escape-html (:title rule)) "\"></label>"
+       "<label class=\"field\"><span class=\"field-label\">Start</span>"
+       "<input type=\"time\" name=\"start-time\" value=\"" (escape-html (time-string (:start-minute rule))) "\"></label>"
+       "<label class=\"field\"><span class=\"field-label\">End</span>"
+       "<input type=\"time\" name=\"end-time\" value=\"" (escape-html (time-string (:end-minute rule))) "\"></label>"
+       "<button type=\"submit\">Save</button></form>"
+       "<form class=\"delete-form\" method=\"post\" action=\"/break-rules/"
+       (escape-html (:id rule)) "/delete\">"
+       "<input type=\"hidden\" name=\"redirect-to\" value=\"/settings\">"
+       "<button type=\"submit\">Delete</button></form>"
+       "</article>"))
 
 (defn- break-rules-panel [break-rules]
   (str (daily-break-rule-form "/settings")
        "<section class=\"input-panel break-rule-list-panel\"><h2 class=\"pane-title\">Daily break rules</h2>"
-       "<table><thead><tr><th>Title</th><th>Range</th><th>Status</th></tr></thead><tbody>"
+       "<div class=\"field-help\">Edit or delete the default rules used for fixed break materialization.</div>"
        (if (seq break-rules)
-         (apply str (map break-rule-row break-rules))
-         "<tr><td colspan=\"3\" class=\"state\">No daily break rules yet.</td></tr>")
-       "</tbody></table></section>"))
+         (str "<div class=\"break-rule-cards\">" (apply str (map break-rule-card break-rules)) "</div>")
+         "<p class=\"state\">No daily break rules yet.</p>")
+       "</section>"))
 
 (defn- import-source-row [source]
   (str "<tr><td>" (escape-html (:name source))
@@ -1358,10 +1420,14 @@
   (str "<section class=\"input-panel import-sources-panel\">"
        "<form class=\"settings-form\" method=\"post\" action=\"/import-sources\">"
        "<h2 class=\"pane-title\">Add iCal source</h2>"
+       "<div class=\"field-help\">Import sources use a shared provider format. iCal is the first implemented source.</div>"
        "<input type=\"hidden\" name=\"kind\" value=\"ical\">"
-       "<input name=\"name\" placeholder=\"Name\">"
-       "<input name=\"uri\" placeholder=\"File path or URL\">"
-       "<input name=\"fetch-interval-minutes\" type=\"number\" min=\"1\" value=\"60\">"
+       "<label class=\"field\"><span class=\"field-label\">Name</span>"
+       "<input name=\"name\" placeholder=\"Name\"></label>"
+       "<label class=\"field\"><span class=\"field-label\">URI</span>"
+       "<input name=\"uri\" placeholder=\"File path or URL\"></label>"
+       "<label class=\"field\"><span class=\"field-label\">Fetch interval minutes</span>"
+       "<input name=\"fetch-interval-minutes\" type=\"number\" min=\"1\" value=\"60\"></label>"
        "<button type=\"submit\">Add source</button></form>"
        "<table><thead><tr><th>Name</th><th>Kind</th><th>URI</th><th>Interval</th><th>Status</th><th>Fetch</th></tr></thead><tbody>"
        (if (seq sources)
@@ -1372,7 +1438,7 @@
 (defn settings-page [{:keys [break-rules import-sources settings] :as state}]
   (page "worklog-timeblock settings"
         (str "<main class=\"home settings-page\"><h1>Settings</h1>"
-             "<p><a href=\"/\">Days</a></p>"
+             "<nav class=\"settings-nav\"><a class=\"nav-button\" href=\"/\">Days</a></nav>"
              (flash-warning (:flash-warning state))
              "<div class=\"settings-grid\">"
              (break-mode-settings-form settings)

@@ -57,8 +57,11 @@
         (is (str/includes? html "/days/2026-07-06"))
         (is (str/includes? html "href=\"/?view=week&amp;date=2026-07-06\""))
         (is (str/includes? html "href=\"/?view=month&amp;date=2026-07-06&amp;edit=1\""))
-        (is (str/includes? html "href=\"/?view=month&amp;date=2026-06-29\""))
-        (is (str/includes? html "href=\"/?view=month&amp;date=2026-07-13\""))
+        (is (str/includes? html "href=\"/?view=month&amp;date=2026-06-06\""))
+        (is (str/includes? html "href=\"/?view=month&amp;date=2026-08-06\""))
+        (is (str/includes? html "Prev month"))
+        (is (str/includes? html "Next month"))
+        (is (str/includes? html "class=\"toggle-option active\""))
         (is (str/includes? html "name=\"date\" value=\"2026-07-06\""))
         (is (str/includes? html "TODAY"))))
 
@@ -71,6 +74,8 @@
         (is (str/includes? html "class=\"day-timeline\""))
         (is (str/includes? html "class=\"timeline-track\""))
         (is (str/includes? html "href=\"/settings\""))
+        (is (str/includes? html "<nav class=\"page-actions\"><a class=\"nav-button\" href=\"/\">Days</a><a class=\"nav-button\" href=\"/settings\">Settings</a></nav>"))
+        (is (str/includes? html "<div class=\"workspace-title-row\"><h1>2026-07-06</h1><div class=\"day-navigation\">"))
         (is (str/includes? html "Build"))
         (is (str/includes? html "Development"))
         (is (str/includes? html "0.75h"))
@@ -100,10 +105,12 @@
         (is (str/includes? html "name=\"start-time\""))
         (is (str/includes? html "name=\"end-time\""))))
 
-    (testing "day page makes warnings visible"
+    (testing "day page renders uncategorized work as a normal visible block"
       (let [html (response-body (request handler "/days/2026-07-06"))]
         (is (str/includes? html "Uncategorized"))
-        (is (str/includes? html "Unknown"))))
+        (is (str/includes? html "Unknown"))
+        (is (str/includes? html "uncategorized-block"))
+        (is (not (str/includes? html "Uncategorized: Unknown")))))
 
     (testing "right pane is ordered as attendance, totals, then categories"
       (let [html (response-body (request handler "/days/2026-07-06"))
@@ -133,7 +140,10 @@
             html (response-body (request handler "/days/2026-07-06"))]
         (is (= 303 (:status response)))
         (is (= "/days/2026-07-06" (get-in response [:headers "location"])))
-        (is (str/includes? html "Uncategorized: Build"))))
+        (is (str/includes? html "Uncategorized"))
+        (is (str/includes? html "Build"))
+        (is (str/includes? html "data-summary-category-id=\"uncategorized\""))
+        (is (not (str/includes? html "Uncategorized: Build")))))
 
     (testing "range form updates the rendered timeline"
       (let [response (request handler :post
@@ -216,7 +226,9 @@
         (is (= 303 (:status response)))
         (is (str/includes? html "2 logs"))
         (is (str/includes? html "Triage"))
-        (is (str/includes? html "Uncategorized: Triage"))))))
+        (is (str/includes? html "Uncategorized"))
+        (is (str/includes? html "data-summary-category-id=\"uncategorized\""))
+        (is (not (str/includes? html "Uncategorized: Triage")))))))
 
 (deftest web-days-calendar-test
   (let [{:keys [handler ds]} (empty-temp-system)
@@ -245,6 +257,7 @@
         (is (str/includes? html "class=\"calendar-day day-status-done\" data-date=\"2026-07-15\""))
         (is (str/includes? html "class=\"calendar-day day-status-missing\" data-date=\"2026-07-16\""))
         (is (str/includes? html "Uncategorized"))
+        (is (str/includes? html "Uncategorized 1.00h"))
         (is (str/includes? html "class=\"calendar-day day-status-holiday\" data-date=\"2026-07-20\""))
         (is (str/includes? html "href=\"/days/2026-07-15\""))
         (is (not (str/includes? html "id=\"day-status-range-form\"")))))
@@ -273,6 +286,8 @@
         (is (str/includes? html "data-calendar-view=\"week\""))
         (is (str/includes? html "href=\"/?view=week&amp;date=2026-07-08\""))
         (is (str/includes? html "href=\"/?view=week&amp;date=2026-07-22\""))
+        (is (str/includes? html "Prev week"))
+        (is (str/includes? html "Next week"))
         (is (str/includes? html "data-date=\"2026-07-13\""))
         (is (str/includes? html "data-date=\"2026-07-19\""))
         (is (str/includes? html "href=\"/days/2026-07-15\""))
@@ -288,13 +303,18 @@
         (is (not (str/includes? day-html "Daily break")))
         (is (not (str/includes? day-html "action=\"/break-rules\"")))
         (is (str/includes? settings-html "Settings"))
+        (is (str/includes? settings-html "<a class=\"nav-button\" href=\"/\">Days</a>"))
         (is (str/includes? settings-html "action=\"/settings/break-mode\""))
-        (is (str/includes? settings-html "value=\"fixed\" selected"))
+        (is (str/includes? settings-html "Fixed inserts configured default breaks"))
+        (is (str/includes? settings-html "name=\"break-mode\" value=\"fixed\">Fixed"))
+        (is (str/includes? settings-html "class=\"toggle-option active\" type=\"submit\" name=\"break-mode\" value=\"fixed\""))
         (is (str/includes? settings-html "action=\"/settings/holiday-policy\""))
         (is (str/includes? settings-html "name=\"holiday-policy-mode\""))
+        (is (str/includes? settings-html "Default holidays"))
         (is (str/includes? settings-html "action=\"/settings/calendar\""))
         (is (str/includes? settings-html "name=\"week-start-day\""))
         (is (str/includes? settings-html "name=\"fiscal-month-start-day\""))
+        (is (str/includes? settings-html "Fiscal month start day"))
         (is (str/includes? settings-html "Daily break"))
         (is (str/includes? settings-html "action=\"/break-rules\""))
         (is (str/includes? settings-html "value=\"/settings\""))
@@ -310,7 +330,7 @@
             day-html (response-body (request handler "/days/2026-07-11"))]
         (is (= 303 (:status response)))
         (is (= "/settings" (get-in response [:headers "location"])))
-        (is (str/includes? settings-html "value=\"flexible\" selected"))
+        (is (str/includes? settings-html "class=\"toggle-option active\" type=\"submit\" name=\"break-mode\" value=\"flexible\""))
         (is (str/includes? day-html "Break today"))
         (is (str/includes? day-html "One-off break"))))
 
@@ -326,11 +346,31 @@
     (testing "settings daily break form persists and returns to settings"
       (let [response (request handler :post "/break-rules"
                               "break-title=Lunch&start-time=12%3A00&end-time=13%3A00&redirect-to=%2Fsettings")
-            settings-html (response-body (request handler "/settings"))]
+            settings-html (response-body (request handler "/settings"))
+            rule-id (second (re-find #"/break-rules/(\d+)/update" settings-html))]
         (is (= 303 (:status response)))
         (is (= "/settings" (get-in response [:headers "location"])))
+        (is (some? rule-id))
         (is (str/includes? settings-html "Lunch"))
-        (is (str/includes? settings-html "12:00-13:00"))))))
+        (is (str/includes? settings-html "value=\"12:00\""))
+        (is (str/includes? settings-html "value=\"13:00\""))
+        (is (str/includes? settings-html (str "action=\"/break-rules/" rule-id "/update\"")))
+        (is (str/includes? settings-html (str "action=\"/break-rules/" rule-id "/delete\"")))
+        (let [update-response (request handler :post
+                                       (str "/break-rules/" rule-id "/update")
+                                       "break-title=Coffee&start-time=15%3A00&end-time=15%3A15&redirect-to=%2Fsettings")
+              updated-html (response-body (request handler "/settings"))
+              delete-response (request handler :post
+                                       (str "/break-rules/" rule-id "/delete")
+                                       "redirect-to=%2Fsettings")
+              deleted-html (response-body (request handler "/settings"))]
+          (is (= 303 (:status update-response)))
+          (is (str/includes? updated-html "Coffee"))
+          (is (str/includes? updated-html "value=\"15:00\""))
+          (is (str/includes? updated-html "value=\"15:15\""))
+          (is (= 303 (:status delete-response)))
+          (is (not (str/includes? deleted-html "Coffee")))
+          (is (str/includes? deleted-html "No daily break rules yet.")))))))
 
 (deftest web-category-hierarchy-test
   (let [{:keys [handler ds]} (empty-temp-system)]

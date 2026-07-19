@@ -9,8 +9,8 @@
                 :state :confirmed :category-id "dev"}
                {:title "Unknown" :start-minute 600 :end-minute 630
                 :state :uncategorized}]
-   :summary {:category-hours {"dev" 0.75 "other" 0.75}
-             :warnings [{:type :uncategorized :work-log-id 2 :title "Unknown"}]}})
+   :summary {:category-hours {"dev" 0.75 "uncategorized" 0.5 "other" 0.25}
+             :warnings []}})
 
 (deftest tui-smoke-test
   (testing "renders date and title"
@@ -22,12 +22,15 @@
     (let [screen (tui/render-dashboard state)]
       (is (str/includes? screen "dev"))
       (is (str/includes? screen "0.75h"))
+      (is (str/includes? screen "Uncategorized"))
+      (is (str/includes? screen "0.50h"))
       (is (str/includes? screen "other"))))
 
-  (testing "renders warnings without hiding uncategorized work"
+  (testing "does not warn for explicit uncategorized work"
     (let [screen (tui/render-dashboard state)]
-      (is (str/includes? screen "Warnings"))
-      (is (str/includes? screen "Unknown"))))
+      (is (str/includes? screen "Unknown"))
+      (is (not (str/includes? screen "Warnings")))
+      (is (not (str/includes? screen "Uncategorized: Unknown")))))
 
   (testing "keeps narrow terminal output inside the requested width"
     (let [screen (tui/render-dashboard {:columns 30} state)]

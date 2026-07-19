@@ -20,6 +20,8 @@
 (defn- work-candidate? [log]
   (not= :excluded (normalize-state (:state log))))
 
+(def uncategorized-category-id "uncategorized")
+
 (defn- confirmed-with-category? [assignable-category-ids log]
   (and (= :confirmed (normalize-state (:state log)))
        (some? (:category-id log))
@@ -87,10 +89,12 @@
               (reduce subtract-interval [gap] breaks))
             gaps)))
 
-(defn- confirmed-work-minutes [logs]
+(defn- recorded-work-minutes [logs]
   (reduce + 0
           (map duration
-               (filter #(= :confirmed (normalize-state (:state %))) logs))))
+               (filter #(contains? #{:confirmed :uncategorized}
+                                    (normalize-state (:state %)))
+                       logs))))
 
 (defn- break-minutes [breaks]
   (reduce + 0
@@ -102,77 +106,63 @@
         clock-out (:clock-out-minute attendance)
         span-minutes (when (and clock-in clock-out (< clock-in clock-out))
                        (- clock-out clock-in))
-        confirmed-minutes (confirmed-work-minutes logs)
+        recorded-minutes (recorded-work-minutes logs)
         break-minutes (break-minutes breaks)
         unallocated (when span-minutes
-                      (max 0 (- span-minutes confirmed-minutes break-minutes)))]
+                      (max 0 (- span-minutes recorded-minutes break-minutes)))]
     {:clock-in-minute clock-in
      :clock-out-minute clock-out
      :span-minutes (or span-minutes 0)
-     :confirmed-work-minutes confirmed-minutes
+     :confirmed-work-minutes recorded-minutes
+     :recorded-work-minutes recorded-minutes
      :break-minutes break-minutes
      :unallocated-minutes (or unallocated 0)}))
 
 (defn summarize-day
   "Summarize a single day for manual entry.
   Confirmed categorized logs are rounded down to the configured quantum.
-  Residual minutes, short gaps, uncategorized work, and explicitly
-  unallocated category work go to the other category. Larger gaps and
-  uncategorized work remain warnings."
+  Uncategorized work is explicit work under its own pseudo-category.
+  Residual minutes and short gaps go to the other category. Larger gaps and
+  non-assignable categories remain warnings."
   [options logs]
   (let [rounding-minutes (:rounding-minutes options)
         small-gap-minutes (:small-gap-minutes options)
         other-category-id (:other-category-id options)
         assignable-category-ids (:assignable-category-ids options)
-        unallocated-category-ids (set (:unallocated-category-ids options))
         breaks (:breaks options)
         attendance (:attendance options)]
     (when-not (pos-int? rounding-minutes)
       (throw (ex-info "rounding-minutes must be positive" options)))
     (let [included (filter work-candidate? logs)
           confirmed (filter #(confirmed-with-category? assignable-category-ids %) included)
-          allocated-confirmed (remove #(contains? unallocated-category-ids (:category-id %))
-                                      confirmed)
-          unallocated-confirmed (filter #(contains? unallocated-category-ids (:category-id %))
-                                        confirmed)
           non-assignable (filter #(confirmed-with-non-assignable-category?
                                    assignable-category-ids %)
                                  included)
           uncategorized (filter #(= :uncategorized (normalize-state (:state %))) included)
           uncategorized-minutes (reduce + 0 (map duration uncategorized))
-          unallocated-category-minutes (reduce
-                                        (fn [acc log]
-                                          (+ acc (rounded-category-minutes rounding-minutes log)))
-                                        0
-                                        unallocated-confirmed)
+          categorized-logs (concat confirmed
+                                   (map #(assoc % :category-id uncategorized-category-id)
+                                        uncategorized))
           category-minutes (reduce
                             (fn [acc log]
                               (add-minutes acc (:category-id log)
                                            (rounded-category-minutes rounding-minutes log)))
                             {}
-                            allocated-confirmed)
+                            categorized-logs)
           residual-minutes (reduce
                             (fn [acc log]
                               (+ acc (- (duration log)
                                         (rounded-category-minutes rounding-minutes log))))
                             0
-                            confirmed)
+                            categorized-logs)
           gaps (uncovered-gaps (adjacent-gaps included) breaks)
           short-gap-minutes (reduce + 0 (map :minutes
                                              (filter #(<= (:minutes %) small-gap-minutes) gaps)))
           large-gaps (filter #(> (:minutes %) small-gap-minutes) gaps)
-          other-minutes (+ residual-minutes
-                           short-gap-minutes
-                           uncategorized-minutes
-                           unallocated-category-minutes)
+          other-minutes (+ residual-minutes short-gap-minutes)
           category-minutes (add-minutes category-minutes other-category-id other-minutes)
           warnings (vec
                     (concat
-                     (map (fn [log]
-                            {:type :uncategorized
-                             :work-log-id (:id log)
-                             :title (:title log)})
-                          uncategorized)
                      (map (fn [log]
                             {:type :non-assignable-category
                              :work-log-id (:id log)
@@ -188,13 +178,12 @@
                                     [category-id (round2 (/ minutes 60.0))]))
                              category-minutes)
        :uncategorized (vec uncategorized)
+       :uncategorized-minutes uncategorized-minutes
        :warnings warnings
        :attendance (attendance-summary attendance included breaks)
        :other {:category-id other-category-id
                :rounding-residual-minutes residual-minutes
                :short-gap-minutes short-gap-minutes
-               :uncategorized-minutes uncategorized-minutes
-               :unallocated-category-minutes unallocated-category-minutes
                :total-minutes other-minutes}})))
 
 (defn source-diff-warnings [work-logs source-events]

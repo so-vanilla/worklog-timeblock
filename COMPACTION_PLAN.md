@@ -992,26 +992,29 @@ Status: Done.
 
 Current objective:
 
-- Fix break deletion, Month weekday alignment, Days week navigation, calendar
-  settings, `Uncategorized` fallback assignment, Other effort treatment, and
-  expected form-error display.
+- Implement the approved Settings/UI repair batch and revise
+  `Uncategorized`/`Unallocated` semantics.
 
 Acceptance criteria:
 
-- Added breaks can be deleted from the day page and `/api/breaks/:id`.
-- Deleted fixed/materialized breaks do not reappear as virtual fixed breaks.
-- Month view uses week-start-aware blank cells so holidays sit under the
-  correct weekday column.
-- Days navigation has previous-week and next-week controls.
-- Settings has week start day and fiscal month start day.
-- Fiscal month start day supports company periods such as 21st to 20th.
-- Blank category selection on an existing work log changes it to
-  `Uncategorized`.
-- Days calendar visibly reports `Uncategorized` minutes.
-- Manual reporting totals fold `Unallocated` and `Uncategorized` into Other.
-- Missing-day detection uses `Unallocated` but not `Uncategorized`.
-- Expected Web form failures redirect back to HTML with an inline warning.
-- JSON API failures remain JSON.
+- Settings controls have compact labels/descriptions where the purpose was
+  unclear.
+- Month Edit is a toggle-style control with clear active/inactive state.
+- Month/Week view selection is a toggle-style control.
+- Settings page `Days` navigation is a button, not plain link text.
+- Day worklog page `Days` and `Settings` navigation are buttons.
+- Day page date movement controls sit next to the date heading; Days/Settings
+  actions sit to the right.
+- Month view uses `Prev month`/`Next month`; Week view keeps week navigation.
+- Settings exposes edit and delete for default break rules.
+- Default break rule deletion is soft-delete: existing materialized day breaks
+  stay unchanged; future/unmaterialized days stop receiving the deleted rule.
+- `Uncategorized` is explicit work with no matching category. It displays as a
+  normal effort line, counts toward manual effort totals, and reduces
+  attendance unallocated time.
+- `Unallocated` is computed leftover/missing-time evidence only. A user
+  category named `Unallocated` is no longer special-cased into Other.
+- Days missing detection uses attendance unallocated minutes only.
 
 Required verification before completion:
 
@@ -1028,25 +1031,33 @@ zellij --session wz-10 action list-tabs
 Implementation status:
 
 - Done on 2026-07-20.
-- Implemented break deletion in Web forms and JSON API.
-- Deleted fixed/materialized breaks are treated as tombstoned for virtual-break
-  fallback.
-- Added week start day and fiscal month start day settings.
-- Month cells now align by configured week start and fiscal period start.
-- Days navigation has previous-week, next-week, GOTO, and TODAY controls.
-- Blank category selection changes existing logs to `Uncategorized`.
-- Days calendar shows `Uncategorized` minutes.
-- `Unallocated` and `Uncategorized` are folded into Other effort totals.
-- Missing-day detection uses `Unallocated` evidence but not `Uncategorized`.
-- Expected Web form failures redirect to inline warnings; JSON API errors remain
-  JSON.
+- Started from clean `main...origin/main`.
+- Added Settings labels/descriptions for break mode, holiday policy, calendar
+  settings, default breaks, and iCal import sources.
+- Converted Month/Week and Month Edit controls to toggle-style segmented
+  controls.
+- Converted Settings `Days` and day-page `Days`/`Settings` navigation to
+  button-styled links.
+- Moved day-page date navigation beside the date heading.
+- Changed Month navigation to `Prev month`/`Next month`; Week still uses
+  `Prev week`/`Next week`.
+- Added Web/API update and soft-delete for default break rules.
+- Added idempotent migration support for `break_rules.active`.
+- Kept existing materialized day breaks independent from edited/deleted default
+  rules.
+- Changed `Uncategorized` into explicit work under a pseudo-category that
+  displays in Web/TUI summaries and reduces attendance unallocated time.
+- Removed `Unallocated` category special-casing from summaries and Days
+  missing detection.
+- Kept source-backed imported candidates as thin imported blocks on the
+  timeline so right-click confirmation remains reachable.
 - Latest validation before commit:
-  - `devenv shell e2e-all`: Clojure E2E 18 tests / 482 assertions, browser
-    29 cases / 158 assertions, zellij 8 cases / 220 assertions / 0 failures.
-  - `devenv shell test`: 33 tests / 675 assertions / 0 failures.
+  - `devenv shell e2e-all`: Clojure E2E 18 tests / 528 assertions, browser
+    29 cases / 177 assertions, zellij 8 cases / 230 assertions / 0 failures.
+  - `devenv shell test`: 34 tests / 734 assertions / 0 failures.
   - `devenv shell lint`: errors 0 / warnings 0.
   - `nix flake check`: success.
-  - `nix run . -- --db <empty-temp-db>` smoke: 5 assertions / 0 failures.
+  - `nix run . -- --db <empty-temp-db>` smoke: 7 assertions / 0 failures.
   - `git diff --check && git diff --check --cached`: success.
   - `zellij --session wz-10 action list-tabs`: `Tab #1` only.
 

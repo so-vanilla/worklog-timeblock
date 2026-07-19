@@ -197,10 +197,9 @@
                (select-keys (parse-body response)
                             [:title :state :start-minute :end-minute])))
         (is (nil? (:category-id (parse-body response))))
-        (is (= "Triage" (->> (:warnings (parse-body (request handler :get "/api/days/2026-07-07/summary")))
-                             (filter #(= "Triage" (:title %)))
-                             first
-                             :title)))))
+        (let [summary (parse-body (request handler :get "/api/days/2026-07-07/summary"))]
+          (is (= 30 (category-minutes summary "uncategorized")))
+          (is (empty? (filter #(= "uncategorized" (:type %)) (:warnings summary)))))))
 
     (testing "manual worklog rejects unknown categories without mutation"
       (let [response (request handler :post "/api/days/2026-07-08/worklogs"
@@ -457,7 +456,32 @@
         (is (pos-int? (:id break)))
         (is (= 200 (:status response)))
         (is (false? (:active? (parse-body response))))
-        (is (not-any? #(= "Dinner" (:title %)) (:breaks day-after-delete)))))))
+        (is (not-any? #(= "Dinner" (:title %)) (:breaks day-after-delete)))))
+
+    (testing "daily break rule endpoints update and soft-delete future defaults"
+      (let [created (parse-body (request handler :post "/api/break-rules"
+                                         {:title "Snack"
+                                          :start-minute 900
+                                          :end-minute 915
+                                          :enabled true}))
+            patched (request handler :patch (str "/api/break-rules/" (:id created))
+                             {:title "Tea"
+                              :start-minute 930
+                              :end-minute 945
+                              :enabled true})
+            day-before-delete (parse-body (request handler :get "/api/days/2026-07-18"))
+            deleted (request handler :delete (str "/api/break-rules/" (:id created)))
+            rules-after-delete (parse-body (request handler :get "/api/break-rules"))
+            day-after-delete (parse-body (request handler :get "/api/days/2026-07-19"))]
+        (is (= 200 (:status patched)))
+        (is (= {:title "Tea" :start-minute 930 :end-minute 945 :active? true}
+               (select-keys (parse-body patched) [:title :start-minute :end-minute :active?])))
+        (is (some #(= "Tea" (:title %)) (:breaks day-before-delete)))
+        (is (= 200 (:status deleted)))
+        (is (false? (:active? (parse-body deleted))))
+        (is (not-any? #(= "Tea" (:title %)) (:break-rules rules-after-delete)))
+        (is (some #(= "Tea" (:title %)) (:breaks day-before-delete)))
+        (is (not-any? #(= "Tea" (:title %)) (:breaks day-after-delete)))))))
 
 (deftest api-settings-and-calendar-e2e-test
   (let [{:keys [handler ds]} (empty-temp-system)
@@ -549,13 +573,17 @@
             days-by-date (into {} (map (juxt :date identity)) (:days calendar))]
         (is (= "month" (:view calendar)))
         (is (= "done" (get-in days-by-date ["2026-07-15" :status])))
-        (is (= "missing" (get-in days-by-date ["2026-07-16" :status])))
+        (is (= "done" (get-in days-by-date ["2026-07-16" :status])))
+        (is (= 0 (get-in days-by-date ["2026-07-16" :unallocated-minutes])))
         (is (= 540 (get-in days-by-date ["2026-07-16" :category-minutes
                                           (keyword (str (:id unallocated)))])))
         (is (= "done" (get-in days-by-date ["2026-07-17" :status])))
         (is (= 60 (get-in days-by-date ["2026-07-17" :uncategorized-minutes])))
         (is (= 60 (get-in days-by-date ["2026-07-17" :category-minutes
+                                         :uncategorized])))
+        (is (nil? (get-in days-by-date ["2026-07-17" :category-minutes
                                          (keyword (str (:id unallocated)))])))
+        (is (= 0 (get-in days-by-date ["2026-07-17" :unallocated-minutes])))
         (is (= "holiday" (get-in days-by-date ["2026-07-20" :status])))
         (is (= "holiday" (get-in days-by-date ["2026-07-21" :status])))
         (is (= "holiday" (get-in days-by-date ["2026-07-22" :status])))))))

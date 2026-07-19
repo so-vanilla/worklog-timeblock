@@ -952,6 +952,87 @@ Implementation status:
   - `git diff --check && git diff --check --cached`: success.
   - `zellij --session wz-10 action list-tabs`: `Tab #1` only.
 
+### Phase 5.1: Settings UI And Uncategorized Semantics Repair
+
+Status: Done.
+
+Scope:
+
+- Add compact labels/descriptions to Settings controls whose purpose is not
+  obvious at a glance.
+- Change Month Edit from text links to a toggle-style control where active
+  state is visually clear.
+- Change Month/Week view selection to the same toggle-style control.
+- Change Settings page `Days` navigation from plain link text to a button.
+- Change day worklog page `Days` and `Settings` navigation from plain link
+  text to buttons.
+- Put previous date, date input, GOTO, TODAY, and next date controls next to
+  the day heading; keep `Days` and `Settings` actions to the right.
+- On Month view, label the navigation as `Prev month`/`Next month`; Week keeps
+  week navigation.
+- Move default break rule editing/deletion to Settings. This is rule-level
+  CRUD for `break_rules`, not one-off/day-level `breaks`.
+- Soft-delete default break rules so existing materialized day breaks remain
+  unchanged, while future/unmaterialized days stop using deleted rules.
+- Treat `Uncategorized` as explicit work with no matching category:
+  it appears as a normal effort line, counts toward manual effort totals, and
+  reduces attendance unallocated time.
+- Treat `Unallocated` as computed leftover/missing-time evidence only. A user
+  category named `Unallocated` is no longer special-cased into Other.
+- Days missing detection uses attendance unallocated minutes only.
+
+Quantitative done criteria:
+
+- Add or update at least 25 assertions across domain, DB, API, Web, browser,
+  and TUI E2E tests.
+- Settings tests prove break rule edit/delete are available and persisted.
+- Web/browser tests prove Settings and day-page navigation render as buttons.
+- Calendar tests prove Month navigation labels switch to month units and
+  Week navigation remains week units.
+- Summary/API/TUI tests prove `Uncategorized` displays as normal effort and no
+  longer creates an uncategorized warning.
+- Full gate passes:
+  - `devenv shell e2e-all`
+  - `devenv shell test`
+  - `devenv shell lint`
+  - `nix flake check`
+  - `git diff --check --cached`
+  - `git diff --check`
+  - `zellij --session wz-10 action list-tabs`
+- Commit and push to `origin/main`.
+
+Implementation status:
+
+- Done on 2026-07-20.
+- Added Settings labels/descriptions for break mode, holiday policy, calendar
+  settings, default breaks, and iCal import sources.
+- Converted Month/Week and Month Edit controls to toggle-style segmented
+  controls.
+- Converted Settings `Days` and day-page `Days`/`Settings` navigation to
+  button-styled links.
+- Moved day-page date navigation beside the date heading.
+- Changed Month navigation to `Prev month`/`Next month`; Week still uses
+  `Prev week`/`Next week`.
+- Added Web/API update and soft-delete for default break rules.
+- Added idempotent migration support for `break_rules.active`.
+- Kept existing materialized day breaks independent from edited/deleted default
+  rules.
+- Changed `Uncategorized` into explicit work under a pseudo-category that
+  displays in Web/TUI summaries and reduces attendance unallocated time.
+- Removed `Unallocated` category special-casing from summaries and Days
+  missing detection.
+- Kept source-backed imported candidates as thin imported blocks on the
+  timeline so right-click confirmation remains reachable.
+- Latest local validation before commit:
+  - `devenv shell e2e-all`: Clojure E2E 18 tests / 528 assertions, browser
+    29 cases / 177 assertions, zellij 8 cases / 230 assertions / 0 failures.
+  - `devenv shell test`: 34 tests / 734 assertions / 0 failures.
+  - `devenv shell lint`: errors 0 / warnings 0.
+  - `nix flake check`: success.
+  - `nix run . -- --db <empty-temp-db>` smoke: 7 assertions / 0 failures.
+  - `git diff --check && git diff --check --cached`: success.
+  - `zellij --session wz-10 action list-tabs`: `Tab #1` only.
+
 ### Phase 6: Category And Title Mapping Management
 
 Status: Not started.

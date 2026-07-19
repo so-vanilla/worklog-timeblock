@@ -204,7 +204,24 @@
                (select-keys updated [:start-minute :end-minute])))
         (is (= {:start-minute 735 :end-minute 795}
                (select-keys (db/get-break ds break-id)
-                            [:start-minute :end-minute])))))))
+                            [:start-minute :end-minute])))))
+
+    (testing "daily break rules can be updated and soft-deleted"
+      (let [rule-id (:id (first (db/list-break-rules ds)))
+            updated (db/update-break-rule! ds rule-id {:title "Late lunch"
+                                                       :start-minute 750
+                                                       :end-minute 810})
+            existing-break (first (db/breaks-by-date ds "2026-07-06"))
+            deleted (db/delete-break-rule! ds rule-id)
+            future-breaks (db/materialize-breaks-for-date! ds "2026-07-07")]
+        (is (= {:title "Late lunch" :start-minute 750 :end-minute 810}
+               (select-keys updated [:title :start-minute :end-minute])))
+        (is (= {:title "Lunch" :start-minute 735 :end-minute 795}
+               (select-keys existing-break [:title :start-minute :end-minute])))
+        (is (false? (:active? deleted)))
+        (is (false? (:enabled? deleted)))
+        (is (empty? (db/list-break-rules ds)))
+        (is (empty? future-breaks))))))
 
 (deftest settings-and-day-status-test
   (let [path (temp-db)

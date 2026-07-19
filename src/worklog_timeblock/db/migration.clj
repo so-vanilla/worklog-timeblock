@@ -30,6 +30,11 @@
   (doseq [sql (sql-statements "migrations/001_initial.up.sql")]
     (jdbc/execute! ds [sql])))
 
+(defn- ensure-column! [ds table-name column-name definition]
+  (when-not (column-type ds table-name column-name)
+    (jdbc/execute! ds [(str "ALTER TABLE " table-name
+                            " ADD COLUMN " column-name " " definition)])))
+
 (defn- normalize-kind [kind]
   (or kind "normal"))
 
@@ -104,4 +109,5 @@
   (jdbc/execute! ds ["PRAGMA foreign_keys = ON"])
   (execute-schema! ds)
   (migrate-legacy-category-schema! ds)
+  (ensure-column! ds "break_rules" "active" "INTEGER NOT NULL DEFAULT 1")
   :migrated)

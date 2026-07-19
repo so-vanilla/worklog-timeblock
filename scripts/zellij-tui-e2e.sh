@@ -47,9 +47,9 @@ add_case() {
 add_case normal-080x20 80 20 2026-07-06 normal-day \
   'worklog-timeblock|2026-07-06|Build|Standup|Development|0.75h|Meetings|0.25h|Other|0.25h' \
   'Warnings|Exception|Stacktrace|Error|dev|meeting'
-add_case uncategorized-060x20 60 20 2026-07-06 uncategorized-warning \
-  'worklog-timeblock|2026-07-06|Unknown|Uncategorized: Unknown|Development|0.75h|Other|0.67h|Warnings' \
-  'Exception|Stacktrace|Error|dev|other'
+add_case uncategorized-060x20 60 20 2026-07-06 uncategorized-effort \
+  'worklog-timeblock|2026-07-06|Unknown|Uncategorized|0.50h|Development|0.75h|Other|0.17h' \
+  'Uncategorized: Unknown|Warnings|Exception|Stacktrace|Error|dev|other'
 add_case excluded-060x20 60 20 2026-07-06 excluded-log-not-totaled \
   'worklog-timeblock|2026-07-06|Lunch|excluded|Build|Development|0.75h|Other|0.08h' \
   'Warnings|Meetings|meeting|Exception|Stacktrace|Error|dev'
@@ -57,8 +57,8 @@ add_case rounding-080x20 80 20 2026-07-06 rounding-boundaries \
   'worklog-timeblock|2026-07-06|Short14|Exact15|Meetings|0.25h|Other|0.25h' \
   'Development                 |dev|meeting|Exception|Stacktrace|Error'
 add_case long-japanese-040x20 40 20 2026-07-06 narrow-long-japanese \
-  'worklog-timeblock|2026-07-06|非常に長い|Very Long Category Name|0.75h|Warnings|未分類候補' \
-  'very-long-category-id|Exception|Stacktrace|Error'
+  'worklog-timeblock|2026-07-06|非常に長い|Very Long Category Name|0.75h|Uncategorized|0.50h|未分類候補' \
+  'Uncategorized: 未分類候補|Warnings|very-long-category-id|Exception|Stacktrace|Error'
 add_case narrow-032x10 32 10 2026-07-06 very-narrow-small-data \
   'worklog-timeblock|2026-07-06|09:00-09:15 confirmed Build|Development 0.25h' \
   'Warnings|Exception|Stacktrace|Error|confirmedBuild|dev'

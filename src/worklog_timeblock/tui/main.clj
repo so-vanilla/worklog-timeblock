@@ -51,7 +51,9 @@
   (into {} (map (juxt :id identity)) categories))
 
 (defn- category-name [categories category-id]
-  (or (get-in categories [category-id :name]) category-id "(uncategorized)"))
+  (cond
+    (= summary/uncategorized-category-id category-id) "Uncategorized"
+    :else (or (get-in categories [category-id :name]) category-id "(uncategorized)")))
 
 (defn- hour-line [columns categories [category-id hours]]
   (let [name (category-name categories category-id)
@@ -116,11 +118,8 @@
             source-events (db/source-events-by-date ds date)
             day-summary (summary/summarize-day
                          (assoc default-summary-options
-                                :other-category-id (or (db/other-category-id ds)
-                                                       (db/unallocated-category-id ds)
-                                                       "other")
-                                :assignable-category-ids (db/summarizable-category-ids ds)
-                                :unallocated-category-ids (db/unallocated-category-ids ds))
+                                :other-category-id (or (db/other-category-id ds) "other")
+                                :assignable-category-ids (db/summarizable-category-ids ds))
                          work-logs)]
         (print
          (render-dashboard-for-terminal
