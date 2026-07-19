@@ -502,6 +502,26 @@ Goal 2:
   creates a draft.
 - Add at least 10 browser E2E assertions.
 
+Goal 2 implementation status:
+
+- Confirmed timeline blocks are clickable and no longer start draft selection.
+- Clicking a confirmed block selects both the timeline block and matching
+  central work-log row.
+- The entry pane stores `data-selected-worklog-id`.
+- The selected row is scrolled near the vertical middle of the entry pane when
+  there is enough content to make that possible.
+- Browser E2E now seeds a longer editable list and validates selection,
+  highlighting, scroll focus, and draft-field stability.
+- Current local validation before Goal 2 commit:
+  - `devenv shell e2e-all`: Clojure E2E 10 tests / 220 assertions, browser
+    E2E 7 cases / 66 assertions, zellij 8 cases / 220 assertions / 0 failures.
+  - `devenv shell test`: 22 tests / 360 assertions / 0 failures.
+  - `devenv shell lint`: errors 0 / warnings 0.
+  - `nix flake check`: success.
+  - `git diff --check --cached`: success.
+  - `git diff --check`: success.
+  - `zellij --session wz-10 action list-tabs`: only `Tab #1`.
+
 Goal 3:
 
 - Add day-level attendance, separate from work logs.

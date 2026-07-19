@@ -469,6 +469,8 @@ Validation:
 
 ### Goal 2: Confirmed Block Selection And Edit Focus
 
+Status: Implemented and pushed when commit step completes.
+
 Done when:
 
 - Clicking a confirmed block in the left timeline selects the matching work log.
@@ -481,6 +483,27 @@ Done when:
   overlap.
 - Add at least 10 browser E2E assertions.
 - Full gate passes and the result is committed and pushed.
+
+Implemented:
+
+- Confirmed timeline blocks are clickable without starting a new draft.
+- Clicking a confirmed block selects the matching timeline block and central
+  work-log row.
+- The entry pane stores the selected work-log id.
+- The selected central row is scrolled near the vertical center of the entry
+  pane when enough surrounding content exists.
+- Browser E2E seeds enough work logs to make scroll/focus behavior meaningful.
+
+Validation:
+
+- `devenv shell e2e-all`: Clojure E2E 10 tests / 220 assertions, browser E2E
+  7 cases / 66 assertions, zellij E2E 8 cases / 220 assertions / 0 failures.
+- `devenv shell test`: 22 tests / 360 assertions / 0 failures.
+- `devenv shell lint`: errors 0 / warnings 0.
+- `nix flake check`: success.
+- `git diff --check --cached`: success.
+- `git diff --check`: success.
+- `zellij --session wz-10 action list-tabs`: only `Tab #1`.
 
 ### Goal 3: Attendance And Breaks
 

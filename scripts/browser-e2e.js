@@ -103,6 +103,20 @@ async function seed(baseUrl) {
     "category-id": backend.body.id,
   });
   assert(childWorklog.status === 200, "child category worklog should be created");
+  let deepWorklogId = childWorklog.body.id;
+  for (let i = 0; i < 8; i += 1) {
+    const start = 870 + i * 45;
+    const extra = await requestJson(baseUrl, "POST", "/api/days/2026-07-06/worklogs", {
+      title: `Focus ${i + 1}`,
+      "start-minute": start,
+      "end-minute": start + 30,
+      "category-id": dev.body.id,
+    });
+    assert(extra.status === 200, `extra worklog ${i + 1} should be created`);
+    if (i === 4) {
+      deepWorklogId = extra.body.id;
+    }
+  }
 
   const imported = await requestJson(baseUrl, "POST", "/api/candidates/import", {
     events: [
@@ -135,6 +149,7 @@ async function seed(baseUrl) {
     engineeringId: engineering.body.id,
     frontendId: frontend.body.id,
     backendId: backend.body.id,
+    deepWorklogId,
   };
 }
 
@@ -233,6 +248,31 @@ async function run() {
       `work log edit rows should not overflow horizontally: ${JSON.stringify(rowOverflowDetails)}`,
     );
 
+    const selectedId = String(ids.deepWorklogId);
+    assert(await page.locator(".work-log-row.selected").count() === 0, "no work log row should be selected before clicking a block");
+    const draftStartBeforeSelection = await page.locator("#new-work-log-form input[name='start-time']").inputValue();
+    await page.locator(`.confirmed-block[data-worklog-id='${selectedId}']`).click();
+    assert(await page.locator(`.confirmed-block.selected[data-worklog-id='${selectedId}']`).count() === 1, "clicked confirmed block should become selected");
+    assert(await page.locator(`.work-log-row.selected[data-worklog-id='${selectedId}']`).count() === 1, "matching work log row should become selected");
+    assert(await page.locator(".entry-pane").getAttribute("data-selected-worklog-id") === selectedId, "entry pane should track selected worklog id");
+    assert(await page.locator("#new-work-log-form input[name='start-time']").inputValue() === draftStartBeforeSelection, "block click should not rewrite draft start time");
+    const selectedGeometry = await page.locator(`.work-log-row.selected[data-worklog-id='${selectedId}']`).evaluate((row) => {
+      const pane = row.closest(".entry-pane");
+      const paneRect = pane.getBoundingClientRect();
+      const rowRect = row.getBoundingClientRect();
+      return {
+        paneCenter: paneRect.top + paneRect.height / 2,
+        rowCenter: rowRect.top + rowRect.height / 2,
+        paneHeight: paneRect.height,
+      };
+    });
+    assert(
+      Math.abs(selectedGeometry.rowCenter - selectedGeometry.paneCenter) < selectedGeometry.paneHeight * 0.35,
+      "selected work log row should be scrolled near the middle of the entry pane",
+    );
+    const selectedRows = await page.locator(".work-log-row.selected").count();
+    assert(selectedRows === 1, "only one work log row should be highlighted");
+
     let box = await timelineBox(page);
     await page.mouse.move(box.x + box.width / 2, yForMinute(box, 540));
     await page.mouse.down();
@@ -283,7 +323,7 @@ async function run() {
     const submit = await page.locator(".candidate-card[data-external-id='evt-candidate'] form[action*='/confirm']").count();
     assert(submit === 1, "candidate card should expose confirm action");
 
-    console.log(`browser-e2e cases=6 assertions=${assertions} failures=0`);
+    console.log(`browser-e2e cases=7 assertions=${assertions} failures=0`);
   } finally {
     if (browser) {
       await browser.close();
