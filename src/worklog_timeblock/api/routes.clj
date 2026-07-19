@@ -4,7 +4,7 @@
             [reitit.ring :as ring]
             [worklog-timeblock.db.core :as db]
             [worklog-timeblock.domain.summary :as summary]
-            [worklog-timeblock.domain.worklog :as worklog]
+            [worklog-timeblock.importer.core :as importer]
             [worklog-timeblock.web.pages :as pages])
   (:import [java.net URLDecoder]))
 
@@ -62,11 +62,12 @@
 (defn- invalid-category-response [reason]
   (json-response 400 {:error "invalid-category" :reason reason}))
 
+(defn- invalid-import-source-response [reason]
+  (json-response 400 {:error "invalid-import-source" :reason reason}))
+
 (defn- import-candidates! [ds events]
-  (let [mappings (db/title-mappings-map ds)]
-    (doseq [event events]
-      (db/upsert-work-log-by-source! ds (worklog/candidate->worklog mappings event)))
-    (count events)))
+  (let [result (importer/import-candidates! ds {:events events})]
+    (assoc result :imported (:fetched result))))
 
 (defn- summary-options [ds]
   (assoc default-summary-options
@@ -74,10 +75,14 @@
          :assignable-category-ids (db/assignable-category-ids ds)))
 
 (defn- day-state [ds date]
-  (let [work-logs (db/work-logs-by-date ds date)]
+  (let [work-logs (db/work-logs-by-date ds date)
+        source-events (db/source-events-by-date ds date)
+        summary (summary/summarize-day (summary-options ds) work-logs)]
     {:date date
      :work-logs work-logs
-     :summary (summary/summarize-day (summary-options ds) work-logs)}))
+     :source-events source-events
+     :summary (update summary :warnings into
+                      (summary/source-diff-warnings work-logs source-events))}))
 
 (defn- parse-id [value]
   (try
@@ -305,6 +310,80 @@
     (json-response (db/move-category! ds id (:direction attrs)))
     (json-response 404 {:error "not-found"})))
 
+(defn- normalize-bool [value default]
+  (cond
+    (nil? value) default
+    (boolean? value) value
+    (string? value) (not (#{"false" "0" "off"} (str/lower-case value)))
+    :else (boolean value)))
+
+(defn- normalize-positive-int [value default]
+  (let [value (cond
+                (integer? value) value
+                (string? value) (parse-id value)
+                :else nil)]
+    (if (and value (pos-int? value)) value default)))
+
+(defn- normalize-import-source [attrs]
+  (let [kind (normalize-state (or (:kind attrs) :ical))
+        name (normalize-text (:name attrs))
+        uri (normalize-text (:uri attrs))
+        interval (normalize-positive-int (:fetch-interval-minutes attrs) 60)
+        enabled-value (cond
+                        (contains? attrs :enabled?) (:enabled? attrs)
+                        (contains? attrs :enabled) (:enabled attrs)
+                        :else nil)
+        enabled? (normalize-bool enabled-value true)]
+    (cond
+      (not= :ical kind)
+      {:error (invalid-import-source-response "unsupported-kind")}
+
+      (nil? name)
+      {:error (invalid-import-source-response "name-required")}
+
+      (nil? uri)
+      {:error (invalid-import-source-response "uri-required")}
+
+      :else
+      {:attrs {:kind kind
+               :name name
+               :uri uri
+               :enabled? enabled?
+               :fetch-interval-minutes interval}})))
+
+(defn- create-import-source-response! [ds attrs]
+  (let [normalized (normalize-import-source attrs)]
+    (if-let [error (:error normalized)]
+      error
+      (json-response (db/create-import-source! ds (:attrs normalized))))))
+
+(defn- create-import-source-form-response! [ds form]
+  (let [normalized (normalize-import-source form)]
+    (if-let [error (:error normalized)]
+      error
+      (do
+        (db/create-import-source! ds (:attrs normalized))
+        (redirect-response "/import-sources")))))
+
+(defn- fetch-import-source-response! [ds id]
+  (if-let [source (db/get-import-source ds id)]
+    (let [fetch (importer/fetch-import-source! ds source (java.time.Instant/now))
+          body (merge (:result fetch)
+                      {:run (:run fetch)
+                       :fetched (get-in fetch [:result :fetched])
+                       :source-events-upserted (get-in fetch [:result :source-events-upserted])
+                       :work-logs-created (get-in fetch [:result :work-logs-created])})]
+      (if (:error fetch)
+        (json-response 500 (assoc body :error "import-failed"))
+        (json-response body)))
+    (json-response 404 {:error "not-found"})))
+
+(defn- fetch-import-source-form-response! [ds id]
+  (let [response (fetch-import-source-response! ds id)]
+    (if (= 200 (:status response))
+      (redirect-response "/import-sources")
+      response)))
+
 (defn app [{:keys [ds]}]
   (ring/ring-handler
    (ring/router
@@ -336,6 +415,16 @@
                (move-category-form-response! ds
                                              (parse-id (get-in request [:path-params :id]))
                                              (parse-form-body request)))}]
+     ["/import-sources"
+      {:get (fn [_]
+              (html-response (pages/import-sources-page (db/list-import-sources ds))))
+       :post (fn [request]
+               (create-import-source-form-response! ds (parse-form-body request)))}]
+     ["/import-sources/:id/fetch"
+      {:post (fn [request]
+               (fetch-import-source-form-response!
+                ds
+                (parse-id (get-in request [:path-params :id]))))}]
      ["/worklogs/:id/assign-category"
       {:post (fn [request]
                (let [id (parse-id (get-in request [:path-params :id]))
@@ -355,8 +444,8 @@
      ["/api/candidates/import"
       {:post (fn [request]
                (let [body (parse-json-body request)
-                     imported (import-candidates! ds (:events body))]
-                 (json-response {:imported imported})))}]
+                     result (import-candidates! ds (:events body))]
+                 (json-response result)))}]
      ["/api/categories"
       {:get (fn [_] (json-response {:categories (db/list-categories ds)}))
        :post (fn [request]
@@ -366,10 +455,25 @@
                (move-category-response! ds
                                         (parse-id (get-in request [:path-params :id]))
                                         (parse-json-body request)))}]
+     ["/api/import-sources"
+      {:get (fn [_] (json-response {:import-sources (db/list-import-sources ds)}))
+       :post (fn [request]
+               (create-import-source-response! ds (parse-json-body request)))}]
+     ["/api/import-sources/:id/fetch"
+      {:post (fn [request]
+               (fetch-import-source-response!
+                ds
+                (parse-id (get-in request [:path-params :id]))))}]
+     ["/api/import-sources/:id/runs"
+      {:get (fn [request]
+              (let [id (parse-id (get-in request [:path-params :id]))]
+                (if (db/get-import-source ds id)
+                  (json-response {:import-runs (db/list-import-runs ds id)})
+                  (json-response 404 {:error "not-found"}))))}]
      ["/api/days/:date"
       {:get (fn [request]
               (json-response (select-keys (day-state ds (get-in request [:path-params :date]))
-                                          [:date :work-logs])))}]
+                                          [:date :work-logs :source-events])))}]
      ["/api/days/:date/worklogs"
       {:post (fn [request]
                (create-work-log-response! ds

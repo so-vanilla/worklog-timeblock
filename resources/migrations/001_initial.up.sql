@@ -41,3 +41,60 @@ CREATE TABLE IF NOT EXISTS work_logs (
 CREATE INDEX IF NOT EXISTS idx_work_logs_date ON work_logs(date);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_work_logs_source_event
   ON work_logs(source_id, external_id);
+
+CREATE TABLE IF NOT EXISTS import_sources (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL,
+  name TEXT NOT NULL,
+  uri TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  fetch_interval_minutes INTEGER NOT NULL DEFAULT 60,
+  last_fetched_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CHECK (kind IN ('ical')),
+  CHECK (fetch_interval_minutes > 0)
+);
+
+CREATE TABLE IF NOT EXISTS import_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  import_source_id INTEGER NOT NULL,
+  started_at TEXT NOT NULL,
+  finished_at TEXT,
+  status TEXT NOT NULL,
+  fetched_count INTEGER NOT NULL DEFAULT 0,
+  work_logs_created_count INTEGER NOT NULL DEFAULT 0,
+  error TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (import_source_id) REFERENCES import_sources(id),
+  CHECK (status IN ('running', 'success', 'failed'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_import_runs_source
+  ON import_runs(import_source_id, started_at);
+
+CREATE TABLE IF NOT EXISTS source_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  import_source_id INTEGER,
+  source_id TEXT NOT NULL,
+  external_id TEXT NOT NULL,
+  date TEXT NOT NULL,
+  title TEXT NOT NULL,
+  starts_at TEXT NOT NULL,
+  ends_at TEXT NOT NULL,
+  timezone TEXT,
+  source_updated_at TEXT,
+  sequence INTEGER,
+  status TEXT NOT NULL DEFAULT 'candidate',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (import_source_id) REFERENCES import_sources(id),
+  CHECK (status IN ('candidate'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_source_events_identity
+  ON source_events(source_id, external_id);
+
+CREATE INDEX IF NOT EXISTS idx_source_events_date
+  ON source_events(date);

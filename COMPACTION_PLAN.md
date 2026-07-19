@@ -395,6 +395,19 @@ another instruction if each goal's gate passes. Commit and push after each goal.
   and attention queue. The timeline should be about one third of full-width UI,
   not the dominant surface.
 
+Goal 2 implementation status:
+
+- Added `import_sources`, `import_runs`, `source_events`.
+- Added iCal file/url adapter and Web/API import source creation/manual fetch.
+- Added periodic due-fetch loop in the backend.
+- Added snapshot non-overwrite behavior on re-fetch.
+- Current local validation before Goal 2 commit:
+  - `devenv shell e2e-all`: Clojure E2E 10 tests / 182 assertions, zellij
+    8 cases / 220 assertions / 0 failures.
+  - `devenv shell test`: 22 tests / 320 assertions / 0 failures.
+  - `devenv shell lint`: errors 0 / warnings 0.
+  - `nix flake check`: success.
+
 Detailed done criteria live in `PLAN.md`.
 
 ### Phase 0: Preserve Current Green Baseline

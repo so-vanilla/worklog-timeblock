@@ -37,6 +37,7 @@
              "<form class=\"inline-form\" method=\"post\" action=\"/days\">"
              "<input type=\"date\" name=\"date\" value=\"2026-07-06\">"
              "<button type=\"submit\">Open day</button></form>"
+             "<p><a href=\"/import-sources\">Import sources</a></p>"
              (if (seq dates)
                (str "<ul>"
                     (apply str
@@ -206,6 +207,9 @@
     :non-assignable-category (str "<li class=\"warn\">Non-assignable category: "
                                   (escape-html (:title warning))
                                   "</li>")
+    :source-updated (str "<li class=\"warn\">Source updated: "
+                         (escape-html (:external-id warning))
+                         "</li>")
     (str "<li class=\"warn\">" (escape-html warning) "</li>")))
 
 (defn day-page [{:keys [date work-logs summary]} categories]
@@ -214,7 +218,7 @@
           (str "<main class=\"day-workspace\">"
                "<header class=\"workspace-header\"><div><h1>" (escape-html date)
                "</h1><div class=\"workspace-meta\">" (count work-logs) " logs</div></div>"
-               "<a href=\"/\">Days</a></header>"
+               "<nav><a href=\"/\">Days</a> | <a href=\"/import-sources\">Import sources</a></nav></header>"
                "<div class=\"workspace-grid\">"
                "<section class=\"timeline-pane\"><h2 class=\"pane-title\">Timeline</h2>"
                (new-work-log-form date categories)
@@ -235,3 +239,29 @@
                       (apply str (map warning-item (:warnings summary)))
                       "</ul>"))
                "</aside></div></main>"))))
+
+(defn- import-source-row [source]
+  (str "<tr><td>" (escape-html (:name source))
+       "</td><td>" (escape-html (name (:kind source)))
+       "</td><td>" (escape-html (:uri source))
+       "</td><td>" (escape-html (:fetch-interval-minutes source))
+       "</td><td>" (escape-html (if (:enabled? source) "enabled" "disabled"))
+       "</td><td>"
+       "<form method=\"post\" action=\"/import-sources/" (escape-html (:id source)) "/fetch\">"
+       "<button type=\"submit\">Fetch</button></form>"
+       "</td></tr>"))
+
+(defn import-sources-page [sources]
+  (page "worklog-timeblock import sources"
+        (str "<main class=\"home\"><h1>Import sources</h1>"
+             "<p><a href=\"/\">Days</a></p>"
+             "<form class=\"input-panel\" method=\"post\" action=\"/import-sources\">"
+             "<h2 class=\"pane-title\">Add iCal source</h2>"
+             "<input type=\"hidden\" name=\"kind\" value=\"ical\">"
+             "<input name=\"name\" placeholder=\"Name\">"
+             "<input name=\"uri\" placeholder=\"File path or URL\">"
+             "<input name=\"fetch-interval-minutes\" type=\"number\" min=\"1\" value=\"60\">"
+             "<button type=\"submit\">Add source</button></form>"
+             "<table><thead><tr><th>Name</th><th>Kind</th><th>URI</th><th>Interval</th><th>Status</th><th>Fetch</th></tr></thead><tbody>"
+             (apply str (map import-source-row sources))
+             "</tbody></table></main>")))

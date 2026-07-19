@@ -64,6 +64,7 @@
   (case (:type warning)
     :uncategorized (str "Uncategorized: " (:title warning))
     :large-gap (str "Large gap: " (:minutes warning) " minutes")
+    :source-updated (str "Source updated: " (:external-id warning))
     (str warning)))
 
 (defn render-dashboard
@@ -111,14 +112,17 @@
     (let [ds (db/datasource (:db options))]
       (migration/migrate! ds)
       (let [date (or (:date options) (first (db/list-dates ds)) "2026-07-06")
-            work-logs (db/work-logs-by-date ds date)]
+            work-logs (db/work-logs-by-date ds date)
+            source-events (db/source-events-by-date ds date)
+            day-summary (summary/summarize-day
+                         (assoc default-summary-options
+                                :other-category-id (or (db/other-category-id ds) "other")
+                                :assignable-category-ids (db/assignable-category-ids ds))
+                         work-logs)]
         (print
          (render-dashboard-for-terminal
           {:date date
            :work-logs work-logs
            :categories (db/list-categories ds)
-           :summary (summary/summarize-day
-                     (assoc default-summary-options
-                            :other-category-id (or (db/other-category-id ds) "other")
-                            :assignable-category-ids (db/assignable-category-ids ds))
-                     work-logs)}))))))
+           :summary (update day-summary :warnings into
+                            (summary/source-diff-warnings work-logs source-events))}))))))

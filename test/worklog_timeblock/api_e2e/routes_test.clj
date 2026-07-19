@@ -1,5 +1,6 @@
 (ns worklog-timeblock.api-e2e.routes-test
   (:require [cheshire.core :as json]
+            [clojure.java.io :as io]
             [clojure.test :refer [deftest is testing]]
             [worklog-timeblock.api.routes :as routes]
             [worklog-timeblock.db.core :as db]
@@ -265,3 +266,89 @@
                                       {:direction "up"}))))
         (is (= ["Engineering" "Backend" "Frontend" "Operations" "Frontend"]
                (map :name (:categories (parse-body (request handler :get "/api/categories"))))))))))
+
+(deftest api-source-snapshot-e2e-test
+  (let [{:keys [handler ds]} (empty-temp-system)
+        dev (db/upsert-category! ds {:id "dev" :name "Development"})]
+    (db/upsert-title-mapping! ds {:title "Build" :state :confirmed :category-id (:id dev)})
+
+    (testing "candidate import stores source events and exposes them on the day"
+      (let [response (request handler :post "/api/candidates/import"
+                              {:events [{:source-id "ical:test"
+                                         :external-id "evt-build"
+                                         :title "Build"
+                                         :starts-at "2026-07-06T09:00+09:00"
+                                         :ends-at "2026-07-06T10:00+09:00"
+                                         :timezone "Asia/Tokyo"
+                                         :updated-at "2026-07-06T00:00:00Z"}]})
+            body (parse-body response)
+            day (parse-body (request handler :get "/api/days/2026-07-06"))]
+        (is (= 200 (:status response)))
+        (is (= 1 (:imported body)))
+        (is (= 1 (:work-logs-created body)))
+        (is (= ["evt-build"] (map :external-id (:source-events day))))
+        (is (= ["Build"] (map :title (:work-logs day))))))
+
+    (testing "source refetch does not overwrite an edited snapshot"
+      (let [log-id (:id (work-log-by-title handler "Build"))]
+        (is (= 200 (:status (request handler :patch (str "/api/worklogs/" log-id)
+                                      {:state :excluded
+                                       :start-minute 555
+                                       :end-minute 585}))))
+        (let [response (request handler :post "/api/candidates/import"
+                                {:events [{:source-id "ical:test"
+                                           :external-id "evt-build"
+                                           :title "Build moved"
+                                           :starts-at "2026-07-06T10:00+09:00"
+                                           :ends-at "2026-07-06T11:00+09:00"
+                                           :timezone "Asia/Tokyo"
+                                           :updated-at "2026-07-06T01:00:00Z"}]})
+              day (parse-body (request handler :get "/api/days/2026-07-06"))
+              log (first (:work-logs day))
+              source-event (first (:source-events day))
+              summary (parse-body (request handler :get "/api/days/2026-07-06/summary"))]
+          (is (= 200 (:status response)))
+          (is (= 0 (:work-logs-created (parse-body response))))
+          (is (= "Build moved" (:title source-event)))
+          (is (= "Build" (:title log)))
+          (is (= {:state "excluded" :start-minute 555 :end-minute 585}
+                 (select-keys log [:state :start-minute :end-minute])))
+          (is (= [{:type "source-updated"
+                   :work-log-id log-id
+                   :external-id "evt-build"}]
+                 (map #(select-keys % [:type :work-log-id :external-id])
+                      (:warnings summary)))))))))
+
+(deftest api-import-source-e2e-test
+  (let [{:keys [handler]} (empty-temp-system)
+        fixture-path (.getPath (io/file (io/resource "fixtures/ical/basic.ics")))]
+    (testing "import source endpoint creates zero-or-more iCal configurations"
+      (let [empty-list (parse-body (request handler :get "/api/import-sources"))
+            response (request handler :post "/api/import-sources"
+                              {:kind :ical
+                               :name "Fixture calendar"
+                               :uri fixture-path
+                               :enabled true
+                               :fetch-interval-minutes 15})
+            body (parse-body response)
+            listed (parse-body (request handler :get "/api/import-sources"))]
+        (is (= [] (:import-sources empty-list)))
+        (is (= 200 (:status response)))
+        (is (pos-int? (:id body)))
+        (is (= "ical" (:kind body)))
+        (is (= "Fixture calendar" (:name body)))
+        (is (= [(:id body)] (map :id (:import-sources listed))))))
+
+    (testing "manual fetch imports iCal file source through the common source interface"
+      (let [source-id (:id (first (:import-sources
+                                  (parse-body (request handler :get "/api/import-sources")))))
+            response (request handler :post (str "/api/import-sources/" source-id "/fetch"))
+            body (parse-body response)
+            day (parse-body (request handler :get "/api/days/2026-07-06"))
+            runs (parse-body (request handler :get (str "/api/import-sources/" source-id "/runs")))]
+        (is (= 200 (:status response)))
+        (is (= 1 (:fetched body)))
+        (is (= 1 (:work-logs-created body)))
+        (is (= ["basic-1"] (map :external-id (:source-events day))))
+        (is (= ["Build"] (map :title (:work-logs day))))
+        (is (= ["success"] (map :status (:import-runs runs))))))))

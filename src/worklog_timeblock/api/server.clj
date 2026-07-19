@@ -4,7 +4,8 @@
             [org.httpkit.server :as http]
             [worklog-timeblock.api.routes :as routes]
             [worklog-timeblock.db.core :as db]
-            [worklog-timeblock.db.migration :as migration]))
+            [worklog-timeblock.db.migration :as migration]
+            [worklog-timeblock.importer.scheduler :as scheduler]))
 
 (def cli-options
   [["-h" "--host HOST" "Bind host" :default "127.0.0.1"]
@@ -20,6 +21,8 @@
       (System/exit 1))
     (let [ds (db/datasource (:db options))]
       (migration/migrate! ds)
+      (when-not (= "0" (System/getenv "WORKLOG_TIMEBLOCK_IMPORTER_SCHEDULER"))
+        (scheduler/start! ds))
       (println (format "worklog-timeblock backend listening on %s:%d"
                        (:host options)
                        (:port options)))

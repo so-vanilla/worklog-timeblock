@@ -1,5 +1,6 @@
 (ns worklog-timeblock.web-e2e.pages-test
-  (:require [clojure.string :as str]
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [worklog-timeblock.api.routes :as routes]
             [worklog-timeblock.db.core :as db]
@@ -210,3 +211,39 @@
                 frontend-pos (str/index-of html "Engineering / Frontend")]
             (is (= 303 (:status response)))
             (is (< backend-pos frontend-pos))))))))
+
+(deftest web-import-source-test
+  (let [{:keys [handler]} (empty-temp-system)
+        fixture-path (.getPath (io/file (io/resource "fixtures/ical/basic.ics")))]
+    (testing "home page links to import source settings"
+      (let [html (response-body (request handler "/"))]
+        (is (str/includes? html "/import-sources"))
+        (is (str/includes? html "Import sources"))))
+
+    (testing "import source page exposes add form"
+      (let [html (response-body (request handler "/import-sources"))]
+        (is (str/includes? html "Add iCal source"))
+        (is (str/includes? html "name=\"name\""))
+        (is (str/includes? html "name=\"uri\""))
+        (is (str/includes? html "name=\"fetch-interval-minutes\""))))
+
+    (testing "source form creates a source and returns to settings"
+      (let [response (request handler :post "/import-sources"
+                              (str "kind=ical&name=Fixture%20calendar&uri="
+                                   fixture-path
+                                   "&fetch-interval-minutes=15"))
+            html (response-body (request handler "/import-sources"))]
+        (is (= 303 (:status response)))
+        (is (= "/import-sources" (get-in response [:headers "location"])))
+        (is (str/includes? html "Fixture calendar"))
+        (is (str/includes? html "/fetch"))))
+
+    (testing "manual fetch imports the source and day page shows the snapshot"
+      (let [settings-html (response-body (request handler "/import-sources"))
+            source-id (second (re-find #"/import-sources/(\d+)/fetch" settings-html))
+            response (request handler :post (str "/import-sources/" source-id "/fetch") "")
+            day-html (response-body (request handler "/days/2026-07-06"))]
+        (is (= 303 (:status response)))
+        (is (= "/import-sources" (get-in response [:headers "location"])))
+        (is (str/includes? day-html "Build"))
+        (is (str/includes? day-html "09:00-10:00"))))))

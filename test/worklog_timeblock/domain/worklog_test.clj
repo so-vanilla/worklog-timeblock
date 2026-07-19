@@ -50,6 +50,19 @@
       (is (= "local" (:source-id log)))
       (is (= "evt-build" (:external-id log)))))
 
+  (testing "day crossing candidates are clipped to the start day"
+    (is (= {:date "2026-07-06"
+            :start-minute 1410
+            :end-minute 1440}
+           (select-keys
+            (worklog/candidate->worklog
+             mappings
+             (assoc candidate
+                    :external-id "evt-cross"
+                    :starts-at "2026-07-06T23:30:00+09:00"
+                    :ends-at "2026-07-07T00:30:00+09:00"))
+            [:date :start-minute :end-minute]))))
+
   (testing "invalid date range is rejected"
     (is (thrown-with-msg?
          clojure.lang.ExceptionInfo

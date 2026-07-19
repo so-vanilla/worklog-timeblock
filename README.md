@@ -22,6 +22,12 @@ totals plus a manual-entry output block. Existing work logs can also be
 corrected from the day page by assigning a category, editing the time range, or
 excluding the log.
 
+The import source page can store zero or more iCal file/URL sources. Manual
+fetch stores imported events as `source_events` and creates initial work-log
+snapshots only when a matching snapshot does not already exist. Re-fetching a
+changed calendar event updates the source event and raises a source-updated
+warning without silently mutating confirmed or excluded work logs.
+
 The TUI is currently display-focused. It renders the selected day, totals, and
 warnings, but interactive correction still belongs to the Web UI.
 

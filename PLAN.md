@@ -292,6 +292,8 @@ Done when:
 
 ### Goal 2: Source Events And iCal Import
 
+Status: Implemented locally; gate passed before commit.
+
 Done when:
 
 - `candidate` from adapters, persisted `source_events`, and user-owned
@@ -309,6 +311,30 @@ Done when:
 - Fetch behavior is verified across at least 2 cycles.
 - Add at least 60 assertions beyond Goal 1.
 - Full gate passes and the result is committed and pushed.
+
+Implemented:
+
+- Added `import_sources`, `import_runs`, and `source_events`.
+- Added iCal file/url adapter through the common `EventSource` protocol.
+- Added manual fetch API and Web settings page for iCal import sources.
+- Added backend-owned periodic fetch loop for enabled sources.
+- Kept `/api/candidates/import` as a compatibility entrypoint backed by
+  `source_events`.
+- Re-fetch updates `source_events`; existing `work_logs` snapshots are not
+  overwritten.
+- Day APIs include `source-events`; summaries include `source-updated`
+  warnings.
+
+Validation:
+
+- `devenv shell e2e-all`: Clojure E2E 10 tests / 182 assertions, zellij E2E
+  8 cases / 220 assertions / 0 failures.
+- `devenv shell test`: 22 tests / 320 assertions / 0 failures.
+- `devenv shell lint`: errors 0 / warnings 0.
+- `nix flake check`: success.
+- iCal fixtures cover basic timed event, UTC, TZID, duplicate UID/update,
+  cancelled event, outside date range, folded line, date-only skip,
+  recurrence with EXDATE, day crossing, and malformed input.
 
 ### Goal 3: Compact Day Timeline Workspace
 

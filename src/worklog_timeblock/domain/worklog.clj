@@ -30,6 +30,11 @@
 (defn- minute-of-day [^OffsetDateTime value]
   (+ (* (.getHour value) 60) (.getMinute value)))
 
+(defn- clipped-end-minute [^OffsetDateTime start ^OffsetDateTime end]
+  (if (= (.toLocalDate start) (.toLocalDate end))
+    (minute-of-day end)
+    1440))
+
 (defn- date-string [^OffsetDateTime value]
   (str (.toLocalDate value)))
 
@@ -61,7 +66,7 @@
           log {:date (date-string start)
                :title (:title candidate)
                :start-minute (minute-of-day start)
-               :end-minute (minute-of-day end)
+               :end-minute (clipped-end-minute start end)
                :state state
                :category-id category-id
                :source-id (:source-id candidate)

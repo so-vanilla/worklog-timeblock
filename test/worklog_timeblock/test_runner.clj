@@ -5,6 +5,8 @@
   ['worklog-timeblock.domain.worklog-test
    'worklog-timeblock.domain.summary-test
    'worklog-timeblock.plugin.local-test
+   'worklog-timeblock.plugin.ical-test
+   'worklog-timeblock.importer.core-test
    'worklog-timeblock.db.core-test
    'worklog-timeblock.api-e2e.routes-test
    'worklog-timeblock.web-e2e.pages-test

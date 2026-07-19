@@ -1,7 +1,8 @@
 (ns worklog-timeblock.db.core
   (:require [clojure.string :as str]
             [next.jdbc :as jdbc]
-            [next.jdbc.result-set :as rs]))
+            [next.jdbc.result-set :as rs])
+  (:import [java.time OffsetDateTime]))
 
 (def builder rs/as-unqualified-lower-maps)
 
@@ -66,7 +67,41 @@
    :external-id (:external_id row)
    :source-updated-at (:source_updated_at row)})
 
-(declare get-title-mapping list-categories)
+(defn- row->import-source [row]
+  {:id (:id row)
+   :kind (keyword (:kind row))
+   :name (:name row)
+   :uri (:uri row)
+   :enabled? (db-bool (:enabled row))
+   :fetch-interval-minutes (:fetch_interval_minutes row)
+   :last-fetched-at (:last_fetched_at row)})
+
+(defn- row->import-run [row]
+  {:id (:id row)
+   :import-source-id (:import_source_id row)
+   :started-at (:started_at row)
+   :finished-at (:finished_at row)
+   :status (keyword (:status row))
+   :fetched-count (:fetched_count row)
+   :work-logs-created-count (:work_logs_created_count row)
+   :error (:error row)})
+
+(defn- row->source-event [row]
+  {:id (:id row)
+   :import-source-id (:import_source_id row)
+   :source-id (:source_id row)
+   :external-id (:external_id row)
+   :date (:date row)
+   :title (:title row)
+   :starts-at (:starts_at row)
+   :ends-at (:ends_at row)
+   :timezone (:timezone row)
+   :updated-at (:source_updated_at row)
+   :sequence (:sequence row)
+   :status (keyword (:status row))})
+
+(declare get-title-mapping list-categories get-import-source get-import-run
+         get-source-event-by-identity)
 
 (defn- next-position [ds parent-id]
   (inc
@@ -330,6 +365,171 @@
 (defn title-mappings-map [ds]
   (into {} (map (fn [mapping] [(:title mapping) (dissoc mapping :title)]))
         (list-title-mappings ds)))
+
+(defn- source-event-date [source-event]
+  (str (.toLocalDate (OffsetDateTime/parse (:starts-at source-event)))))
+
+(defn create-import-source! [ds source]
+  (let [enabled? (if (contains? source :enabled?)
+                   (:enabled? source)
+                   (if (contains? source :enabled)
+                     (:enabled source)
+                     true))
+        id (:id (jdbc/execute-one! ds
+                                   ["INSERT INTO import_sources
+                                     (kind, name, uri, enabled, fetch_interval_minutes)
+                                     VALUES (?, ?, ?, ?, ?)
+                                     RETURNING id"
+                                    (normalize-kind (:kind source))
+                                    (:name source)
+                                    (:uri source)
+                                    (normalize-active enabled?)
+                                    (or (:fetch-interval-minutes source) 60)]
+                                   {:builder-fn builder}))]
+    (get-import-source ds id)))
+
+(defn get-import-source [ds id]
+  (some-> (jdbc/execute-one! ds
+                             ["SELECT id, kind, name, uri, enabled,
+                                      fetch_interval_minutes, last_fetched_at
+                               FROM import_sources
+                               WHERE id = ?"
+                              id]
+                             {:builder-fn builder})
+          row->import-source))
+
+(defn list-import-sources [ds]
+  (mapv row->import-source
+        (jdbc/execute! ds
+                       ["SELECT id, kind, name, uri, enabled,
+                                fetch_interval_minutes, last_fetched_at
+                         FROM import_sources
+                         ORDER BY id"]
+                       {:builder-fn builder})))
+
+(defn update-import-source-last-fetched! [ds id fetched-at]
+  (jdbc/execute! ds
+                 ["UPDATE import_sources
+                   SET last_fetched_at = ?, updated_at = CURRENT_TIMESTAMP
+                   WHERE id = ?"
+                  fetched-at id])
+  (get-import-source ds id))
+
+(defn create-import-run! [ds run]
+  (let [id (:id (jdbc/execute-one! ds
+                                   ["INSERT INTO import_runs
+                                     (import_source_id, started_at, status)
+                                     VALUES (?, ?, ?)
+                                     RETURNING id"
+                                    (:import-source-id run)
+                                    (:started-at run)
+                                    (normalize-state (or (:status run) :running))]
+                                   {:builder-fn builder}))]
+    (get-import-run ds id)))
+
+(defn get-import-run [ds id]
+  (some-> (jdbc/execute-one! ds
+                             ["SELECT id, import_source_id, started_at, finished_at,
+                                      status, fetched_count,
+                                      work_logs_created_count, error
+                               FROM import_runs
+                               WHERE id = ?"
+                              id]
+                             {:builder-fn builder})
+          row->import-run))
+
+(defn finish-import-run! [ds id attrs]
+  (jdbc/execute! ds
+                 ["UPDATE import_runs
+                   SET finished_at = ?,
+                       status = ?,
+                       fetched_count = ?,
+                       work_logs_created_count = ?,
+                       error = ?,
+                       updated_at = CURRENT_TIMESTAMP
+                   WHERE id = ?"
+                  (:finished-at attrs)
+                  (normalize-state (:status attrs))
+                  (or (:fetched-count attrs) 0)
+                  (or (:work-logs-created-count attrs) 0)
+                  (:error attrs)
+                  id])
+  (get-import-run ds id))
+
+(defn list-import-runs [ds import-source-id]
+  (mapv row->import-run
+        (jdbc/execute! ds
+                       ["SELECT id, import_source_id, started_at, finished_at,
+                                status, fetched_count,
+                                work_logs_created_count, error
+                         FROM import_runs
+                         WHERE import_source_id = ?
+                         ORDER BY started_at, id"
+                        import-source-id]
+                       {:builder-fn builder})))
+
+(defn upsert-source-event! [ds source-event]
+  (jdbc/execute! ds
+                 ["INSERT INTO source_events
+                   (import_source_id, source_id, external_id, date, title,
+                    starts_at, ends_at, timezone, source_updated_at, sequence,
+                    status)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(source_id, external_id) DO UPDATE SET
+                     import_source_id = excluded.import_source_id,
+                     date = excluded.date,
+                     title = excluded.title,
+                     starts_at = excluded.starts_at,
+                     ends_at = excluded.ends_at,
+                     timezone = excluded.timezone,
+                     source_updated_at = excluded.source_updated_at,
+                     sequence = excluded.sequence,
+                     status = excluded.status,
+                     updated_at = CURRENT_TIMESTAMP"
+                  (:import-source-id source-event)
+                  (:source-id source-event)
+                  (:external-id source-event)
+                  (source-event-date source-event)
+                  (:title source-event)
+                  (:starts-at source-event)
+                  (:ends-at source-event)
+                  (:timezone source-event)
+                  (:updated-at source-event)
+                  (:sequence source-event)
+                  (normalize-state (or (:status source-event) :candidate))])
+  (get-source-event-by-identity ds (:source-id source-event) (:external-id source-event)))
+
+(defn get-source-event-by-identity [ds source-id external-id]
+  (some-> (jdbc/execute-one! ds
+                             ["SELECT id, import_source_id, source_id, external_id,
+                                      date, title, starts_at, ends_at, timezone,
+                                      source_updated_at, sequence, status
+                               FROM source_events
+                               WHERE source_id = ? AND external_id = ?"
+                              source-id external-id]
+                             {:builder-fn builder})
+          row->source-event))
+
+(defn source-events-by-date [ds date]
+  (mapv row->source-event
+        (jdbc/execute! ds
+                       ["SELECT id, import_source_id, source_id, external_id,
+                                date, title, starts_at, ends_at, timezone,
+                                source_updated_at, sequence, status
+                         FROM source_events
+                         WHERE date = ?
+                         ORDER BY starts_at, id"
+                        date]
+                       {:builder-fn builder})))
+
+(defn work-log-by-source [ds source-id external-id]
+  (some-> (jdbc/execute-one! ds
+                             ["SELECT *
+                               FROM work_logs
+                               WHERE source_id = ? AND external_id = ?"
+                              source-id external-id]
+                             {:builder-fn builder})
+          row->work-log))
 
 (defn insert-work-log! [ds work-log]
   (let [category-id (resolve-category-id ds (:category-id work-log))]
