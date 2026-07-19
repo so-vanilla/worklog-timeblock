@@ -604,6 +604,95 @@ git diff --check
 zellij --session wz-10 action list-tabs
 ```
 
+### Approved Fix Goal Sequence: 2026-07-19 UI Corrections
+
+The user approved this correction batch with `go`.
+
+Requested fixes:
+
+- Confirmed calendar blocks show a resize cursor on top/bottom edge hover.
+- Clock-in/clock-out time is visible in the calendar/timeline.
+- Central confirmed work-log rows remove the category `Set` button and bottom
+  category label; the category dropdown auto-submits on change; `Exclude` moves
+  to the right side of the `Range` row.
+- Break-time settings move to a separate Settings page that can later contain
+  more general settings.
+- The day right pane order becomes Attendance, Category totals, Categories.
+- Category settings add rename and delete.
+
+Implementation decisions:
+
+- Keep today's materialized breaks editable in the day Attendance panel because
+  they are day-level operations. Move daily break rule creation/listing to
+  `/settings`.
+- Category delete hard-deletes only categories with no active children and no
+  work-log/title-mapping assignments. Assigned categories are deactivated and
+  hidden from selectors/settings while historical category names remain
+  resolvable for summaries.
+- Use sequential implementation in the main session because the changes share
+  `src/worklog_timeblock/web/pages.clj`, `src/worklog_timeblock/api/routes.clj`,
+  and `scripts/browser-e2e.js`.
+
+Goal A:
+
+- Timeline cursor and attendance visualization.
+- Central editor category auto-submit and compact Range/Exclude row.
+- Browser E2E covers the interaction and layout.
+
+Goal B:
+
+- Settings page.
+- Daily break rule form/listing relocation.
+- Right pane order verification.
+
+Goal C:
+
+- Category rename/delete DB/API/Form routes.
+- DB/API/Web/browser tests for rename, hard delete, soft delete, delete
+  rejection, and inactive category visibility rules.
+
+Gate:
+
+```sh
+devenv shell e2e-all
+devenv shell test
+devenv shell lint
+nix flake check
+git diff --check --cached
+git diff --check
+zellij --session wz-10 action list-tabs
+```
+
+Implementation status:
+
+- Added timeline attendance band and clock-in/out markers.
+- Added dynamic `ns-resize` cursor on confirmed block top/bottom hover and kept
+  middle hover as move.
+- Removed work-log category `Set` buttons and duplicate category label rows.
+- Added auto-submit category forms for confirmed work-log rows.
+- Moved `Exclude` to the right side of the `Range` row.
+- Added `/settings` and moved daily break rule creation/listing there.
+- Kept today's concrete break edits and break-to-work conversion in the day
+  Attendance panel.
+- Reordered the day right pane to Attendance, Category totals, Categories.
+- Added category rename/delete form routes and JSON routes.
+- Added category delete semantics:
+  - active child parent: rejected
+  - unreferenced leaf: hard delete
+  - assigned category or category with historical children: soft delete
+- Split selectable category IDs from summarizable category IDs so soft-deleted
+  historical categories remain counted but cannot be newly assigned.
+
+Validation:
+
+- `devenv shell e2e-all`: Clojure E2E 15 tests / 358 assertions, browser E2E
+  16 cases / 124 assertions, zellij E2E 8 cases / 220 assertions / 0 failures.
+- `devenv shell test`: 29 tests / 529 assertions / 0 failures.
+- `devenv shell lint`: errors 0 / warnings 0.
+- `nix flake check`: success.
+- `git diff --check --cached && git diff --check`: success.
+- `zellij --session wz-10 action list-tabs`: only `Tab #1`.
+
 ### Phase 0: Preserve Current Green Baseline
 
 Goal:

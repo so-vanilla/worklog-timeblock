@@ -267,6 +267,76 @@
         (is (= ["Engineering" "Backend" "Frontend" "Operations" "Frontend"]
                (map :name (:categories (parse-body (request handler :get "/api/categories"))))))))))
 
+(deftest api-category-rename-delete-e2e-test
+  (let [{:keys [handler]} (empty-temp-system)]
+    (testing "category rename persists and rejects duplicate siblings"
+      (let [engineering (parse-body (request handler :post "/api/categories"
+                                             {:name "Engineering"}))
+            frontend (parse-body (request handler :post "/api/categories"
+                                          {:name "Frontend"
+                                           :parent-id (:id engineering)}))
+            backend (parse-body (request handler :post "/api/categories"
+                                         {:name "Backend"
+                                          :parent-id (:id engineering)}))
+            rename-response (request handler :patch
+                                     (str "/api/categories/" (:id backend))
+                                     {:name "Platform"})
+            duplicate-response (request handler :patch
+                                        (str "/api/categories/" (:id backend))
+                                        {:name "Frontend"})
+            listed (:categories (parse-body (request handler :get "/api/categories")))]
+        (is (= 200 (:status rename-response)))
+        (is (= "Platform" (:name (parse-body rename-response))))
+        (is (= 400 (:status duplicate-response)))
+        (is (= "duplicate-category-name" (:reason (parse-body duplicate-response))))
+        (is (= ["Engineering" "Frontend" "Platform"]
+               (map :name listed)))
+        (is (= (:id engineering) (:parent-id frontend)))))
+
+    (testing "delete hard-deletes unreferenced categories"
+      (let [temporary (parse-body (request handler :post "/api/categories"
+                                           {:name "Temporary"}))
+            response (request handler :delete
+                              (str "/api/categories/" (:id temporary)))
+            listed (:categories (parse-body (request handler :get "/api/categories")))]
+        (is (= 200 (:status response)))
+        (is (= "hard" (:mode (parse-body response))))
+        (is (not (some #(= (:id temporary) (:id %)) listed)))))
+
+    (testing "delete rejects parents with active children"
+      (let [engineering (first (filter #(= "Engineering" (:name %))
+                                       (:categories (parse-body (request handler :get "/api/categories")))))
+            response (request handler :delete
+                              (str "/api/categories/" (:id engineering)))]
+        (is (= 400 (:status response)))
+        (is (= "has-active-children" (:reason (parse-body response))))))
+
+    (testing "delete soft-deletes assigned categories and preserves summaries"
+      (let [frontend (first (filter #(= "Frontend" (:name %))
+                                    (:categories (parse-body (request handler :get "/api/categories")))))
+            assigned (request handler :post "/api/days/2026-07-09/worklogs"
+                              {:title "Frontend work"
+                               :start-minute 540
+                               :end-minute 600
+                               :category-id (:id frontend)})
+            response (request handler :delete
+                              (str "/api/categories/" (:id frontend)))
+            deleted (first (filter #(= (:id frontend) (:id %))
+                                   (:categories (parse-body (request handler :get "/api/categories")))))
+            rejected (request handler :post "/api/days/2026-07-09/worklogs"
+                              {:title "More frontend"
+                               :start-minute 600
+                               :end-minute 660
+                               :category-id (:id frontend)})
+            summary (parse-body (request handler :get "/api/days/2026-07-09/summary"))]
+        (is (= 200 (:status assigned)))
+        (is (= 200 (:status response)))
+        (is (= "soft" (:mode (parse-body response))))
+        (is (false? (:active? deleted)))
+        (is (= 400 (:status rejected)))
+        (is (= "non-assignable-category" (:reason (parse-body rejected))))
+        (is (= 60 (category-minutes summary (:id frontend))))))))
+
 (deftest api-attendance-and-breaks-e2e-test
   (let [{:keys [handler ds]} (empty-temp-system)
         dev (db/upsert-category! ds {:name "Development"})]

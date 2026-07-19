@@ -117,7 +117,7 @@
             day-summary (summary/summarize-day
                          (assoc default-summary-options
                                 :other-category-id (or (db/other-category-id ds) "other")
-                                :assignable-category-ids (db/assignable-category-ids ds))
+                                :assignable-category-ids (db/summarizable-category-ids ds))
                          work-logs)]
         (print
          (render-dashboard-for-terminal

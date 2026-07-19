@@ -59,6 +59,7 @@
         (is (str/includes? html "class=\"summary-pane\""))
         (is (str/includes? html "class=\"day-timeline\""))
         (is (str/includes? html "class=\"timeline-track\""))
+        (is (str/includes? html "href=\"/settings\""))
         (is (str/includes? html "Build"))
         (is (str/includes? html "Development"))
         (is (str/includes? html "0.75h"))
@@ -74,11 +75,14 @@
       (let [html (response-body (request handler "/days/2026-07-06"))]
         (is (str/includes? html (str "data-worklog-id=\"" (:build ids) "\"")))
         (is (str/includes? html (str "action=\"/worklogs/" (:unknown ids) "/assign-category\"")))
+        (is (str/includes? html "data-auto-submit=\"category\""))
         (is (str/includes? html (str "action=\"/worklogs/" (:build ids) "/range\"")))
         (is (str/includes? html (str "action=\"/worklogs/" (:build ids) "/exclude\"")))
         (is (str/includes? html "name=\"category-id\""))
         (is (str/includes? html (str "value=\"" (:meeting category-ids) "\"")))
         (is (not (str/includes? html "value=\"meeting\"")))
+        (is (not (str/includes? html ">Set</button>")))
+        (is (not (str/includes? html "work-log-category-label")))
         (is (str/includes? html "id=\"new-work-log-form\""))
         (is (str/includes? html "id=\"draft-summary-preview\""))
         (is (str/includes? html "id=\"candidate-menu\""))
@@ -89,6 +93,17 @@
       (let [html (response-body (request handler "/days/2026-07-06"))]
         (is (str/includes? html "Uncategorized"))
         (is (str/includes? html "Unknown"))))
+
+    (testing "right pane is ordered as attendance, totals, then categories"
+      (let [html (response-body (request handler "/days/2026-07-06"))
+            attendance-pos (str/index-of html "<section class=\"input-panel attendance-panel\"")
+            totals-pos (str/index-of html "<section class=\"input-panel category-totals-panel\"")
+            categories-pos (str/index-of html "<section class=\"input-panel category-settings-panel\"")]
+        (is (some? attendance-pos))
+        (is (some? totals-pos))
+        (is (some? categories-pos))
+        (is (< attendance-pos totals-pos))
+        (is (< totals-pos categories-pos))))
 
     (testing "category form updates the persisted log and rendered summary"
       (let [response (request handler :post
@@ -143,6 +158,7 @@
         (is (str/includes? html "name=\"start-time\""))
         (is (str/includes? html "name=\"end-time\""))
         (is (str/includes? html "Category totals"))
+        (is (str/includes? html "category-settings-panel"))
         (is (not (str/includes? html "No confirmed work.")))))
 
     (testing "category form creates a category and returns to the day"
@@ -181,6 +197,29 @@
         (is (str/includes? html "Triage"))
         (is (str/includes? html "Uncategorized: Triage"))))))
 
+(deftest web-settings-page-test
+  (let [{:keys [handler]} (empty-temp-system)]
+    (testing "settings page owns daily break rules"
+      (let [day-html (response-body (request handler "/days/2026-07-11"))
+            settings-html (response-body (request handler "/settings"))]
+        (is (str/includes? day-html "href=\"/settings\""))
+        (is (not (str/includes? day-html "Daily break")))
+        (is (not (str/includes? day-html "action=\"/break-rules\"")))
+        (is (str/includes? settings-html "Settings"))
+        (is (str/includes? settings-html "Daily break"))
+        (is (str/includes? settings-html "action=\"/break-rules\""))
+        (is (str/includes? settings-html "value=\"/settings\""))
+        (is (str/includes? settings-html "Daily break rules"))))
+
+    (testing "settings daily break form persists and returns to settings"
+      (let [response (request handler :post "/break-rules"
+                              "break-title=Lunch&start-time=12%3A00&end-time=13%3A00&redirect-to=%2Fsettings")
+            settings-html (response-body (request handler "/settings"))]
+        (is (= 303 (:status response)))
+        (is (= "/settings" (get-in response [:headers "location"])))
+        (is (str/includes? settings-html "Lunch"))
+        (is (str/includes? settings-html "12:00-13:00"))))))
+
 (deftest web-category-hierarchy-test
   (let [{:keys [handler ds]} (empty-temp-system)]
     (request handler :post "/categories"
@@ -204,7 +243,9 @@
           (is (str/includes? html (str "<option value=\"" backend-id "\">Backend</option>")))
           (is (not (str/includes? html "Engineering / Frontend")))
           (is (not (str/includes? html "Engineering / Backend")))
-          (is (str/includes? html (str "action=\"/categories/" backend-id "/move\""))))
+          (is (str/includes? html (str "action=\"/categories/" backend-id "/move\"")))
+          (is (str/includes? html (str "action=\"/categories/" backend-id "/rename\"")))
+          (is (str/includes? html (str "action=\"/categories/" backend-id "/delete\""))))
 
         (testing "parent categories cannot be assigned through form submission"
           (let [response (request handler :post "/days/2026-07-08/worklogs"
@@ -244,7 +285,46 @@
                 backend-pos (str/index-of html (str "action=\"/categories/" backend-id "/move\""))
                 frontend-pos (str/index-of html (str "action=\"/categories/" frontend-id "/move\""))]
             (is (= 303 (:status response)))
-            (is (< backend-pos frontend-pos))))))))
+            (is (< backend-pos frontend-pos))))
+
+        (testing "rename form updates the category name"
+          (let [response (request handler :post
+                                  (str "/categories/" backend-id "/rename")
+                                  "category-name=Platform&redirect-to=%2Fdays%2F2026-07-08")
+                html (response-body (request handler "/days/2026-07-08"))]
+            (is (= 303 (:status response)))
+            (is (= "/days/2026-07-08" (get-in response [:headers "location"])))
+            (is (str/includes? html "value=\"Platform\""))
+            (is (str/includes? html (str "data-summary-category-id=\"" backend-id "\"")))))
+
+        (testing "delete form hard-deletes an unreferenced category"
+          (request handler :post "/categories"
+                   "category-name=Temporary&redirect-to=%2Fdays%2F2026-07-08")
+          (let [temporary-id (:id (db/find-category-by-name-and-parent ds "Temporary" nil))
+                response (request handler :post
+                                  (str "/categories/" temporary-id "/delete")
+                                  "redirect-to=%2Fdays%2F2026-07-08")
+                html (response-body (request handler "/days/2026-07-08"))]
+            (is (= 303 (:status response)))
+            (is (not (str/includes? html "value=\"Temporary\"")))))
+
+        (testing "delete form rejects a parent with active children"
+          (let [response (request handler :post
+                                  (str "/categories/" engineering-id "/delete")
+                                  "redirect-to=%2Fdays%2F2026-07-08")]
+            (is (= 400 (:status response)))
+            (is (str/includes? (response-body response) "has-active-children"))))
+
+        (testing "delete form soft-deletes assigned categories but keeps summary names"
+          (let [response (request handler :post
+                                  (str "/categories/" frontend-id "/delete")
+                                  "redirect-to=%2Fdays%2F2026-07-08")
+                html (response-body (request handler "/days/2026-07-08"))]
+            (is (= 303 (:status response)))
+            (is (not (str/includes? html (str "action=\"/categories/" frontend-id "/rename\""))))
+            (is (not (str/includes? html (str "<option value=\"" frontend-id "\">Frontend</option>"))))
+            (is (str/includes? html (str "data-summary-category-id=\"" frontend-id "\"")))
+            (is (str/includes? html "Frontend"))))))))
 
 (deftest web-attendance-and-breaks-test
   (let [{:keys [handler ds]} (empty-temp-system)]
@@ -258,8 +338,11 @@
           (is (str/includes? html "Clock out now"))
           (is (str/includes? html "name=\"clock-in-time\""))
           (is (str/includes? html "name=\"clock-out-time\""))
-          (is (str/includes? html "Daily break"))
-          (is (str/includes? html "name=\"break-title\""))))
+          (is (str/includes? html "Breaks today"))
+          (is (str/includes? html "One-off break"))
+          (is (str/includes? html "name=\"break-title\""))
+          (is (not (str/includes? html "Daily break")))
+          (is (not (str/includes? html "action=\"/break-rules\"")))))
 
       (testing "manual attendance form updates the day summary"
         (let [response (request handler :post "/days/2026-07-11/attendance"
@@ -268,6 +351,9 @@
           (is (= 303 (:status response)))
           (is (= "/days/2026-07-11" (get-in response [:headers "location"])))
           (is (str/includes? html "09:00-18:00"))
+          (is (str/includes? html "class=\"attendance-band\""))
+          (is (str/includes? html "data-attendance-start-minute=\"540\""))
+          (is (str/includes? html "data-attendance-end-minute=\"1080\""))
           (is (str/includes? html "Unallocated"))
           (is (str/includes? html "9.00h"))))
 
@@ -281,7 +367,7 @@
           (is (pos-int? break-id))
           (is (str/includes? html "class=\"timeline-block break-block\""))
           (is (str/includes? html "Lunch"))
-          (is (str/includes? html "Breaks"))
+          (is (str/includes? html "Breaks today"))
           (is (str/includes? html "1.00h"))
           (is (str/includes? html (str "action=\"/breaks/" break-id "/range\"")))
           (is (str/includes? html (str "action=\"/breaks/" break-id "/convert\"")))))

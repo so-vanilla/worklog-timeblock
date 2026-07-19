@@ -271,6 +271,7 @@ async function run() {
     assert(await page.locator(".day-navigation a[href='/days/2026-07-07']").count() === 1, "next day link should exist");
     assert(await page.locator(".day-navigation input[name='date']").inputValue() === "2026-07-06", "goto date should default to current day");
     assert(await page.locator(".manual-entry-output").count() === 0, "manual entry output should be removed");
+    assert(await page.locator("a[href='/settings']").count() >= 1, "settings link should exist on day page");
     assert(await page.locator(".attendance-panel").count() === 1, "attendance panel should exist");
     assert((await page.locator(".attendance-panel").textContent()).includes("09:00-18:00"), "attendance panel should show clock range");
     assert((await page.locator(".attendance-panel").textContent()).includes("Unallocated"), "attendance panel should show unallocated time");
@@ -278,19 +279,51 @@ async function run() {
     assert(await page.locator("form[action='/days/2026-07-06/attendance/clock-out-now']").count() === 1, "clock-out-now form should exist");
     assert(await page.locator("input[name='clock-in-time']").inputValue() === "09:00", "manual clock-in input should render stored time");
     assert(await page.locator("input[name='clock-out-time']").inputValue() === "18:00", "manual clock-out input should render stored time");
+    assert(await page.locator(".attendance-band[data-attendance-start-minute='540'][data-attendance-end-minute='1080']").count() === 1, "attendance should render on timeline");
+    assert((await page.locator(".attendance-band").textContent()).includes("09:00-18:00"), "attendance timeline band should show clock range");
+    assert(await page.locator("form[action='/break-rules']").count() === 0, "daily break rule form should be moved off the day page");
     assert(await page.locator(".timeline-block.break-block").count() === 1, "break should render on timeline");
     assert((await page.locator(".timeline-block.break-block").textContent()).includes("Lunch"), "break timeline block should show title");
     assert(await page.locator(".break-row form[action*='/range']").count() === 1, "break range form should exist");
     assert(await page.locator(".break-row form[action*='/convert']").count() === 1, "break convert form should exist");
+    assert(await page.locator(".summary-pane > .attendance-panel").count() === 1, "attendance should be first right-pane panel");
+    const paneOrder = await page.locator(".summary-pane > .input-panel").evaluateAll((panels) =>
+      panels.slice(0, 3).map((panel) =>
+        panel.classList.contains("attendance-panel")
+          ? "attendance"
+          : panel.classList.contains("category-totals-panel")
+            ? "totals"
+            : panel.classList.contains("category-settings-panel")
+              ? "categories"
+              : "other",
+      ),
+    );
+    assert(JSON.stringify(paneOrder) === JSON.stringify(["attendance", "totals", "categories"]), `right pane order should be attendance, totals, categories: ${paneOrder}`);
 
-    const categoryText = await page.locator(".category-list").textContent();
-    assert(categoryText.includes("Engineering"), "category list should include parent category");
-    assert(categoryText.includes("Backend"), "category list should include child category");
-    assert(!categoryText.includes("Engineering / Backend"), "child category should not repeat parent name");
-    const rootInset = await page.locator(".category-root").first().evaluate((node) => node.getBoundingClientRect().left);
-    const childInset = await page.locator(`.category-child:has-text("Backend")`).evaluate((node) => node.getBoundingClientRect().left);
-    assert(childInset > rootInset + 12, "child category should be indented");
-    const childBorderColor = await page.locator(`.category-child:has-text("Backend")`).evaluate((node) => getComputedStyle(node).borderLeftColor);
+    await page.goto(`${baseUrl}/settings`);
+    assert(await page.locator("form[action='/break-rules']").count() === 1, "settings page should expose daily break form");
+    assert((await page.locator(".break-rule-list-panel").textContent()).includes("Lunch"), "settings page should list existing daily break rule");
+    assert((await page.locator(".break-rule-list-panel").textContent()).includes("12:00-13:00"), "settings page should show daily break range");
+    await page.goto(`${baseUrl}/days/2026-07-06`);
+
+    const categoryRows = await page.locator(".category-list .category-row").evaluateAll((rows) =>
+      rows.map((row) => ({
+        name: row.querySelector("input[name='category-name']")?.value || "",
+        isRoot: row.classList.contains("category-root"),
+        isChild: row.classList.contains("category-child"),
+        left: row.getBoundingClientRect().left,
+        borderLeftColor: getComputedStyle(row).borderLeftColor,
+      })),
+    );
+    const engineeringRow = categoryRows.find((row) => row.name === "Engineering");
+    const backendRow = categoryRows.find((row) => row.name === "Backend");
+    assert(Boolean(engineeringRow), "category list should include parent category");
+    assert(Boolean(backendRow), "category list should include child category");
+    assert(engineeringRow.isRoot, "parent category row should use root styling");
+    assert(backendRow.isChild, "child category row should use child styling");
+    assert(!categoryRows.some((row) => row.name === "Engineering / Backend"), "child category should not repeat parent name");
+    assert(backendRow.left > engineeringRow.left + 12, "child category should be indented");
+    const childBorderColor = backendRow.borderLeftColor;
     assert(childBorderColor !== "rgb(215, 221, 229)", "child category should use a group color");
 
     const parentSummary = page.locator(`tr[data-summary-category-id='${ids.engineeringId}']`);
@@ -305,6 +338,15 @@ async function run() {
       summaryOrder.indexOf(String(ids.engineeringId)) < summaryOrder.indexOf(String(ids.backendId)),
       "summary order should put parent before child",
     );
+    assert(await page.locator(".work-log-row form[data-auto-submit='category']").count() >= 1, "work log category form should auto-submit");
+    assert(await page.locator(".work-log-row .category-form button:has-text('Set')").count() === 0, "work log category rows should not show Set buttons");
+    assert(await page.locator(".work-log-category-label").count() === 0, "work log rows should not render duplicate category labels");
+    const rangeLineGeometry = await page.locator(".work-log-row").first().evaluate((row) => {
+      const range = row.querySelector(".range-form").getBoundingClientRect();
+      const exclude = row.querySelector(".exclude-form").getBoundingClientRect();
+      return { rangeRight: range.right, excludeLeft: exclude.left };
+    });
+    assert(rangeLineGeometry.excludeLeft >= rangeLineGeometry.rangeRight, "exclude should sit to the right of the range form");
     const rowOverflowDetails = await page.locator(".work-log-row").evaluateAll((rows) =>
       rows
         .map((row) => ({
@@ -317,6 +359,16 @@ async function run() {
     assert(
       rowOverflowDetails.length === 0,
       `work log edit rows should not overflow horizontally: ${JSON.stringify(rowOverflowDetails)}`,
+    );
+
+    const buildCategorySelect = page.locator(`.work-log-row[data-worklog-id='${ids.buildId}'] form[data-auto-submit='category'] select`);
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: "domcontentloaded" }),
+      buildCategorySelect.selectOption(String(ids.meetingsId)),
+    ]);
+    assert(
+      await page.locator(`.work-log-row[data-worklog-id='${ids.buildId}'] select[name='category-id']`).inputValue() === String(ids.meetingsId),
+      "category dropdown change should persist without a Set button",
     );
 
     const selectedId = String(ids.deepWorklogId);
@@ -396,6 +448,15 @@ async function run() {
     assert(submit === 1, "candidate card should expose confirm action");
 
     const buildSelector = `.confirmed-block[data-worklog-id='${ids.buildId}']`;
+    const buildBlockBox = await page.locator(buildSelector).boundingBox();
+    assert(Boolean(buildBlockBox), "build block should have geometry for cursor checks");
+    await page.mouse.move(buildBlockBox.x + buildBlockBox.width / 2, buildBlockBox.y + 2);
+    assert(await page.locator(buildSelector).evaluate((block) => block.style.cursor) === "ns-resize", "top edge hover should show resize cursor");
+    await page.mouse.move(buildBlockBox.x + buildBlockBox.width / 2, buildBlockBox.y + buildBlockBox.height - 2);
+    assert(await page.locator(buildSelector).evaluate((block) => block.style.cursor) === "ns-resize", "bottom edge hover should show resize cursor");
+    await page.mouse.move(buildBlockBox.x + buildBlockBox.width / 2, buildBlockBox.y + buildBlockBox.height / 2);
+    assert(await page.locator(buildSelector).evaluate((block) => block.style.cursor) === "move", "middle hover should show move cursor");
+
     await dragConfirmedBlock(page, buildSelector, "middle", 630);
     await waitForBlockText(page, buildSelector, "10:00-11:00");
     assert((await page.locator(buildSelector).textContent()).includes("10:00-11:00"), "middle drag should move a confirmed block");
@@ -425,7 +486,7 @@ async function run() {
     assert((await page.locator(".timeline-warning-bubble").textContent()).includes("only shrinks"), "shift expansion warning should explain shrink-only behavior");
     assert((await page.locator(buildSelector).textContent()).includes("09:45-10:45"), "shift expansion should not save");
 
-    console.log(`browser-e2e cases=12 assertions=${assertions} failures=0`);
+    console.log(`browser-e2e cases=16 assertions=${assertions} failures=0`);
   } finally {
     if (browser) {
       await browser.close();

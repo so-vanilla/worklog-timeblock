@@ -239,6 +239,89 @@ Status: Approved for continuous execution. Do not stop after Goal 1 or Goal 2 if
 the gate passes; commit/push each goal and continue until all listed goals are
 done.
 
+## Approved Fix Goals: 2026-07-19 UI Corrections
+
+Status: Done.
+
+Coordination model:
+
+- Product/UX owns the interaction shape: timeline cursor feedback, attendance
+  visibility, central editor layout, Settings split, and right-pane ordering.
+- Backend/Data owns category rename/delete semantics and route contracts.
+- QA/E2E owns coverage for DOM structure, browser interaction, persistence, and
+  negative cases.
+- Implementation is sequential in the main session because `pages.clj`,
+  `routes.clj`, and browser E2E are shared by nearly every item.
+
+Goal A: timeline and central editor corrections.
+
+- Confirmed work-log top/bottom edge hover shows an `ns-resize` cursor; the
+  middle drag area remains visually distinct from edge resize.
+- Day attendance is visible on the timeline itself as a non-work-log span or
+  marker.
+- Central confirmed work-log rows remove the category `Set` button and bottom
+  category label.
+- Category select changes auto-submit and always represent the persisted value.
+- `Exclude` is placed on the right side of the `Range` row.
+- Browser E2E verifies cursor state, attendance timeline rendering, auto-submit,
+  and non-overlap layout.
+
+Goal B: Settings split and right pane order.
+
+- `/settings` is added as the page for settings-like concerns.
+- Daily break rule creation/listing moves from the day right pane to Settings.
+- The day right pane top-level order is Attendance, Category totals, Categories.
+- Today's concrete breaks remain editable as part of Attendance because they are
+  day operations, not global settings.
+- Web E2E verifies Settings navigation, daily-break form location, and right
+  pane order.
+
+Goal C: category rename/delete.
+
+- Category IDs remain internal and hidden from the frontend.
+- Category settings rows add rename and delete controls.
+- Rename rejects blank names, unknown IDs, and duplicate active sibling names.
+- Delete hard-deletes categories with no active children and no assignments.
+- Delete deactivates assigned categories so historical work logs keep their
+  category name, while selectors and category settings hide the inactive row.
+- Delete rejects parents with active children.
+- DB/API/Web E2E verify rename, hard delete, soft delete, delete rejection, and
+  hidden inactive rows.
+
+Gate before final report:
+
+```sh
+devenv shell e2e-all
+devenv shell test
+devenv shell lint
+nix flake check
+git diff --check --cached
+git diff --check
+zellij --session wz-10 action list-tabs
+```
+
+Implementation status:
+
+- Goal A done: confirmed block edge hover uses resize cursor, attendance is
+  visible on the timeline, work-log category changes auto-submit, and
+  Range/Exclude share one row.
+- Goal B done: `/settings` owns daily break rule creation/listing, day right
+  pane top-level order is Attendance, Category totals, Categories, and today's
+  materialized breaks remain editable inside Attendance.
+- Goal C done: category settings have rename/delete; delete hard-removes
+  unreferenced leaves, soft-deactivates assigned categories, blocks parents with
+  active children, and keeps historical summary names.
+
+Verification:
+
+- `devenv shell e2e-all`: Clojure E2E 15 tests / 358 assertions, browser E2E
+  16 cases / 124 assertions, zellij E2E 8 cases / 220 assertions / 0 failures.
+- `devenv shell test`: 29 tests / 529 assertions / 0 failures.
+- `devenv shell lint`: errors 0 / warnings 0.
+- `nix flake check`: success.
+- `git diff --check --cached && git diff --check`: success.
+- `zellij --session wz-10 action list-tabs`: only `Tab #1`.
+
 Current layout decision:
 
 - The calendar/timeline is not the main surface. On a full-width screen it should

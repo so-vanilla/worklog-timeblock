@@ -132,7 +132,35 @@
       (testing "finds duplicate sibling names but allows same name under a different parent"
         (is (= (:id backend)
                (:id (db/find-category-by-name-and-parent ds "Backend" (:id dev)))))
-        (is (nil? (db/find-category-by-name-and-parent ds "Backend" nil)))))))
+        (is (nil? (db/find-category-by-name-and-parent ds "Backend" nil))))
+
+      (testing "renames a category without changing its position"
+        (let [before (db/get-category ds (:id backend))
+              renamed (db/rename-category! ds (:id backend) "Platform")]
+          (is (= "Platform" (:name renamed)))
+          (is (= (:position before) (:position renamed)))
+          (is (= (:parent-id before) (:parent-id renamed)))))
+
+      (testing "hard-deletes an unreferenced leaf category"
+        (let [temporary (db/upsert-category! ds {:name "Temporary"})
+              result (db/delete-category! ds (:id temporary))]
+          (is (= :hard (:mode result)))
+          (is (nil? (db/get-category ds (:id temporary))))))
+
+      (testing "rejects deleting a parent with active children"
+        (let [result (db/delete-category! ds (:id dev))]
+          (is (= :blocked (:mode result)))
+          (is (= :has-active-children (:reason result)))
+          (is (:active? (db/get-category ds (:id dev))))))
+
+      (testing "soft-deletes an assigned category so historical names survive"
+        (let [result (db/delete-category! ds (:id ops))
+              deleted (db/get-category ds (:id ops))]
+          (is (= :soft (:mode result)))
+          (is (false? (:active? deleted)))
+          (is (= "Operations" (:name deleted)))
+          (is (false? (db/category-assignable? ds (:id ops))))
+          (is (contains? (db/summarizable-category-ids ds) (:id ops))))))))
 
 (deftest attendance-and-breaks-test
   (let [path (temp-db)

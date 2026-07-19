@@ -171,6 +171,15 @@
                              (normalize-category-id id)]
                             {:builder-fn builder}))))
 
+(defn category-has-children? [ds id]
+  (pos? (:count
+         (jdbc/execute-one! ds
+                            ["SELECT COUNT(*) AS count
+                              FROM categories
+                              WHERE parent_id = ?"
+                             (normalize-category-id id)]
+                            {:builder-fn builder}))))
+
 (defn category-has-assignments? [ds id]
   (let [id (normalize-category-id id)
         work-log-count (:count
@@ -197,6 +206,12 @@
 (defn assignable-category-ids [ds]
   (set (keep (fn [category]
                (when (category-assignable? ds (:id category))
+                 (:id category)))
+             (list-categories ds))))
+
+(defn summarizable-category-ids [ds]
+  (set (keep (fn [category]
+               (when-not (category-has-active-children? ds (:id category))
                  (:id category)))
              (list-categories ds))))
 
@@ -351,6 +366,45 @@
                           position sibling-id]))
         (get-category ds id))
       category)))
+
+(defn rename-category! [ds id name]
+  (let [id (normalize-category-id id)]
+    (jdbc/execute! ds
+                   ["UPDATE categories
+                     SET name = ?, updated_at = CURRENT_TIMESTAMP
+                     WHERE id = ?"
+                    name id])
+    (get-category ds id)))
+
+(defn delete-category! [ds id]
+  (let [id (normalize-category-id id)
+        category (get-category ds id)]
+    (cond
+      (nil? category)
+      nil
+
+      (category-has-active-children? ds id)
+      {:mode :blocked
+       :reason :has-active-children
+       :category category}
+
+      (or (category-has-assignments? ds id)
+          (category-has-children? ds id))
+      (do
+        (jdbc/execute! ds
+                       ["UPDATE categories
+                         SET active = 0, updated_at = CURRENT_TIMESTAMP
+                         WHERE id = ?"
+                        id])
+        {:mode :soft
+         :category (get-category ds id)})
+
+      :else
+      (do
+        (jdbc/execute! ds ["DELETE FROM categories WHERE id = ?" id])
+        {:mode :hard
+         :id id
+         :category category}))))
 
 (defn upsert-title-mapping! [ds mapping]
   (let [category-id (resolve-category-id ds (:category-id mapping))]

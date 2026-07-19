@@ -82,7 +82,7 @@
 (defn- summary-options [ds]
   (assoc default-summary-options
          :other-category-id (or (db/other-category-id ds) "other")
-         :assignable-category-ids (db/assignable-category-ids ds)))
+         :assignable-category-ids (db/summarizable-category-ids ds)))
 
 (defn- day-state [ds date]
   (db/materialize-breaks-for-date! ds date)
@@ -479,6 +479,49 @@
       error
       (redirect-response (safe-redirect-path (:redirect-to form) "/")))))
 
+(defn- rename-category! [ds id attrs]
+  (if-let [category (db/get-category ds id)]
+    (let [name (normalize-text (:name attrs))
+          duplicate (when name
+                      (db/find-category-by-name-and-parent ds
+                                                           name
+                                                           (:parent-id category)))]
+      (cond
+        (nil? name)
+        {:error (invalid-category-response "category-name-required")}
+
+        (and duplicate (not= (:id duplicate) (:id category)))
+        {:error (invalid-category-response "duplicate-category-name")}
+
+        :else
+        {:category (db/rename-category! ds (:id category) name)}))
+    {:error (json-response 404 {:error "not-found"})}))
+
+(defn- rename-category-response! [ds id attrs]
+  (let [result (rename-category! ds id attrs)]
+    (if-let [error (:error result)]
+      error
+      (json-response (:category result)))))
+
+(defn- rename-category-form-response! [ds id form]
+  (let [result (rename-category! ds id {:name (:category-name form)})]
+    (if-let [error (:error result)]
+      error
+      (redirect-response (safe-redirect-path (:redirect-to form) "/")))))
+
+(defn- delete-category-response! [ds id]
+  (if-let [result (db/delete-category! ds id)]
+    (if (= :blocked (:mode result))
+      (invalid-category-response (name (:reason result)))
+      (json-response result))
+    (json-response 404 {:error "not-found"})))
+
+(defn- delete-category-form-response! [ds id form]
+  (let [response (delete-category-response! ds id)]
+    (if (= 200 (:status response))
+      (redirect-response (safe-redirect-path (:redirect-to form) "/"))
+      response)))
+
 (defn- new-work-log-attrs [date ds attrs]
   (let [title (normalize-text (:title attrs))
         requested-category-id (normalize-category-id (:category-id attrs))
@@ -684,6 +727,9 @@
                               (html-response
                                (pages/day-page (day-state ds date)
                                                (db/list-categories ds)))))}]
+     ["/settings"
+      {:get (fn [_]
+              (html-response (pages/settings-page (db/list-break-rules ds))))}]
      ["/days/:date/worklogs"
       {:post (fn [request]
                (let [date (get-in request [:path-params :date])
@@ -729,6 +775,16 @@
                (move-category-form-response! ds
                                              (parse-id (get-in request [:path-params :id]))
                                              (parse-form-body request)))}]
+     ["/categories/:id/rename"
+      {:post (fn [request]
+               (rename-category-form-response! ds
+                                               (parse-id (get-in request [:path-params :id]))
+                                               (parse-form-body request)))}]
+     ["/categories/:id/delete"
+      {:post (fn [request]
+               (delete-category-form-response! ds
+                                               (parse-id (get-in request [:path-params :id]))
+                                               (parse-form-body request)))}]
      ["/break-rules"
       {:post (fn [request]
                (create-break-rule-form-response! ds (parse-form-body request)))}]
@@ -795,6 +851,14 @@
                (move-category-response! ds
                                         (parse-id (get-in request [:path-params :id]))
                                         (parse-json-body request)))}]
+     ["/api/categories/:id"
+      {:patch (fn [request]
+                (rename-category-response! ds
+                                           (parse-id (get-in request [:path-params :id]))
+                                           (parse-json-body request)))
+       :delete (fn [request]
+                 (delete-category-response! ds
+                                            (parse-id (get-in request [:path-params :id]))))}]
      ["/api/import-sources"
       {:get (fn [_] (json-response {:import-sources (db/list-import-sources ds)}))
        :post (fn [request]
