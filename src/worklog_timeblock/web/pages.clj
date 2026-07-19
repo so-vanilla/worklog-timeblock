@@ -1,6 +1,6 @@
 (ns worklog-timeblock.web.pages
   (:require [clojure.string :as str])
-  (:import [java.time OffsetDateTime]))
+  (:import [java.time LocalDate OffsetDateTime]))
 
 (defn- escape-html [value]
   (str/escape (str value)
@@ -21,6 +21,7 @@
        ".home{max-width:880px;margin:40px auto;padding:0 24px;}.day-workspace{min-height:100vh;display:grid;grid-template-rows:auto minmax(0,1fr);}"
        ".workspace-header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:18px 28px;border-bottom:1px solid var(--line);background:var(--surface);}"
        ".workspace-header h1{font-size:22px;line-height:1.2;margin:0;letter-spacing:0;}.workspace-meta{color:var(--muted);font-size:13px;}"
+       ".header-actions{display:grid;gap:8px;justify-items:end;}.day-navigation{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;}.nav-button{display:inline-flex;align-items:center;min-height:34px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--text);text-decoration:none;}.day-navigation form{display:flex;gap:6px;align-items:center;}.day-navigation input{width:142px;}"
        ".workspace-grid{display:grid;grid-template-columns:minmax(280px,.95fr) minmax(340px,1.25fr) minmax(300px,.85fr);min-height:0;}"
        ".timeline-pane,.entry-pane,.summary-pane{min-width:0;overflow:auto;padding:18px 22px 28px;}.entry-pane,.summary-pane{border-left:1px solid var(--line);background:var(--surface);}"
        ".input-panel{display:grid;gap:10px;margin:0 0 18px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);}.input-grid{display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:8px;}.input-grid .wide{grid-column:1/-1;}.inline-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0;}.inline-form input{min-width:160px;}"
@@ -32,11 +33,10 @@
        ".confirmed-block{left:8px;width:66%;background:#dbeafe;border-color:#93c5fd;color:#172554;}.imported-block{left:12%;width:78%;background:rgba(15,118,110,.12);border-color:rgba(15,118,110,.34);color:#064e3b;cursor:context-menu;}.overlap-block{left:76%;width:20%;padding-inline:4px;background:rgba(154,52,18,.12);border-color:rgba(154,52,18,.45);}"
        ".block-time{font-variant-numeric:tabular-nums;font-weight:650;}.block-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.candidate-menu{position:fixed;z-index:20;width:min(320px,calc(100vw - 24px));padding:12px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 12px 30px rgba(23,32,42,.18);}.candidate-menu[hidden]{display:none;}.candidate-menu form{display:grid;gap:8px;margin-top:8px;}"
        ".attention-queue{display:grid;gap:8px;margin-bottom:18px;}.candidate-card{border:1px solid var(--line);border-radius:8px;padding:10px;background:#fbfcfd;}.candidate-card.covered{border-color:rgba(154,52,18,.45);}.candidate-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}.candidate-actions form{display:flex;gap:6px;align-items:center;}.candidate-badge{font-size:11px;color:var(--warn);text-transform:uppercase;}"
-       ".pane-title{font-size:15px;margin:0 0 14px;}.work-log-list{display:grid;gap:10px;}.work-log-row{display:grid;grid-template-columns:116px minmax(140px,1fr) 96px minmax(120px,.8fr) minmax(220px,1.15fr) minmax(246px,1.35fr) 92px;gap:10px;align-items:center;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:10px;}"
-       ".time-range{font-variant-numeric:tabular-nums;font-weight:650;}.title{min-width:0;overflow-wrap:anywhere;}.state{color:var(--muted);}.state-excluded{opacity:.66;}.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}.range-form{display:flex;gap:6px;align-items:center;}.range-form input{width:92px;}.exclude-form button{border-color:#747b86;background:#747b86;}"
-       ".category-list{display:grid;gap:6px;list-style:none;margin:0 0 18px;padding:0;}.category-row{display:grid;grid-template-columns:minmax(0,1fr) 48px auto;gap:8px;align-items:center;border-bottom:1px solid var(--line);padding:6px 0;}.category-row .controls{justify-content:flex-end;}.category-row button{padding:4px 8px;}"
-       ".manual-entry-output{white-space:pre-wrap;min-height:96px;margin:10px 0 18px;padding:12px;border:1px solid var(--line);border-radius:8px;background:#f9fafb;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;line-height:1.5;}"
-       ".warn{color:var(--warn);font-weight:650;}.warnings{padding-left:18px;}@media (max-width:980px){.workspace-grid{grid-template-columns:1fr;}.entry-pane,.summary-pane{border-left:0;border-top:1px solid var(--line);}.day-timeline{height:720px;}.work-log-row,.input-grid{grid-template-columns:1fr;}.range-form input{width:100%;}.controls,.range-form,.inline-form{align-items:stretch;}.controls form,.range-form,.inline-form input,.inline-form button{width:100%;}.controls select,.controls button,.range-form input,.range-form button{width:100%;}}"
+       ".pane-title{font-size:15px;margin:0 0 14px;}.work-log-list{display:grid;gap:10px;}.work-log-row{display:grid;gap:10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:10px;overflow:hidden;}.work-log-main{display:grid;grid-template-columns:112px minmax(0,1fr) 92px;gap:10px;align-items:center;}.work-log-actions{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:start;}.work-log-category-label{font-size:12px;color:var(--muted);}"
+       ".time-range{font-variant-numeric:tabular-nums;font-weight:650;}.title{min-width:0;overflow-wrap:anywhere;}.state{color:var(--muted);}.state-excluded{opacity:.66;}.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0;}.controls select{min-width:0;max-width:100%;}.category-form select{flex:1 1 180px;}.range-form{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0;}.range-form input{width:92px;}.exclude-form button{border-color:#747b86;background:#747b86;}"
+       ".category-list{display:grid;gap:4px;list-style:none;margin:0 0 18px;padding:0;}.category-row{display:grid;grid-template-columns:minmax(0,1fr) 48px auto;gap:8px;align-items:center;border:1px solid var(--line);border-left:5px solid var(--group-color,var(--line));border-radius:6px;padding:7px 8px;background:#fff;}.category-child{margin-left:20px;}.category-row .controls{justify-content:flex-end;}.category-row button{padding:4px 8px;}.summary-row{border-left:5px solid var(--group-color,var(--line));}.summary-child td:first-child{padding-left:22px;}.summary-parent td:first-child{font-weight:700;}"
+       ".warn{color:var(--warn);font-weight:650;}.warnings{padding-left:18px;}@media (max-width:980px){.workspace-header{align-items:flex-start;flex-direction:column;}.header-actions{justify-items:start;}.day-navigation{justify-content:flex-start;}.workspace-grid{grid-template-columns:1fr;}.entry-pane,.summary-pane{border-left:0;border-top:1px solid var(--line);}.day-timeline{height:720px;}.work-log-main,.work-log-actions,.input-grid{grid-template-columns:1fr;}.range-form input{width:100%;}.controls,.range-form,.inline-form{align-items:stretch;}.controls form,.range-form,.inline-form input,.inline-form button{width:100%;}.controls select,.controls button,.range-form input,.range-form button{width:100%;}}"
        "</style>"
        "</head><body>" body "</body></html>"))
 
@@ -75,10 +75,37 @@
   (and (:active? category)
        (not (contains? categories-with-children (:id category)))))
 
-(defn- category-label [categories-map category]
-  (if-let [parent-id (:parent-id category)]
-    (str (category-name categories-map parent-id) " / " (:name category))
-    (:name category)))
+(defn- children-by-parent [categories]
+  (group-by :parent-id (filter :parent-id categories)))
+
+(defn- root-categories [categories]
+  (filter #(and (:active? %) (nil? (:parent-id %))) categories))
+
+(defn- root-id-for [category]
+  (or (:parent-id category) (:id category)))
+
+(defn- group-color [root-id]
+  (let [seed (Math/abs (long (hash (or root-id 0))))]
+    (format "hsl(%d, 52%%, 42%%)" (mod (* 47 seed) 360))))
+
+(defn- group-style [category]
+  (str "--group-color:" (group-color (root-id-for category)) ";"))
+
+(defn- day-link [date offset]
+  (str "/days/" (.plusDays (LocalDate/parse date) offset)))
+
+(defn- today-string []
+  (str (LocalDate/now)))
+
+(defn- day-navigation [date]
+  (str "<div class=\"day-navigation\">"
+       "<a class=\"nav-button\" href=\"" (escape-html (day-link date -1)) "\">Prev</a>"
+       "<form method=\"post\" action=\"/days\">"
+       "<input type=\"date\" name=\"date\" value=\"" (escape-html date) "\">"
+       "<button type=\"submit\">GOTO</button></form>"
+       "<a class=\"nav-button\" href=\"/days/" (escape-html (today-string)) "\">TODAY</a>"
+       "<a class=\"nav-button\" href=\"" (escape-html (day-link date 1)) "\">Next</a>"
+       "</div>"))
 
 (defn- time-string [minute]
   (format "%02d:%02d" (quot minute 60) (mod minute 60)))
@@ -160,16 +187,28 @@
          ">" (escape-html (:name category)) "</option>")))
 
 (defn- category-select [categories selected-id]
-  (let [categories-map (categories-by-id categories)
-        with-children (categories-with-children categories)]
+  (let [active (vec (active-categories categories))
+        children (children-by-parent active)
+        with-children (categories-with-children active)
+        roots (root-categories active)]
     (str "<select name=\"category-id\">"
          "<option value=\"\">Uncategorized</option>"
          (apply str
-                (map (fn [category]
-                       (category-option selected-id
-                                        (assoc category
-                                               :name (category-label categories-map category))))
-                     (filter #(assignable-category? with-children %) categories)))
+                (map (fn [root]
+                       (let [root-children (filter #(assignable-category? with-children %)
+                                                   (get children (:id root)))]
+                         (cond
+                           (seq root-children)
+                           (str "<optgroup label=\"" (escape-html (:name root)) "\">"
+                                (apply str (map #(category-option selected-id %)
+                                                root-children))
+                                "</optgroup>")
+
+                           (assignable-category? with-children root)
+                           (category-option selected-id root)
+
+                           :else "")))
+                     roots))
          "</select>")))
 
 (defn- source-confirm-form [categories source-event]
@@ -256,9 +295,11 @@
        "<button type=\"submit\">" (escape-html label) "</button>"
        "</form>"))
 
-(defn- category-management-row [date categories-map category]
-  (str "<li class=\"category-row\">"
-       "<span>" (escape-html (category-label categories-map category)) "</span>"
+(defn- category-management-row [date category]
+  (str "<li class=\"category-row category-"
+       (if (:parent-id category) "child" "root")
+       "\" style=\"" (escape-html (group-style category)) "\">"
+       "<span>" (escape-html (:name category)) "</span>"
        "<span class=\"state\">" (if (:parent-id category) "child" "root") "</span>"
        "<div class=\"controls\">"
        (move-category-form date category "up" "Up")
@@ -266,23 +307,23 @@
        "</div></li>"))
 
 (defn- category-management-list [date categories]
-  (let [categories-map (categories-by-id categories)]
-    (str "<h2 class=\"pane-title\">Categories</h2>"
-         "<ul class=\"category-list\">"
-         (apply str (map #(category-management-row date categories-map %) categories))
-         "</ul>")))
+  (str "<h2 class=\"pane-title\">Categories</h2>"
+       "<ul class=\"category-list\">"
+       (apply str (map #(category-management-row date %) categories))
+       "</ul>"))
 
 (defn- work-log-row [categories categories-map log]
   (let [id (:id log)
         state-name (name (:state log))]
     (str "<article class=\"work-log-row state-" (escape-html state-name)
          "\" data-worklog-id=\"" (escape-html id) "\">"
-         "<div class=\"time-range\">" (escape-html (str (time-string (:start-minute log))
-                                                        "-"
-                                                        (time-string (:end-minute log))))
+         "<div class=\"work-log-main\"><div class=\"time-range\">"
+         (escape-html (str (time-string (:start-minute log))
+                           "-"
+                           (time-string (:end-minute log))))
          "</div><div class=\"title\">" (escape-html (:title log))
          "</div><div class=\"state\">" (escape-html state-name)
-         "</div><form class=\"category-form controls\" method=\"post\" action=\"/worklogs/"
+         "</div></div><div class=\"work-log-actions\"><form class=\"category-form controls\" method=\"post\" action=\"/worklogs/"
          (escape-html id) "/assign-category\">"
          (category-select categories (:category-id log))
          "<button type=\"submit\">Set</button></form>"
@@ -293,29 +334,63 @@
          "<button type=\"submit\">Range</button></form>"
          "<form class=\"exclude-form\" method=\"post\" action=\"/worklogs/"
          (escape-html id) "/exclude\"><button type=\"submit\">Exclude</button></form>"
-         "<div class=\"state\">"
+         "</div><div class=\"work-log-category-label\">"
          (escape-html (category-name categories-map (:category-id log)))
          "</div></article>")))
 
-(defn- summary-row [categories [category-id hours]]
-  (str "<tr><td>" (escape-html (category-name categories category-id))
+(defn- summary-row [{:keys [category hours row-kind]}]
+  (str "<tr class=\"summary-row summary-" (escape-html (name row-kind))
+       "\" style=\"" (escape-html (group-style category))
+       "\" data-summary-category-id=\"" (escape-html (:id category)) "\"><td>"
+       (escape-html (:name category))
        "</td><td>" (format "%.2fh" (double hours))
        "</td></tr>"))
 
-(defn- sorted-summary-items [categories summary]
-  (sort-by (fn [[category-id _]]
-             (category-name categories category-id))
-           (:category-hours summary)))
+(defn- summary-hours [summary category-id]
+  (double (get (:category-hours summary) category-id 0.0)))
 
-(defn- manual-entry-output [categories summary]
-  (let [lines (map (fn [[category-id hours]]
-                     (str (category-name categories category-id)
-                          "\t"
-                          (format "%.2fh" (double hours))))
-                   (sorted-summary-items categories summary))]
-    (if (seq lines)
-      (str/join "\n" lines)
-      "No confirmed work.")))
+(defn- category-summary-rows [categories summary]
+  (let [categories-map (categories-by-id categories)
+        children (children-by-parent categories)
+        known-ids (set (keys categories-map))
+        ordered-rows
+        (mapcat
+         (fn [root]
+           (let [root-children (get children (:id root))
+                 child-rows (keep (fn [child]
+                                    (let [hours (summary-hours summary (:id child))]
+                                      (when (pos? hours)
+                                        {:category child
+                                         :hours hours
+                                         :row-kind :child})))
+                                  root-children)
+                 child-total (reduce + 0.0 (map :hours child-rows))
+                 root-hours (summary-hours summary (:id root))]
+             (cond
+               (seq root-children)
+               (if (pos? child-total)
+                 (cons {:category root
+                        :hours child-total
+                        :row-kind :parent}
+                       child-rows)
+                 [])
+
+               (pos? root-hours)
+               [{:category root
+                 :hours root-hours
+                 :row-kind :root}]
+
+               :else [])))
+         (root-categories categories))
+        orphan-hours (keep (fn [[category-id hours]]
+                             (when (and (pos? (double hours))
+                                        (not (contains? known-ids category-id)))
+                               {:category {:id category-id
+                                           :name (category-name categories-map category-id)}
+                                :hours hours
+                                :row-kind :root}))
+                           (:category-hours summary))]
+    (concat ordered-rows orphan-hours)))
 
 (defn- warning-item [warning]
   (case (:type warning)
@@ -475,7 +550,10 @@
           (str "<main class=\"day-workspace\">"
                "<header class=\"workspace-header\"><div><h1>" (escape-html date)
                "</h1><div class=\"workspace-meta\">" (count work-logs) " logs</div></div>"
-               "<nav><a href=\"/\">Days</a> | <a href=\"/import-sources\">Import sources</a></nav></header>"
+               "<div class=\"header-actions\">"
+               (day-navigation date)
+               "<nav><a href=\"/\">Days</a> | <a href=\"/import-sources\">Import sources</a></nav>"
+               "</div></header>"
                "<div class=\"workspace-grid\">"
                "<section class=\"timeline-pane\"><h2 class=\"pane-title\">Timeline</h2>"
                (day-timeline date work-logs source-events)
@@ -491,11 +569,11 @@
                (new-category-form date categories)
                (category-management-list date categories)
                "<table><thead><tr><th>Category</th><th>Hours</th></tr></thead><tbody>"
-               (apply str (map #(summary-row categories-map %)
-                               (sorted-summary-items categories-map summary)))
+               (let [rows (category-summary-rows categories summary)]
+                 (if (seq rows)
+                   (apply str (map summary-row rows))
+                   "<tr><td colspan=\"2\" class=\"state\">No category totals yet.</td></tr>"))
                "</tbody></table>"
-               "<h2 class=\"pane-title\">Manual entry</h2>"
-               "<pre class=\"manual-entry-output\">" (escape-html (manual-entry-output categories-map summary)) "</pre>"
                (when (seq (:warnings summary))
                  (str "<h2 class=\"pane-title\">Warnings</h2><ul class=\"warnings\">"
                       (apply str (map warning-item (:warnings summary)))

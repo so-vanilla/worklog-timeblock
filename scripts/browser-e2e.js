@@ -74,8 +74,20 @@ async function ensureChromium() {
 async function seed(baseUrl) {
   const dev = await requestJson(baseUrl, "POST", "/api/categories", { name: "Development" });
   const meetings = await requestJson(baseUrl, "POST", "/api/categories", { name: "Meetings" });
+  const engineering = await requestJson(baseUrl, "POST", "/api/categories", { name: "Engineering" });
+  assert(engineering.status === 200, "engineering parent category should be created");
+  const frontend = await requestJson(baseUrl, "POST", "/api/categories", {
+    name: "Frontend",
+    "parent-id": engineering.body.id,
+  });
+  const backend = await requestJson(baseUrl, "POST", "/api/categories", {
+    name: "Backend",
+    "parent-id": engineering.body.id,
+  });
   assert(dev.status === 200, "development category should be created");
   assert(meetings.status === 200, "meetings category should be created");
+  assert(frontend.status === 200, "frontend child category should be created");
+  assert(backend.status === 200, "backend child category should be created");
 
   const worklog = await requestJson(baseUrl, "POST", "/api/days/2026-07-06/worklogs", {
     title: "Build",
@@ -84,6 +96,13 @@ async function seed(baseUrl) {
     "category-id": dev.body.id,
   });
   assert(worklog.status === 200, "confirmed worklog should be created");
+  const childWorklog = await requestJson(baseUrl, "POST", "/api/days/2026-07-06/worklogs", {
+    title: "Backend plan",
+    "start-minute": 780,
+    "end-minute": 840,
+    "category-id": backend.body.id,
+  });
+  assert(childWorklog.status === 200, "child category worklog should be created");
 
   const imported = await requestJson(baseUrl, "POST", "/api/candidates/import", {
     events: [
@@ -110,7 +129,13 @@ async function seed(baseUrl) {
   assert(imported.status === 200, "candidate import should succeed");
   assert(imported.body["source-events-upserted"] === 2, "two source events should be stored");
 
-  return { devId: dev.body.id, meetingsId: meetings.body.id };
+  return {
+    devId: dev.body.id,
+    meetingsId: meetings.body.id,
+    engineeringId: engineering.body.id,
+    frontendId: frontend.body.id,
+    backendId: backend.body.id,
+  };
 }
 
 async function timelineBox(page) {
@@ -166,6 +191,47 @@ async function run() {
     assert(ratio >= 0.28 && ratio <= 0.36, `timeline width ratio should be about one third, got ${ratio}`);
     assert(await page.locator(".entry-pane").count() === 1, "entry pane should exist");
     assert(await page.locator(".summary-pane").count() === 1, "summary pane should exist");
+    assert(await page.locator(".day-navigation").count() === 1, "day navigation should exist");
+    assert(await page.locator(".day-navigation a[href='/days/2026-07-05']").count() === 1, "previous day link should exist");
+    assert(await page.locator(".day-navigation a[href='/days/2026-07-07']").count() === 1, "next day link should exist");
+    assert(await page.locator(".day-navigation input[name='date']").inputValue() === "2026-07-06", "goto date should default to current day");
+    assert(await page.locator(".manual-entry-output").count() === 0, "manual entry output should be removed");
+
+    const categoryText = await page.locator(".category-list").textContent();
+    assert(categoryText.includes("Engineering"), "category list should include parent category");
+    assert(categoryText.includes("Backend"), "category list should include child category");
+    assert(!categoryText.includes("Engineering / Backend"), "child category should not repeat parent name");
+    const rootInset = await page.locator(".category-root").first().evaluate((node) => node.getBoundingClientRect().left);
+    const childInset = await page.locator(`.category-child:has-text("Backend")`).evaluate((node) => node.getBoundingClientRect().left);
+    assert(childInset > rootInset + 12, "child category should be indented");
+    const childBorderColor = await page.locator(`.category-child:has-text("Backend")`).evaluate((node) => getComputedStyle(node).borderLeftColor);
+    assert(childBorderColor !== "rgb(215, 221, 229)", "child category should use a group color");
+
+    const parentSummary = page.locator(`tr[data-summary-category-id='${ids.engineeringId}']`);
+    const childSummary = page.locator(`tr[data-summary-category-id='${ids.backendId}']`);
+    assert(await parentSummary.count() === 1, "parent category subtotal row should render");
+    assert((await parentSummary.textContent()).includes("1.00h"), "parent category subtotal should include child hours");
+    assert(await childSummary.count() === 1, "child category total row should render");
+    const summaryOrder = await page.locator("tr[data-summary-category-id]").evaluateAll((rows) =>
+      rows.map((row) => row.getAttribute("data-summary-category-id")),
+    );
+    assert(
+      summaryOrder.indexOf(String(ids.engineeringId)) < summaryOrder.indexOf(String(ids.backendId)),
+      "summary order should put parent before child",
+    );
+    const rowOverflowDetails = await page.locator(".work-log-row").evaluateAll((rows) =>
+      rows
+        .map((row) => ({
+          id: row.getAttribute("data-worklog-id"),
+          width: Math.ceil(row.getBoundingClientRect().width),
+          scrollWidth: row.scrollWidth,
+        }))
+        .filter((row) => row.scrollWidth > row.width + 1),
+    );
+    assert(
+      rowOverflowDetails.length === 0,
+      `work log edit rows should not overflow horizontally: ${JSON.stringify(rowOverflowDetails)}`,
+    );
 
     let box = await timelineBox(page);
     await page.mouse.move(box.x + box.width / 2, yForMinute(box, 540));

@@ -62,7 +62,13 @@
         (is (str/includes? html "Build"))
         (is (str/includes? html "Development"))
         (is (str/includes? html "0.75h"))
-        (is (str/includes? html "manual-entry-output"))))
+        (is (str/includes? html "class=\"day-navigation\""))
+        (is (str/includes? html "/days/2026-07-05"))
+        (is (str/includes? html "/days/2026-07-07"))
+        (is (str/includes? html "name=\"date\" value=\"2026-07-06\""))
+        (is (str/includes? html "TODAY"))
+        (is (not (str/includes? html "manual-entry-output")))
+        (is (not (str/includes? html "Manual entry")))))
 
     (testing "day page exposes edit controls for category, range, and exclusion"
       (let [html (response-body (request handler "/days/2026-07-06"))]
@@ -136,7 +142,8 @@
         (is (str/includes? html "name=\"title\""))
         (is (str/includes? html "name=\"start-time\""))
         (is (str/includes? html "name=\"end-time\""))
-        (is (str/includes? html "No confirmed work."))))
+        (is (str/includes? html "Category totals"))
+        (is (not (str/includes? html "No confirmed work.")))))
 
     (testing "category form creates a category and returns to the day"
       (let [response (request handler :post "/categories"
@@ -150,7 +157,7 @@
         (is (str/includes? html (str "value=\"" dev-id "\"")))
         (is (not (str/includes? html "value=\"dev\"")))))
 
-    (testing "worklog form creates a categorized log and updates manual-entry totals"
+    (testing "worklog form creates a categorized log and updates category totals"
       (let [dev-id (:id (db/find-category-by-name-and-parent ds "Development" nil))
             response (request handler :post "/days/2026-07-07/worklogs"
                               (str "title=Build&start-time=09%3A00&end-time=10%3A00&category-id="
@@ -162,7 +169,8 @@
         (is (str/includes? html "09:00-10:00"))
         (is (str/includes? html "Build"))
         (is (str/includes? html "Development"))
-        (is (str/includes? html "Development\t1.00h"))))
+        (is (str/includes? html (str "data-summary-category-id=\"" dev-id "\"")))
+        (is (str/includes? html "1.00h"))))
 
     (testing "worklog form can create an uncategorized log"
       (let [response (request handler :post "/days/2026-07-07/worklogs"
@@ -187,9 +195,15 @@
       (let [frontend-id (:id (db/find-category-by-name-and-parent ds "Frontend" engineering-id))
             backend-id (:id (db/find-category-by-name-and-parent ds "Backend" engineering-id))
             html (response-body (request handler "/days/2026-07-08"))]
-        (testing "child categories are labelled with their parent"
-          (is (str/includes? html "Engineering / Frontend"))
-          (is (str/includes? html "Engineering / Backend"))
+        (testing "child categories are grouped without repeating the parent name"
+          (is (str/includes? html "class=\"category-row category-root\""))
+          (is (str/includes? html "class=\"category-row category-child\""))
+          (is (str/includes? html "style=\"--group-color:"))
+          (is (str/includes? html "<optgroup label=\"Engineering\">"))
+          (is (str/includes? html (str "<option value=\"" frontend-id "\">Frontend</option>")))
+          (is (str/includes? html (str "<option value=\"" backend-id "\">Backend</option>")))
+          (is (not (str/includes? html "Engineering / Frontend")))
+          (is (not (str/includes? html "Engineering / Backend")))
           (is (str/includes? html (str "action=\"/categories/" backend-id "/move\""))))
 
         (testing "parent categories cannot be assigned through form submission"
@@ -203,18 +217,32 @@
           (let [response (request handler :post "/days/2026-07-08/worklogs"
                                   (str "title=Frontend&start-time=10%3A00&end-time=11%3A00&category-id="
                                        frontend-id))
+                backend-response (request handler :post "/days/2026-07-08/worklogs"
+                                          (str "title=Backend&start-time=11%3A00&end-time=11%3A30&category-id="
+                                               backend-id))
                 html (response-body (request handler "/days/2026-07-08"))]
             (is (= 303 (:status response)))
-            (is (str/includes? html "Engineering / Frontend"))
-            (is (str/includes? html "Frontend\t1.00h"))))
+            (is (= 303 (:status backend-response)))
+            (is (str/includes? html "Frontend"))
+            (is (str/includes? html (str "data-summary-category-id=\"" engineering-id "\"")))
+            (is (str/includes? html (str "data-summary-category-id=\"" frontend-id "\"")))
+            (is (str/includes? html (str "data-summary-category-id=\"" backend-id "\"")))
+            (let [parent-pos (str/index-of html (str "data-summary-category-id=\"" engineering-id "\""))
+                  frontend-pos (str/index-of html (str "data-summary-category-id=\"" frontend-id "\""))
+                  backend-pos (str/index-of html (str "data-summary-category-id=\"" backend-id "\""))]
+              (is (< parent-pos frontend-pos))
+              (is (< frontend-pos backend-pos)))
+            (is (str/includes? html "1.50h"))
+            (is (str/includes? html "1.00h"))
+            (is (str/includes? html "0.50h"))))
 
         (testing "move buttons reorder only sibling categories"
           (let [response (request handler :post
                                   (str "/categories/" backend-id "/move")
                                   "direction=up&redirect-to=%2Fdays%2F2026-07-08")
                 html (response-body (request handler "/days/2026-07-08"))
-                backend-pos (str/index-of html "Engineering / Backend")
-                frontend-pos (str/index-of html "Engineering / Frontend")]
+                backend-pos (str/index-of html (str "action=\"/categories/" backend-id "/move\""))
+                frontend-pos (str/index-of html (str "action=\"/categories/" frontend-id "/move\""))]
             (is (= 303 (:status response)))
             (is (< backend-pos frontend-pos))))))))
 
@@ -269,7 +297,8 @@
             excluded-html (response-body (request handler "/days/2026-07-06"))]
         (is (= 303 (:status confirm-response)))
         (is (= "/days/2026-07-06" (get-in confirm-response [:headers "location"])))
-        (is (str/includes? confirmed-html "Development\t1.00h"))
+        (is (str/includes? confirmed-html "Development"))
+        (is (str/includes? confirmed-html "1.00h"))
         (is (= 303 (:status exclude-response)))
         (is (= "/days/2026-07-06" (get-in exclude-response [:headers "location"])))
         (is (str/includes? excluded-html "excluded"))

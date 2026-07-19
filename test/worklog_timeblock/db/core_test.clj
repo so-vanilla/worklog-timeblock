@@ -98,6 +98,13 @@
         (is (= ["Development" "Backend" "Frontend" "Operations"]
                (map :name (db/list-categories ds)))))
 
+      (testing "category order persists across a new datasource"
+        (let [reopened (db/datasource path)]
+          (is (= ["Development" "Backend" "Frontend" "Operations"]
+                 (map :name (db/list-categories reopened))))
+          (is (= [0 0 1 1]
+                 (map :position (db/list-categories reopened))))))
+
       (testing "upsert preserves omitted parent and position for existing categories"
         (let [before (db/get-category ds (:id backend))
               updated (db/upsert-category! ds {:id (:id backend) :name "Backend"})]

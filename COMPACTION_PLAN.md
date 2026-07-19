@@ -429,6 +429,114 @@ Goal 3 implementation status:
 
 Detailed done criteria live in `PLAN.md`.
 
+### Approved Continuous Goal Sequence: 2026-07-19 Additions
+
+The user approved the following sequence with `go`. Continue through all listed
+goals without waiting for another instruction if each goal's gate passes. Commit
+and push after each goal.
+
+Implementation coordination:
+
+- Product/UX: workflow friction, visual grouping, day workspace shape.
+- Backend/Data: persistent concepts and API contracts.
+- QA/E2E: test-first coverage, negative cases, quantitative gates.
+- Use sequential implementation in the main session unless file ownership can
+  be split cleanly; these goals mostly share `pages.clj`, `routes.clj`, and
+  `scripts/browser-e2e.js`.
+
+Target layout:
+
+```text
+--------------------------------------------------------------------------------
+| < Prev | [ YYYY-MM-DD ] | GOTO | TODAY | Next >          Days | Import sources |
+--------------------------------------------------------------------------------
+| Timeline              | Entry / Edit                         | Summary         |
+| about 1/3 width       | selected work log editor              | attendance      |
+| confirmed blocks      | add draft form                        | breaks          |
+| imported candidates   | imported candidate queue              | category totals |
+| break bands           | selected row highlighted              | categories      |
+| warning bubble        | compact editable log list             | warnings        |
+--------------------------------------------------------------------------------
+```
+
+Goal 1:
+
+- Add day navigation: Prev, Next, TODAY, and date input plus GOTO.
+- Make category groups visually obvious: root rows, indented children, stable
+  root-derived colors.
+- Remove parent-name repetition from child category labels in the category list.
+- Keep category order persisted through existing `position` values.
+- Render category totals in category-list order, with parent subtotal rows.
+- Keep parents with children non-assignable.
+- Remove Manual Entry.
+- Fix central edit/delete row overlap.
+- Add at least 20 Clojure/Web E2E assertions and at least 8 browser E2E
+  assertions.
+
+Goal 1 implementation status:
+
+- Added day navigation with Prev, Next, TODAY, and GOTO.
+- Changed category selects to root optgroups with child-only option labels.
+- Changed category management to root rows and indented child rows with stable
+  root-derived colors.
+- Added ordered summary rows with parent subtotals for active children.
+- Removed Manual Entry from the day page.
+- Reworked central work-log edit rows into stacked action cards and added
+  browser horizontal-overflow checks.
+- Current local validation before Goal 1 commit:
+  - `devenv shell e2e-all`: Clojure E2E 10 tests / 220 assertions, browser
+    E2E 6 cases / 51 assertions, zellij 8 cases / 220 assertions / 0 failures.
+  - `devenv shell test`: 22 tests / 360 assertions / 0 failures.
+  - `devenv shell lint`: errors 0 / warnings 0.
+  - `nix flake check`: success.
+  - `git diff --check --cached`: success.
+  - `git diff --check`: success.
+  - `zellij --session wz-10 action list-tabs`: only `Tab #1`.
+
+Goal 2:
+
+- Confirmed timeline block click selects the matching work log.
+- The matching central editor scrolls near the vertical middle of the entry
+  pane and is highlighted.
+- Timeline click selection does not create a new draft; empty-space drag still
+  creates a draft.
+- Add at least 10 browser E2E assertions.
+
+Goal 3:
+
+- Add day-level attendance, separate from work logs.
+- Add current-time and manual-time clock-in/clock-out controls.
+- Add separate break persistence and daily break rules.
+- Breaks do not count toward work effort.
+- Breaks can later be converted/changed into work-log effort.
+- Summary shows attendance span, confirmed work, break total, and unallocated
+  time.
+- Breaks do not produce false large-gap warnings.
+- Add at least 30 DB/API/domain assertions and at least 10 Web/browser
+  assertions.
+
+Goal 4:
+
+- Add confirmed-block move by center drag.
+- Add top/bottom edge resize.
+- Add adjacent boundary adjustment in one transaction.
+- Add Shift edge shrink without moving adjacent logs.
+- Prevent overlap expansion and show a small warning bubble.
+- Add API overlap rejection with DB-unchanged tests.
+- Add at least 4 browser cases and at least 20 browser assertions.
+
+Common gate for every goal:
+
+```sh
+devenv shell e2e-all
+devenv shell test
+devenv shell lint
+nix flake check
+git diff --check --cached
+git diff --check
+zellij --session wz-10 action list-tabs
+```
+
 ### Phase 0: Preserve Current Green Baseline
 
 Goal:

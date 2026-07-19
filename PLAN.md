@@ -391,6 +391,133 @@ Validation:
 - `devenv shell lint`: errors 0 / warnings 0.
 - `nix flake check`: success.
 
+## Approved Continuous Goals: Navigation, Editing, Attendance, And Mouse Control
+
+Status: Approved for continuous execution. Do not stop after Goal 1, Goal 2, or
+Goal 3 if the gate passes; commit/push each goal and continue until all listed
+goals are done.
+
+Team model:
+
+- Product/UX owns friction, daily workflow order, and screen layout.
+- Backend/Data owns persistent concepts and API contracts.
+- QA/E2E owns test-first coverage, negative cases, and quantitative gates.
+- Implementation is sequential in this session because `pages.clj`,
+  `routes.clj`, and browser E2E are shared across most goals.
+
+Current target layout:
+
+```text
+--------------------------------------------------------------------------------
+| < Prev | [ YYYY-MM-DD ] | GOTO | TODAY | Next >          Days | Import sources |
+--------------------------------------------------------------------------------
+| Timeline              | Entry / Edit                         | Summary         |
+| about 1/3 width       | selected work log editor              | attendance      |
+| confirmed blocks      | add draft form                        | breaks          |
+| imported candidates   | imported candidate queue              | category totals |
+| break bands           | compact editable log list             | categories      |
+| warning bubble        | selected row highlighted              | warnings        |
+--------------------------------------------------------------------------------
+```
+
+### Goal 1: Navigation, Category Visibility, And Summary Cleanup
+
+Status: Implemented and pushed when commit step completes.
+
+Done when:
+
+- The day header has Prev, Next, TODAY, and a date input plus GOTO form.
+- Child category labels no longer repeat their parent name in category
+  management rows.
+- Child categories are indented under their root category.
+- Root category groups are visually grouped by a stable color derived from the
+  root category.
+- Category order persists across restart using the existing `position` column.
+- Category totals are rendered in the same root/child order as the category
+  list.
+- Parent category rows are visible in totals and display the subtotal of their
+  active children.
+- Parent categories with children remain non-assignable.
+- Manual Entry output is removed from the day page.
+- The central edit/delete list no longer overlaps at desktop or narrow widths.
+- Add at least 20 Clojure/Web E2E assertions and at least 8 browser E2E
+  assertions.
+- Full gate passes and the result is committed and pushed.
+
+Implemented:
+
+- Added day navigation with Prev, Next, TODAY, and date input plus GOTO.
+- Changed category selects to root optgroups with child option names.
+- Changed category management to root rows and indented child rows with stable
+  root-derived group colors.
+- Added ordered category summary rows with parent rows showing child subtotals.
+- Removed the Manual Entry output block from the day page.
+- Changed work-log edit rows from dense multi-column rows to compact stacked
+  action cards to avoid overlapping controls.
+- Added browser layout checks for edit row horizontal overflow.
+
+Validation:
+
+- `devenv shell e2e-all`: Clojure E2E 10 tests / 220 assertions, browser E2E
+  6 cases / 51 assertions, zellij E2E 8 cases / 220 assertions / 0 failures.
+- `devenv shell test`: 22 tests / 360 assertions / 0 failures.
+- `devenv shell lint`: errors 0 / warnings 0.
+- `nix flake check`: success.
+- `git diff --check --cached`: success.
+- `git diff --check`: success.
+- `zellij --session wz-10 action list-tabs`: only `Tab #1`.
+
+### Goal 2: Confirmed Block Selection And Edit Focus
+
+Done when:
+
+- Clicking a confirmed block in the left timeline selects the matching work log.
+- The matching central work-log editor is scrolled close to the vertical middle
+  of the entry pane.
+- The selected central row is highlighted.
+- Timeline block click selection does not create a new draft.
+- Dragging on empty timeline space still creates a new draft.
+- Browser E2E verifies selection, row highlight, scroll target, and no layout
+  overlap.
+- Add at least 10 browser E2E assertions.
+- Full gate passes and the result is committed and pushed.
+
+### Goal 3: Attendance And Breaks
+
+Done when:
+
+- Attendance is persisted as a day-level concept, not as a work log.
+- The Web UI can set clock-in and clock-out from the current time.
+- The Web UI can set clock-in and clock-out from manually entered time values.
+- Breaks are persisted separately from work logs.
+- A default daily break can be set and displayed on each day.
+- Breaks are not counted as work effort.
+- A break can be changed later into a work-log range/category when needed.
+- Summary displays attendance span, confirmed work total, break total, and
+  unallocated time.
+- Breaks do not cause false large-gap warnings.
+- Add at least 30 DB/API/domain assertions and at least 10 Web/browser
+  assertions.
+- Full gate passes and the result is committed and pushed.
+
+### Goal 4: Calendar Mouse Editing
+
+Done when:
+
+- Dragging the middle of a confirmed block moves the work log vertically.
+- Dragging the top or bottom edge changes the start or end time.
+- Dragging a shared boundary between adjacent logs updates both ranges in one
+  transaction.
+- Holding Shift while dragging an edge shrinks the selected log without moving
+  the adjacent log.
+- Shift edge drag cannot expand into an overlap.
+- Any drag that would create overlap shows a small warning bubble and does not
+  save.
+- API-side validation rejects confirmed work-log overlaps and leaves the DB
+  unchanged.
+- Browser E2E adds at least 4 cases and at least 20 assertions.
+- Full gate passes and the result is committed and pushed.
+
 ## Agent Team Plan
 
 Agent Teams should be used only when work can be split without shared-file conflicts. Do not use Delegate mode.
