@@ -129,6 +129,20 @@ async function seed(baseUrl) {
       deepWorklogId = extra.body.id;
     }
   }
+  const boundaryLeft = await requestJson(baseUrl, "POST", "/api/days/2026-07-06/worklogs", {
+    title: "Boundary left",
+    "start-minute": 1260,
+    "end-minute": 1290,
+    "category-id": dev.body.id,
+  });
+  const boundaryRight = await requestJson(baseUrl, "POST", "/api/days/2026-07-06/worklogs", {
+    title: "Boundary right",
+    "start-minute": 1290,
+    "end-minute": 1320,
+    "category-id": dev.body.id,
+  });
+  assert(boundaryLeft.status === 200, "left boundary worklog should be created");
+  assert(boundaryRight.status === 200, "right boundary worklog should be created");
 
   const imported = await requestJson(baseUrl, "POST", "/api/candidates/import", {
     events: [
@@ -162,6 +176,9 @@ async function seed(baseUrl) {
     frontendId: frontend.body.id,
     backendId: backend.body.id,
     deepWorklogId,
+    buildId: worklog.body.id,
+    boundaryLeftId: boundaryLeft.body.id,
+    boundaryRightId: boundaryRight.body.id,
   };
 }
 
@@ -173,6 +190,37 @@ async function timelineBox(page) {
 
 function yForMinute(box, minute) {
   return box.y + (box.height * minute) / 1440;
+}
+
+async function dragConfirmedBlock(page, selector, edge, targetMinute, options = {}) {
+  const block = page.locator(selector).first();
+  const blockBox = await block.boundingBox();
+  assert(Boolean(blockBox), `${selector} should have a block box`);
+  const trackBox = await timelineBox(page);
+  const x = blockBox.x + blockBox.width / 2;
+  const y = edge === "top"
+    ? blockBox.y + 2
+    : edge === "bottom"
+      ? blockBox.y + blockBox.height - 2
+      : blockBox.y + blockBox.height / 2;
+  if (options.shift) {
+    await page.keyboard.down("Shift");
+  }
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, yForMinute(trackBox, targetMinute));
+  await page.mouse.up();
+  if (options.shift) {
+    await page.keyboard.up("Shift");
+  }
+}
+
+async function waitForBlockText(page, selector, expected) {
+  await page.waitForFunction(
+    ({ selector: blockSelector, expected: expectedText }) =>
+      document.querySelector(blockSelector)?.textContent.includes(expectedText),
+    { selector, expected },
+  );
 }
 
 async function run() {
@@ -297,9 +345,10 @@ async function run() {
     assert(selectedRows === 1, "only one work log row should be highlighted");
 
     let box = await timelineBox(page);
-    await page.mouse.move(box.x + box.width / 2, yForMinute(box, 540));
+    const draftLaneX = box.x + box.width * 0.98;
+    await page.mouse.move(draftLaneX, yForMinute(box, 540));
     await page.mouse.down();
-    await page.mouse.move(box.x + box.width / 2, yForMinute(box, 600));
+    await page.mouse.move(draftLaneX, yForMinute(box, 600));
     await page.mouse.up();
     assert(await page.locator("#new-work-log-form input[name='start-time']").inputValue() === "09:00", "drag should fill start time");
     assert(await page.locator("#new-work-log-form input[name='end-time']").inputValue() === "10:00", "drag should fill end time");
@@ -346,7 +395,37 @@ async function run() {
     const submit = await page.locator(".candidate-card[data-external-id='evt-candidate'] form[action*='/confirm']").count();
     assert(submit === 1, "candidate card should expose confirm action");
 
-    console.log(`browser-e2e cases=8 assertions=${assertions} failures=0`);
+    const buildSelector = `.confirmed-block[data-worklog-id='${ids.buildId}']`;
+    await dragConfirmedBlock(page, buildSelector, "middle", 630);
+    await waitForBlockText(page, buildSelector, "10:00-11:00");
+    assert((await page.locator(buildSelector).textContent()).includes("10:00-11:00"), "middle drag should move a confirmed block");
+
+    await dragConfirmedBlock(page, buildSelector, "top", 585);
+    await waitForBlockText(page, buildSelector, "09:45-11:00");
+    assert((await page.locator(buildSelector).textContent()).includes("09:45-11:00"), "top edge drag should resize start time");
+
+    await dragConfirmedBlock(page, buildSelector, "bottom", 645, { shift: true });
+    await waitForBlockText(page, buildSelector, "09:45-10:45");
+    assert((await page.locator(buildSelector).textContent()).includes("09:45-10:45"), "shift bottom edge drag should shrink the block");
+
+    const leftSelector = `.confirmed-block[data-worklog-id='${ids.boundaryLeftId}']`;
+    const rightSelector = `.confirmed-block[data-worklog-id='${ids.boundaryRightId}']`;
+    await dragConfirmedBlock(page, leftSelector, "bottom", 1305);
+    await waitForBlockText(page, leftSelector, "21:00-21:45");
+    assert((await page.locator(leftSelector).textContent()).includes("21:00-21:45"), "boundary drag should extend the left block");
+    assert((await page.locator(rightSelector).textContent()).includes("21:45-22:00"), "boundary drag should move the right block start");
+
+    await dragConfirmedBlock(page, buildSelector, "middle", 795);
+    assert(await page.locator(".timeline-warning-bubble:not([hidden])").count() === 1, "overlap drag should show warning bubble");
+    assert((await page.locator(".timeline-warning-bubble").textContent()).includes("Overlaps confirmed work"), "warning bubble should explain overlap");
+    assert((await page.locator(buildSelector).textContent()).includes("09:45-10:45"), "overlap drag should not save the move");
+
+    await dragConfirmedBlock(page, buildSelector, "bottom", 690, { shift: true });
+    assert(await page.locator(".timeline-warning-bubble:not([hidden])").count() === 1, "shift expansion should show warning bubble");
+    assert((await page.locator(".timeline-warning-bubble").textContent()).includes("only shrinks"), "shift expansion warning should explain shrink-only behavior");
+    assert((await page.locator(buildSelector).textContent()).includes("09:45-10:45"), "shift expansion should not save");
+
+    console.log(`browser-e2e cases=12 assertions=${assertions} failures=0`);
   } finally {
     if (browser) {
       await browser.close();

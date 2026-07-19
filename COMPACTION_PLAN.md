@@ -567,6 +567,31 @@ Goal 4:
 - Add API overlap rejection with DB-unchanged tests.
 - Add at least 4 browser cases and at least 20 browser assertions.
 
+Goal 4 implementation status:
+
+- Confirmed work-log create/update rejects overlap with other confirmed logs.
+- Added `POST /api/days/:date/boundary-adjustments` for adjacent work-log
+  boundary moves.
+- Timeline confirmed blocks support middle drag move and top/bottom edge
+  resize.
+- Adjacent edge drag moves the shared boundary and updates both logs together.
+- Shift edge drag shrinks without moving adjacent logs.
+- Shift expansion and overlap moves show a small warning bubble and do not
+  save.
+- API E2E verifies overlap rejection, DB unchanged, valid boundary adjustment,
+  and invalid boundary DB unchanged.
+- Browser E2E verifies move, resize, boundary adjustment, Shift shrink,
+  overlap warning, and Shift expansion warning.
+- Current local validation before Goal 4 commit:
+  - `devenv shell e2e-all`: Clojure E2E 13 tests / 297 assertions, browser
+    E2E 12 cases / 104 assertions, zellij 8 cases / 220 assertions / 0 failures.
+  - `devenv shell test`: 27 tests / 455 assertions / 0 failures.
+  - `devenv shell lint`: errors 0 / warnings 0.
+  - `nix flake check`: success.
+  - `git diff --check --cached`: success.
+  - `git diff --check`: success.
+  - `zellij --session wz-10 action list-tabs`: only `Tab #1`.
+
 Common gate for every goal:
 
 ```sh

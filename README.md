@@ -24,7 +24,10 @@ by assigning a category, editing the time range, or excluding the log.
 The day page is a three-pane workspace with Prev/Next/TODAY/GOTO navigation.
 The left pane is a compact one-day timeline with snapped mouse drag selection.
 Clicking a confirmed timeline block selects and highlights the matching editor
-row in the center pane. The center pane contains the work-log input form,
+row in the center pane. Confirmed blocks can be moved, resized from their top
+or bottom edge, and adjusted across an adjacent boundary. Shift edge dragging
+shrinks a block without moving its neighbor, and overlap attempts show a small
+warning bubble instead of saving. The center pane contains the work-log input form,
 imported candidate queue, and editable log list. The right pane keeps category
 totals, category groups, attendance, breaks, and warnings visible. Child
 categories are indented under their parent, root groups use stable colors, and

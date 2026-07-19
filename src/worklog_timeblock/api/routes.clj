@@ -103,10 +103,13 @@
                       (summary/source-diff-warnings work-logs source-events))}))
 
 (defn- parse-id [value]
-  (try
-    (parse-long value)
-    (catch Exception _
-      nil)))
+  (cond
+    (integer? value) value
+    (string? value) (try
+                      (parse-long value)
+                      (catch Exception _
+                        nil))
+    :else nil))
 
 (defn- normalize-state [state]
   (cond
@@ -122,6 +125,10 @@
 
 (defn- valid-minute? [minute]
   (and (integer? minute) (<= 0 minute 1440)))
+
+(defn- ranges-overlap? [a-start a-end b-start b-end]
+  (and (< a-start b-end)
+       (< b-start a-end)))
 
 (defn- normalize-text [value]
   (when value
@@ -185,12 +192,26 @@
       :else
       {:attrs updated})))
 
+(defn- confirmed-overlap? [ds attrs exclude-id]
+  (and (= :confirmed (:state attrs))
+       (some (fn [log]
+               (and (not= (:id log) exclude-id)
+                    (= :confirmed (:state log))
+                    (ranges-overlap? (:start-minute attrs)
+                                     (:end-minute attrs)
+                                     (:start-minute log)
+                                     (:end-minute log))))
+             (db/work-logs-by-date ds (:date attrs)))))
+
 (defn- persist-work-log-update! [ds id attrs]
   (if-let [current (db/get-work-log ds id)]
     (let [normalized (normalize-update ds current attrs)]
       (if-let [error (:error normalized)]
         {:error error}
-        {:work-log (db/update-work-log! ds id (:attrs normalized))}))
+        (let [updated (merge current (:attrs normalized))]
+          (if (confirmed-overlap? ds updated id)
+            {:error (invalid-work-log-response "overlaps-confirmed-work-log")}
+            {:work-log (db/update-work-log! ds id (:attrs normalized))}))))
     {:error (json-response 404 {:error "not-found"})}))
 
 (defn- parse-clock-minute [value]
@@ -374,6 +395,34 @@
           (redirect-response (str "/days/" (:date break))))))
     (json-response 404 {:error "not-found"})))
 
+(defn- work-log-ref-id [ref]
+  (when (= :work-log (normalize-state (:kind ref)))
+    (parse-id (:id ref))))
+
+(defn- boundary-adjustment-response! [ds date attrs]
+  (let [left-id (work-log-ref-id (:left attrs))
+        right-id (work-log-ref-id (:right attrs))
+        boundary-minute (normalize-minute (:boundary-minute attrs))
+        left (when left-id (db/get-work-log ds left-id))
+        right (when right-id (db/get-work-log ds right-id))]
+    (cond
+      (or (nil? left) (nil? right))
+      (json-response 404 {:error "not-found"})
+
+      (not (and (= date (:date left)) (= date (:date right))))
+      (invalid-work-log-response "invalid-date")
+
+      (not (= (:end-minute left) (:start-minute right)))
+      (invalid-work-log-response "non-adjacent-boundary")
+
+      (not (and (valid-minute? boundary-minute)
+                (< (:start-minute left) boundary-minute)
+                (< boundary-minute (:end-minute right))))
+      (invalid-work-log-response "invalid-time-range")
+
+      :else
+      (json-response (db/adjust-work-log-boundary! ds left-id right-id boundary-minute)))))
+
 (defn- form-update-response! [ds id attrs]
   (let [result (persist-work-log-update! ds id attrs)]
     (if-let [error (:error result)]
@@ -470,8 +519,10 @@
   (let [normalized (new-work-log-attrs date ds attrs)]
     (if-let [error (:error normalized)]
       {:error error}
-      (let [id (db/insert-work-log! ds (:attrs normalized))]
-        {:work-log (db/get-work-log ds id)}))))
+      (if (confirmed-overlap? ds (:attrs normalized) nil)
+        {:error (invalid-work-log-response "overlaps-confirmed-work-log")}
+        (let [id (db/insert-work-log! ds (:attrs normalized))]
+          {:work-log (db/get-work-log ds id)})))))
 
 (defn- create-work-log-response! [ds date attrs]
   (let [result (create-work-log! ds date attrs)]
@@ -778,6 +829,12 @@
      ["/api/days/:date/breaks"
       {:post (fn [request]
                (create-break-response!
+                ds
+                (get-in request [:path-params :date])
+                (parse-json-body request)))}]
+     ["/api/days/:date/boundary-adjustments"
+      {:post (fn [request]
+               (boundary-adjustment-response!
                 ds
                 (get-in request [:path-params :date])
                 (parse-json-body request)))}]

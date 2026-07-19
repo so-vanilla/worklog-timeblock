@@ -29,6 +29,7 @@
        ".day-timeline{display:grid;grid-template-columns:48px minmax(160px,1fr);gap:10px;height:calc(100vh - 142px);min-height:640px;max-height:1080px;}.timeline-hours{position:relative;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;}.timeline-hour-label{position:absolute;right:0;transform:translateY(-50%);}"
        ".timeline-track{position:relative;min-height:100%;border:1px solid var(--line);border-radius:8px;background:repeating-linear-gradient(to bottom,#fff 0,#fff calc(100% / 24 - 1px),#e8edf3 calc(100% / 24 - 1px),#e8edf3 calc(100% / 24));touch-action:none;}"
        ".timeline-selection{position:absolute;left:8px;right:8px;border:2px solid #0f766e;background:rgba(15,118,110,.14);border-radius:6px;pointer-events:none;box-shadow:0 0 0 2px rgba(15,118,110,.08);}"
+       ".timeline-warning-bubble{position:absolute;left:18px;right:18px;z-index:18;padding:5px 7px;border:1px solid rgba(154,52,18,.5);border-radius:6px;background:#fff7ed;color:var(--warn);font-size:12px;line-height:1.2;pointer-events:none;box-shadow:0 6px 16px rgba(23,32,42,.16);}.timeline-warning-bubble[hidden]{display:none;}"
        ".timeline-selection[hidden]{display:none;}.timeline-block{position:absolute;border-radius:6px;padding:5px 7px;overflow:hidden;font-size:12px;line-height:1.2;border:1px solid transparent;}"
        ".confirmed-block{left:8px;width:66%;background:#dbeafe;border-color:#93c5fd;color:#172554;cursor:pointer;}.confirmed-block.selected{outline:2px solid #1d4ed8;outline-offset:2px;}.break-block{left:6%;width:88%;background:rgba(202,138,4,.14);border-color:rgba(202,138,4,.45);color:#713f12;}.imported-block{left:12%;width:78%;background:rgba(15,118,110,.12);border-color:rgba(15,118,110,.34);color:#064e3b;cursor:context-menu;}.overlap-block{left:76%;width:20%;padding-inline:4px;background:rgba(154,52,18,.12);border-color:rgba(154,52,18,.45);}"
        ".block-time{font-variant-numeric:tabular-nums;font-weight:650;}.block-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.candidate-menu{position:fixed;z-index:20;width:min(320px,calc(100vw - 24px));padding:12px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 12px 30px rgba(23,32,42,.18);}.candidate-menu[hidden]{display:none;}.candidate-menu form{display:grid;gap:8px;margin-top:8px;}"
@@ -515,6 +516,7 @@
        "<div class=\"timeline-hours\">" (timeline-hour-labels) "</div>"
        "<div class=\"timeline-track\" data-minute-quantum=\"15\">"
        "<div class=\"timeline-selection\" hidden></div>"
+       "<div class=\"timeline-warning-bubble\" hidden></div>"
        (apply str (map timeline-break-block breaks))
        (apply str (map timeline-confirmed-block
                        (filter #(= :confirmed (:state %)) work-logs)))
@@ -528,9 +530,10 @@
   const track = document.querySelector('.timeline-track');
   const entryPane = document.querySelector('.entry-pane');
   const selection = document.querySelector('.timeline-selection');
+  const warningBubble = document.querySelector('.timeline-warning-bubble');
   const preview = document.getElementById('draft-summary-preview');
   const menu = document.getElementById('candidate-menu');
-  if (!form || !track || !entryPane || !selection || !preview || !menu) return;
+  if (!form || !track || !entryPane || !selection || !warningBubble || !preview || !menu) return;
   const startInput = form.querySelector(\"input[name='start-time']\");
   const endInput = form.querySelector(\"input[name='end-time']\");
   const categorySelect = form.querySelector(\"select[name='category-id']\");
@@ -539,6 +542,8 @@
   const quantum = Number(track.dataset.minuteQuantum || 15);
   let dragging = false;
   let dragStart = null;
+  let blockDrag = null;
+  let suppressBlockClick = false;
   function pad(value){ return String(value).padStart(2, '0'); }
   function minuteToTime(minute){
     const bounded = Math.max(0, Math.min(1440, minute));
@@ -555,6 +560,42 @@
   function minuteFromEvent(event){
     const rect = track.getBoundingClientRect();
     return snap(((event.clientY - rect.top) / rect.height) * 1440);
+  }
+  function blockRange(block){
+    return {
+      id: block.dataset.worklogId,
+      start: Number(block.dataset.startMinute),
+      end: Number(block.dataset.endMinute)
+    };
+  }
+  function rangesOverlap(start, end, otherStart, otherEnd){
+    return start < otherEnd && otherStart < end;
+  }
+  function otherConfirmedBlocks(id){
+    return Array.from(document.querySelectorAll('.confirmed-block')).filter(function(block){
+      return block.dataset.worklogId !== String(id);
+    });
+  }
+  function overlapsOtherConfirmed(id, start, end){
+    return otherConfirmedBlocks(id).some(function(block){
+      const other = blockRange(block);
+      return rangesOverlap(start, end, other.start, other.end);
+    });
+  }
+  function adjacentBlock(range, side){
+    const blocks = otherConfirmedBlocks(range.id);
+    return blocks.find(function(block){
+      const other = blockRange(block);
+      return side === 'top' ? other.end === range.start : other.start === range.end;
+    });
+  }
+  function showTimelineWarning(message, minute){
+    warningBubble.textContent = message;
+    warningBubble.style.top = (Math.max(0, Math.min(1410, minute)) / 1440 * 100) + '%';
+    warningBubble.hidden = false;
+  }
+  function hideTimelineWarning(){
+    warningBubble.hidden = true;
   }
   function setSelection(start, end, updateInputs){
     const low = Math.min(start, end);
@@ -603,6 +644,140 @@
     preview.textContent = label + ' ' + ((end - start) / 60).toFixed(2) + 'h';
   }
   function hideMenu(){ menu.hidden = true; }
+  async function patchWorkLogRange(id, start, end){
+    const response = await fetch('/api/worklogs/' + id, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ 'start-minute': start, 'end-minute': end })
+    });
+    if (!response.ok) throw new Error('range update failed');
+  }
+  async function postBoundaryAdjustment(leftId, rightId, boundaryMinute){
+    const day = track.closest('.day-timeline').dataset.date;
+    const response = await fetch('/api/days/' + day + '/boundary-adjustments', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        left: { kind: 'work-log', id: Number(leftId) },
+        right: { kind: 'work-log', id: Number(rightId) },
+        'boundary-minute': boundaryMinute
+      })
+    });
+    if (!response.ok) throw new Error('boundary update failed');
+  }
+  function blockDragMode(block, event){
+    const rect = block.getBoundingClientRect();
+    const edge = Math.min(10, rect.height / 3);
+    if (event.clientY - rect.top <= edge) return 'resize-start';
+    if (rect.bottom - event.clientY <= edge) return 'resize-end';
+    return 'move';
+  }
+  function startBlockDrag(block, event){
+    const range = blockRange(block);
+    hideMenu();
+    hideTimelineWarning();
+    blockDrag = {
+      block: block,
+      id: range.id,
+      start: range.start,
+      end: range.end,
+      pointerStart: minuteFromEvent(event),
+      mode: blockDragMode(block, event),
+      shift: event.shiftKey,
+      moved: false,
+      nextRange: range
+    };
+    block.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  function computeBlockDragRange(event){
+    if (!blockDrag) return null;
+    const minute = minuteFromEvent(event);
+    const delta = minute - blockDrag.pointerStart;
+    const duration = blockDrag.end - blockDrag.start;
+    let start = blockDrag.start;
+    let end = blockDrag.end;
+    if (blockDrag.mode === 'move') {
+      start = Math.max(0, Math.min(1440 - duration, snap(blockDrag.start + delta)));
+      end = start + duration;
+    } else if (blockDrag.mode === 'resize-start') {
+      start = snap(minute);
+      if (blockDrag.shift && start < blockDrag.start) {
+        return { invalid: true, minute: start, message: 'Shift edge drag only shrinks the block' };
+      }
+      start = Math.max(0, Math.min(start, blockDrag.end - quantum));
+    } else if (blockDrag.mode === 'resize-end') {
+      end = snap(minute);
+      if (blockDrag.shift && end > blockDrag.end) {
+        return { invalid: true, minute: end, message: 'Shift edge drag only shrinks the block' };
+      }
+      end = Math.min(1440, Math.max(end, blockDrag.start + quantum));
+    }
+    return { start: start, end: end, minute: minute };
+  }
+  function updateBlockDrag(event){
+    if (!blockDrag) return;
+    const next = computeBlockDragRange(event);
+    if (!next) return;
+    blockDrag.moved = blockDrag.moved || Math.abs(next.minute - blockDrag.pointerStart) >= quantum;
+    if (next.invalid) {
+      showTimelineWarning(next.message, next.minute);
+      return;
+    }
+    blockDrag.nextRange = next;
+    setSelection(next.start, next.end, false);
+    if (overlapsOtherConfirmed(blockDrag.id, next.start, next.end)) {
+      showTimelineWarning('Overlaps confirmed work', next.minute);
+    } else {
+      hideTimelineWarning();
+    }
+  }
+  async function finishBlockDrag(event){
+    if (!blockDrag) return;
+    const current = blockDrag;
+    const next = computeBlockDragRange(event);
+    blockDrag = null;
+    if (!current.moved || !next) return;
+    suppressBlockClick = true;
+    window.setTimeout(function(){ suppressBlockClick = false; }, 0);
+    if (next.invalid) {
+      showTimelineWarning(next.message, next.minute);
+      return;
+    }
+    const topAdjacent = current.mode === 'resize-start' && !current.shift
+      ? adjacentBlock(current, 'top')
+      : null;
+    const bottomAdjacent = current.mode === 'resize-end' && !current.shift
+      ? adjacentBlock(current, 'bottom')
+      : null;
+    try {
+      if (topAdjacent) {
+        const adjacent = blockRange(topAdjacent);
+        if (!(adjacent.start < next.start && next.start < current.end)) {
+          showTimelineWarning('Invalid boundary', next.start);
+          return;
+        }
+        await postBoundaryAdjustment(adjacent.id, current.id, next.start);
+      } else if (bottomAdjacent) {
+        const adjacent = blockRange(bottomAdjacent);
+        if (!(current.start < next.end && next.end < adjacent.end)) {
+          showTimelineWarning('Invalid boundary', next.end);
+          return;
+        }
+        await postBoundaryAdjustment(current.id, adjacent.id, next.end);
+      } else {
+        if (overlapsOtherConfirmed(current.id, next.start, next.end)) {
+          showTimelineWarning('Overlaps confirmed work', next.minute);
+          return;
+        }
+        await patchWorkLogRange(current.id, next.start, next.end);
+      }
+      window.location.reload();
+    } catch (_) {
+      showTimelineWarning('Could not save range', next.minute);
+    }
+  }
   function clearSelectedWorkLog(){
     document.querySelectorAll('.confirmed-block.selected').forEach(function(block){
       block.classList.remove('selected');
@@ -654,9 +829,20 @@
     input.addEventListener('input', updatePreview);
     input.addEventListener('change', updatePreview);
   });
+  document.addEventListener('pointermove', updateBlockDrag);
+  document.addEventListener('pointerup', finishBlockDrag);
   document.querySelectorAll('.confirmed-block').forEach(function(block){
+    block.addEventListener('pointerdown', function(event){
+      if (event.button !== 0) return;
+      startBlockDrag(block, event);
+    });
     block.addEventListener('click', function(event){
       if (event.button !== 0) return;
+      if (suppressBlockClick) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       hideMenu();
       selectWorkLog(block.dataset.worklogId);
       event.stopPropagation();

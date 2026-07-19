@@ -803,6 +803,15 @@
                     id])
     (get-work-log ds id)))
 
+(defn adjust-work-log-boundary! [ds left-id right-id boundary-minute]
+  (jdbc/with-transaction [tx ds]
+    (let [left (get-work-log tx left-id)
+          right (get-work-log tx right-id)]
+      (update-work-log! tx left-id {:end-minute boundary-minute})
+      (update-work-log! tx right-id {:start-minute boundary-minute})
+      {:left (get-work-log tx (:id left))
+       :right (get-work-log tx (:id right))})))
+
 (defn list-dates [ds]
   (mapv :date
         (jdbc/execute! ds

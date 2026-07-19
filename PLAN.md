@@ -551,6 +551,8 @@ Validation:
 
 ### Goal 4: Calendar Mouse Editing
 
+Status: Implemented and pushed when commit step completes.
+
 Done when:
 
 - Dragging the middle of a confirmed block moves the work log vertically.
@@ -566,6 +568,32 @@ Done when:
   unchanged.
 - Browser E2E adds at least 4 cases and at least 20 assertions.
 - Full gate passes and the result is committed and pushed.
+
+Implemented:
+
+- Confirmed work-log creation and update now reject overlaps with other
+  confirmed logs.
+- Added `POST /api/days/:date/boundary-adjustments` for adjacent work-log
+  boundary changes.
+- Timeline confirmed blocks support middle drag move.
+- Timeline block top and bottom edges support resize.
+- Adjacent edge drag moves the shared boundary and updates both logs together.
+- Shift edge drag shrinks the selected block without moving its neighbor.
+- Shift edge expansion and overlap moves show a small timeline warning bubble
+  and do not save.
+- Browser E2E verifies move, resize, boundary adjustment, Shift shrink,
+  overlap warning, and Shift expansion warning.
+
+Validation:
+
+- `devenv shell e2e-all`: Clojure E2E 13 tests / 297 assertions, browser E2E
+  12 cases / 104 assertions, zellij E2E 8 cases / 220 assertions / 0 failures.
+- `devenv shell test`: 27 tests / 455 assertions / 0 failures.
+- `devenv shell lint`: errors 0 / warnings 0.
+- `nix flake check`: success.
+- `git diff --check --cached`: success.
+- `git diff --check`: success.
+- `zellij --session wz-10 action list-tabs`: only `Tab #1`.
 
 ## Agent Team Plan
 

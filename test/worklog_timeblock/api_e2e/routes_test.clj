@@ -353,12 +353,15 @@
 
     (testing "a break can be converted into categorized work effort"
       (let [break-id (:id (first (:breaks (parse-body (request handler :get "/api/days/2026-07-10")))))
+            reset-response (request handler :patch (str "/api/breaks/" break-id)
+                                    {:start-minute 720 :end-minute 780})
             response (request handler :post (str "/api/breaks/" break-id "/convert")
                               {:title "Lunch support"
                                :category-id (:id dev)})
             body (parse-body response)
             day (parse-body (request handler :get "/api/days/2026-07-10"))
             summary (parse-body (request handler :get "/api/days/2026-07-10/summary"))]
+        (is (= 200 (:status reset-response)))
         (is (= 200 (:status response)))
         (is (= {:title "Lunch support"
                 :state "confirmed"
@@ -367,6 +370,82 @@
         (is (empty? (:breaks day)))
         (is (= 480 (category-minutes summary (:id dev))))
         (is (= 0 (get-in summary [:attendance :break-minutes])))))))
+
+(deftest api-overlap-and-boundary-e2e-test
+  (let [{:keys [handler ds]} (empty-temp-system)
+        dev (db/upsert-category! ds {:name "Development"})
+        dev-id (:id dev)
+        left (parse-body (request handler :post "/api/days/2026-07-12/worklogs"
+                                  {:title "Left"
+                                   :start-minute 540
+                                   :end-minute 600
+                                   :category-id dev-id}))
+        right (parse-body (request handler :post "/api/days/2026-07-12/worklogs"
+                                   {:title "Right"
+                                    :start-minute 600
+                                    :end-minute 660
+                                    :category-id dev-id}))]
+    (testing "confirmed overlap creation is rejected without mutation"
+      (let [before (:work-logs (parse-body (request handler :get "/api/days/2026-07-12")))
+            response (request handler :post "/api/days/2026-07-12/worklogs"
+                              {:title "Overlap"
+                               :start-minute 570
+                               :end-minute 630
+                               :category-id dev-id})
+            after (:work-logs (parse-body (request handler :get "/api/days/2026-07-12")))]
+        (is (= 400 (:status response)))
+        (is (= "overlaps-confirmed-work-log" (:reason (parse-body response))))
+        (is (= (map :id before) (map :id after)))
+        (is (= 2 (count after)))))
+
+    (testing "confirmed overlap patch is rejected without mutation"
+      (let [response (request handler :patch (str "/api/worklogs/" (:id right))
+                              {:start-minute 585
+                               :end-minute 645})
+            unchanged (db/get-work-log ds (:id right))]
+        (is (= 400 (:status response)))
+        (is (= "overlaps-confirmed-work-log" (:reason (parse-body response))))
+        (is (= {:start-minute 600 :end-minute 660}
+               (select-keys unchanged [:start-minute :end-minute])))))
+
+    (testing "non-overlap patch still succeeds"
+      (let [response (request handler :patch (str "/api/worklogs/" (:id right))
+                              {:start-minute 615
+                               :end-minute 675})]
+        (is (= 200 (:status response)))
+        (is (= {:start-minute 615 :end-minute 675}
+               (select-keys (parse-body response)
+                            [:start-minute :end-minute])))))
+
+    (testing "boundary adjustment updates adjacent ranges together"
+      (is (= 200 (:status (request handler :patch (str "/api/worklogs/" (:id right))
+                                    {:start-minute 600
+                                     :end-minute 660}))))
+      (let [response (request handler :post "/api/days/2026-07-12/boundary-adjustments"
+                              {:left {:kind "work-log" :id (:id left)}
+                               :right {:kind "work-log" :id (:id right)}
+                               :boundary-minute 615})
+            body (parse-body response)]
+        (is (= 200 (:status response)))
+        (is (= {:end-minute 615}
+               (select-keys (:left body) [:end-minute])))
+        (is (= {:start-minute 615}
+               (select-keys (:right body) [:start-minute])))
+        (is (= 120 (category-minutes
+                    (parse-body (request handler :get "/api/days/2026-07-12/summary"))
+                    dev-id)))))
+
+    (testing "invalid boundary adjustment is rejected without mutation"
+      (let [response (request handler :post "/api/days/2026-07-12/boundary-adjustments"
+                              {:left {:kind "work-log" :id (:id left)}
+                               :right {:kind "work-log" :id (:id right)}
+                               :boundary-minute 540})
+            left-after (db/get-work-log ds (:id left))
+            right-after (db/get-work-log ds (:id right))]
+        (is (= 400 (:status response)))
+        (is (= "invalid-time-range" (:reason (parse-body response))))
+        (is (= 615 (:end-minute left-after)))
+        (is (= 615 (:start-minute right-after)))))))
 
 (deftest api-source-snapshot-e2e-test
   (let [{:keys [handler ds]} (empty-temp-system)
