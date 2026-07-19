@@ -71,7 +71,23 @@
 
   (testing "summary exposes decimal hours for manual entry"
     (is (= {"meeting" 0.25 "dev" 0.75 "other" 0.17}
-           (:category-hours (summary/summarize-day base-options logs))))))
+           (:category-hours (summary/summarize-day base-options logs)))))
+
+  (testing "non-assignable categories are excluded from totals and warned"
+    (let [result (summary/summarize-day
+                  (assoc base-options :assignable-category-ids #{"dev" "meeting" "other"})
+                  [(assoc (first logs) :category-id "parent")
+                   (second logs)])]
+      (is (nil? (get (:category-minutes result) "parent")))
+      (is (= 45 (get (:category-minutes result) "dev")))
+      (is (= 1 (count (filter #(= :non-assignable-category (:type %))
+                              (:warnings result)))))
+      (is (= {:type :non-assignable-category
+              :work-log-id 1
+              :title "Daily Standup"
+              :category-id "parent"}
+             (first (filter #(= :non-assignable-category (:type %))
+                            (:warnings result))))))))
 
 (deftest source-diff-warning-test
   (testing "changed source event can be represented without mutating confirmed log"

@@ -381,6 +381,22 @@ find e2e-artifacts/zellij-tui-layout -maxdepth 2 -type f -name index.md -print |
 
 Do not jump to calendar sync first. The highest-value next step remains app-side category/title-mapping management.
 
+### Approved Continuous Goal Sequence
+
+The user approved continuing through all listed goals without waiting for
+another instruction if each goal's gate passes. Commit and push after each goal.
+
+- Goal 1: category IDs become internal auto-increment integers; Web no longer
+  asks for category ID; parent/child categories, ordering, and assignability are
+  enforced.
+- Goal 2: import source storage and iCal file/url import are added without
+  allowing re-fetch to silently mutate confirmed snapshots.
+- Goal 3: day workspace becomes a compact one-day timeline plus input, totals,
+  and attention queue. The timeline should be about one third of full-width UI,
+  not the dominant surface.
+
+Detailed done criteria live in `PLAN.md`.
+
 ### Phase 0: Preserve Current Green Baseline
 
 Goal:

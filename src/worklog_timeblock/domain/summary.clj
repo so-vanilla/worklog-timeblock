@@ -17,9 +17,17 @@
 (defn- work-candidate? [log]
   (not= :excluded (normalize-state (:state log))))
 
-(defn- confirmed-with-category? [log]
+(defn- confirmed-with-category? [assignable-category-ids log]
   (and (= :confirmed (normalize-state (:state log)))
-       (some? (:category-id log))))
+       (some? (:category-id log))
+       (or (nil? assignable-category-ids)
+           (contains? assignable-category-ids (:category-id log)))))
+
+(defn- confirmed-with-non-assignable-category? [assignable-category-ids log]
+  (and assignable-category-ids
+       (= :confirmed (normalize-state (:state log)))
+       (some? (:category-id log))
+       (not (contains? assignable-category-ids (:category-id log)))))
 
 (defn- add-minutes [m category-id minutes]
   (if (pos? minutes)
@@ -48,11 +56,15 @@
   [options logs]
   (let [rounding-minutes (:rounding-minutes options)
         small-gap-minutes (:small-gap-minutes options)
-        other-category-id (:other-category-id options)]
+        other-category-id (:other-category-id options)
+        assignable-category-ids (:assignable-category-ids options)]
     (when-not (pos-int? rounding-minutes)
       (throw (ex-info "rounding-minutes must be positive" options)))
     (let [included (filter work-candidate? logs)
-          confirmed (filter confirmed-with-category? included)
+          confirmed (filter #(confirmed-with-category? assignable-category-ids %) included)
+          non-assignable (filter #(confirmed-with-non-assignable-category?
+                                   assignable-category-ids %)
+                                 included)
           uncategorized (filter #(= :uncategorized (normalize-state (:state %))) included)
           category-minutes (reduce
                             (fn [acc log]
@@ -79,6 +91,12 @@
                              :work-log-id (:id log)
                              :title (:title log)})
                           uncategorized)
+                     (map (fn [log]
+                            {:type :non-assignable-category
+                             :work-log-id (:id log)
+                             :title (:title log)
+                             :category-id (:category-id log)})
+                          non-assignable)
                      (map (fn [gap]
                             (assoc gap :type :large-gap))
                           large-gaps)))]

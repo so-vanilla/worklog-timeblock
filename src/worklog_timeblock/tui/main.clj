@@ -47,10 +47,17 @@
                (format "%s  %-15s  %s" time-range state (:title log)))]
     (fit-line columns line)))
 
-(defn- hour-line [columns [category-id hours]]
-  (let [line (if (< columns 48)
-               (format "%s %.2fh" category-id (double hours))
-               (format "%-20s %.2fh" category-id (double hours)))]
+(defn- categories-by-id [categories]
+  (into {} (map (juxt :id identity)) categories))
+
+(defn- category-name [categories category-id]
+  (or (get-in categories [category-id :name]) category-id "(uncategorized)"))
+
+(defn- hour-line [columns categories [category-id hours]]
+  (let [name (category-name categories category-id)
+        line (if (< columns 48)
+               (format "%s %.2fh" name (double hours))
+               (format "%-20s %.2fh" name (double hours)))]
     (fit-line columns line)))
 
 (defn- warning-line [warning]
@@ -61,8 +68,9 @@
 
 (defn render-dashboard
   ([state] (render-dashboard {:columns 80} state))
-  ([{:keys [columns]} {:keys [date work-logs summary]}]
-   (let [columns (max 20 (or columns 80))]
+  ([{:keys [columns]} {:keys [date work-logs summary categories]}]
+   (let [columns (max 20 (or columns 80))
+         categories (categories-by-id categories)]
      (str/join
       "\n"
       (concat
@@ -72,7 +80,7 @@
        (map #(log-line columns %) work-logs)
        [""
         "Category totals"]
-       (map #(hour-line columns %) (:category-hours summary))
+       (map #(hour-line columns categories %) (:category-hours summary))
        (when (seq (:warnings summary))
          (concat ["" "Warnings"]
                  (map #(fit-line columns (warning-line %)) (:warnings summary)))))))))
@@ -108,4 +116,9 @@
          (render-dashboard-for-terminal
           {:date date
            :work-logs work-logs
-           :summary (summary/summarize-day default-summary-options work-logs)}))))))
+           :categories (db/list-categories ds)
+           :summary (summary/summarize-day
+                     (assoc default-summary-options
+                            :other-category-id (or (db/other-category-id ds) "other")
+                            :assignable-category-ids (db/assignable-category-ids ds))
+                     work-logs)}))))))

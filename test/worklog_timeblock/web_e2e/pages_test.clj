@@ -10,16 +10,18 @@
         ds (db/datasource (.getAbsolutePath file))]
     (.deleteOnExit file)
     (migration/migrate! ds)
-    (db/upsert-category! ds {:id "dev" :name "Development"})
-    (db/upsert-category! ds {:id "meeting" :name "Meetings"})
-    (db/upsert-category! ds {:id "other" :name "Other" :kind :other})
-    (let [build-id (db/insert-work-log! ds {:date "2026-07-06" :title "Build"
+    (let [dev (db/upsert-category! ds {:id "dev" :name "Development"})
+          meeting (db/upsert-category! ds {:id "meeting" :name "Meetings"})
+          other (db/upsert-category! ds {:id "other" :name "Other" :kind :other})
+          build-id (db/insert-work-log! ds {:date "2026-07-06" :title "Build"
                                             :start-minute 540 :end-minute 590
-                                            :state :confirmed :category-id "dev"})
+                                            :state :confirmed :category-id (:id dev)})
           unknown-id (db/insert-work-log! ds {:date "2026-07-06" :title "Unknown"
                                               :start-minute 600 :end-minute 630
                                               :state :uncategorized})]
-      {:handler (routes/app {:ds ds})
+      {:ds ds
+       :handler (routes/app {:ds ds})
+       :category-ids {:dev (:id dev) :meeting (:id meeting) :other (:id other)}
        :ids {:build build-id :unknown unknown-id}})))
 
 (defn empty-temp-system []
@@ -27,7 +29,7 @@
         ds (db/datasource (.getAbsolutePath file))]
     (.deleteOnExit file)
     (migration/migrate! ds)
-    {:handler (routes/app {:ds ds})}))
+    {:ds ds :handler (routes/app {:ds ds})}))
 
 (defn request
   ([handler uri] (request handler :get uri nil))
@@ -42,7 +44,7 @@
   (str (:body response)))
 
 (deftest web-smoke-test
-  (let [{:keys [handler ids]} (temp-system)]
+  (let [{:keys [handler ids category-ids]} (temp-system)]
     (testing "home page links to a day view"
       (let [html (response-body (request handler "/"))]
         (is (str/includes? html "worklog-timeblock"))
@@ -65,7 +67,8 @@
         (is (str/includes? html (str "action=\"/worklogs/" (:build ids) "/range\"")))
         (is (str/includes? html (str "action=\"/worklogs/" (:build ids) "/exclude\"")))
         (is (str/includes? html "name=\"category-id\""))
-        (is (str/includes? html "value=\"meeting\""))
+        (is (str/includes? html (str "value=\"" (:meeting category-ids) "\"")))
+        (is (not (str/includes? html "value=\"meeting\"")))
         (is (str/includes? html "name=\"start-time\""))
         (is (str/includes? html "name=\"end-time\""))))
 
@@ -77,7 +80,7 @@
     (testing "category form updates the persisted log and rendered summary"
       (let [response (request handler :post
                               (str "/worklogs/" (:unknown ids) "/assign-category")
-                              "category-id=meeting")
+                              (str "category-id=" (:meeting category-ids)))
             html (response-body (request handler "/days/2026-07-06"))]
         (is (= 303 (:status response)))
         (is (= "/days/2026-07-06" (get-in response [:headers "location"])))
@@ -102,7 +105,7 @@
         (is (not (str/includes? html "Development\t0.50h")))))))
 
 (deftest web-empty-input-test
-  (let [{:keys [handler]} (empty-temp-system)]
+  (let [{:keys [handler ds]} (empty-temp-system)]
     (testing "home page exposes a date picker for an empty database"
       (let [html (response-body (request handler "/"))]
         (is (str/includes? html "No work logs yet."))
@@ -119,8 +122,9 @@
       (let [html (response-body (request handler "/days/2026-07-07"))]
         (is (str/includes? html "0 logs"))
         (is (str/includes? html "action=\"/categories\""))
-        (is (str/includes? html "name=\"category-id\""))
         (is (str/includes? html "name=\"category-name\""))
+        (is (str/includes? html "name=\"parent-id\""))
+        (is (not (str/includes? html "placeholder=\"Category ID\"")))
         (is (str/includes? html "action=\"/days/2026-07-07/worklogs\""))
         (is (str/includes? html "name=\"title\""))
         (is (str/includes? html "name=\"start-time\""))
@@ -129,16 +133,21 @@
 
     (testing "category form creates a category and returns to the day"
       (let [response (request handler :post "/categories"
-                              "category-id=dev&category-name=Development&redirect-to=%2Fdays%2F2026-07-07")
-            html (response-body (request handler "/days/2026-07-07"))]
+                              "category-name=Development&redirect-to=%2Fdays%2F2026-07-07")
+            html (response-body (request handler "/days/2026-07-07"))
+            dev-id (:id (db/find-category-by-name-and-parent ds "Development" nil))]
         (is (= 303 (:status response)))
         (is (= "/days/2026-07-07" (get-in response [:headers "location"])))
+        (is (pos-int? dev-id))
         (is (str/includes? html "Development"))
-        (is (str/includes? html "value=\"dev\""))))
+        (is (str/includes? html (str "value=\"" dev-id "\"")))
+        (is (not (str/includes? html "value=\"dev\"")))))
 
     (testing "worklog form creates a categorized log and updates manual-entry totals"
-      (let [response (request handler :post "/days/2026-07-07/worklogs"
-                              "title=Build&start-time=09%3A00&end-time=10%3A00&category-id=dev")
+      (let [dev-id (:id (db/find-category-by-name-and-parent ds "Development" nil))
+            response (request handler :post "/days/2026-07-07/worklogs"
+                              (str "title=Build&start-time=09%3A00&end-time=10%3A00&category-id="
+                                   dev-id))
             html (response-body (request handler "/days/2026-07-07"))]
         (is (= 303 (:status response)))
         (is (= "/days/2026-07-07" (get-in response [:headers "location"])))
@@ -156,3 +165,48 @@
         (is (str/includes? html "2 logs"))
         (is (str/includes? html "Triage"))
         (is (str/includes? html "Uncategorized: Triage"))))))
+
+(deftest web-category-hierarchy-test
+  (let [{:keys [handler ds]} (empty-temp-system)]
+    (request handler :post "/categories"
+             "category-name=Engineering&redirect-to=%2Fdays%2F2026-07-08")
+    (let [engineering-id (:id (db/find-category-by-name-and-parent ds "Engineering" nil))]
+      (request handler :post "/categories"
+               (str "category-name=Frontend&parent-id=" engineering-id
+                    "&redirect-to=%2Fdays%2F2026-07-08"))
+      (request handler :post "/categories"
+               (str "category-name=Backend&parent-id=" engineering-id
+                    "&redirect-to=%2Fdays%2F2026-07-08"))
+      (let [frontend-id (:id (db/find-category-by-name-and-parent ds "Frontend" engineering-id))
+            backend-id (:id (db/find-category-by-name-and-parent ds "Backend" engineering-id))
+            html (response-body (request handler "/days/2026-07-08"))]
+        (testing "child categories are labelled with their parent"
+          (is (str/includes? html "Engineering / Frontend"))
+          (is (str/includes? html "Engineering / Backend"))
+          (is (str/includes? html (str "action=\"/categories/" backend-id "/move\""))))
+
+        (testing "parent categories cannot be assigned through form submission"
+          (let [response (request handler :post "/days/2026-07-08/worklogs"
+                                  (str "title=Parent&start-time=09%3A00&end-time=10%3A00&category-id="
+                                       engineering-id))]
+            (is (= 400 (:status response)))
+            (is (str/includes? (response-body response) "non-assignable-category"))))
+
+        (testing "child categories remain assignable"
+          (let [response (request handler :post "/days/2026-07-08/worklogs"
+                                  (str "title=Frontend&start-time=10%3A00&end-time=11%3A00&category-id="
+                                       frontend-id))
+                html (response-body (request handler "/days/2026-07-08"))]
+            (is (= 303 (:status response)))
+            (is (str/includes? html "Engineering / Frontend"))
+            (is (str/includes? html "Frontend\t1.00h"))))
+
+        (testing "move buttons reorder only sibling categories"
+          (let [response (request handler :post
+                                  (str "/categories/" backend-id "/move")
+                                  "direction=up&redirect-to=%2Fdays%2F2026-07-08")
+                html (response-body (request handler "/days/2026-07-08"))
+                backend-pos (str/index-of html "Engineering / Backend")
+                frontend-pos (str/index-of html "Engineering / Frontend")]
+            (is (= 303 (:status response)))
+            (is (< backend-pos frontend-pos))))))))

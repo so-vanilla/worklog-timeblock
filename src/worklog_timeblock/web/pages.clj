@@ -25,6 +25,7 @@
        ".input-panel{display:grid;gap:10px;margin:0 0 18px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);}.input-grid{display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:8px;}.input-grid .wide{grid-column:1/-1;}.inline-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0;}.inline-form input{min-width:160px;}"
        ".pane-title{font-size:15px;margin:0 0 14px;}.work-log-list{display:grid;gap:10px;}.work-log-row{display:grid;grid-template-columns:116px minmax(140px,1fr) 96px minmax(120px,.8fr) minmax(220px,1.15fr) minmax(246px,1.35fr) 92px;gap:10px;align-items:center;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:10px;}"
        ".time-range{font-variant-numeric:tabular-nums;font-weight:650;}.title{min-width:0;overflow-wrap:anywhere;}.state{color:var(--muted);}.state-excluded{opacity:.66;}.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}.range-form{display:flex;gap:6px;align-items:center;}.range-form input{width:92px;}.exclude-form button{border-color:#747b86;background:#747b86;}"
+       ".category-list{display:grid;gap:6px;list-style:none;margin:0 0 18px;padding:0;}.category-row{display:grid;grid-template-columns:minmax(0,1fr) 48px auto;gap:8px;align-items:center;border-bottom:1px solid var(--line);padding:6px 0;}.category-row .controls{justify-content:flex-end;}.category-row button{padding:4px 8px;}"
        ".manual-entry-output{white-space:pre-wrap;min-height:96px;margin:10px 0 18px;padding:12px;border:1px solid var(--line);border-radius:8px;background:#f9fafb;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;line-height:1.5;}"
        ".warn{color:var(--warn);font-weight:650;}.warnings{padding-left:18px;}@media (max-width:980px){.workspace-grid{grid-template-columns:1fr;}.summary-pane{border-left:0;border-top:1px solid var(--line);}.work-log-row,.input-grid{grid-template-columns:1fr;}.range-form input{width:100%;}.controls,.range-form,.inline-form{align-items:stretch;}.controls form,.range-form,.inline-form input,.inline-form button{width:100%;}.controls select,.controls button,.range-form input,.range-form button{width:100%;}}"
        "</style>"
@@ -54,6 +55,21 @@
 (defn- category-name [categories category-id]
   (or (get-in categories [category-id :name]) category-id "(uncategorized)"))
 
+(defn- active-categories [categories]
+  (filter :active? categories))
+
+(defn- categories-with-children [categories]
+  (set (keep :parent-id (active-categories categories))))
+
+(defn- assignable-category? [categories-with-children category]
+  (and (:active? category)
+       (not (contains? categories-with-children (:id category)))))
+
+(defn- category-label [categories-map category]
+  (if-let [parent-id (:parent-id category)]
+    (str (category-name categories-map parent-id) " / " (:name category))
+    (:name category)))
+
 (defn- time-string [minute]
   (format "%02d:%02d" (quot minute 60) (mod minute 60)))
 
@@ -64,10 +80,17 @@
          ">" (escape-html (:name category)) "</option>")))
 
 (defn- category-select [categories selected-id]
-  (str "<select name=\"category-id\">"
-       "<option value=\"\">Uncategorized</option>"
-       (apply str (map #(category-option selected-id %) categories))
-       "</select>"))
+  (let [categories-map (categories-by-id categories)
+        with-children (categories-with-children categories)]
+    (str "<select name=\"category-id\">"
+         "<option value=\"\">Uncategorized</option>"
+         (apply str
+                (map (fn [category]
+                       (category-option selected-id
+                                        (assoc category
+                                               :name (category-label categories-map category))))
+                     (filter #(assignable-category? with-children %) categories)))
+         "</select>")))
 
 (defn- new-work-log-form [date categories]
   (str "<form class=\"input-panel\" method=\"post\" action=\"/days/"
@@ -81,15 +104,51 @@
        "<button type=\"submit\">Add</button>"
        "</div></form>"))
 
-(defn- new-category-form [date]
+(defn- parent-category-option [category]
+  (str "<option value=\"" (escape-html (:id category)) "\">"
+       (escape-html (:name category))
+       "</option>"))
+
+(defn- parent-category-select [categories]
+  (str "<select name=\"parent-id\">"
+       "<option value=\"\">No parent</option>"
+       (apply str
+              (map parent-category-option
+                   (filter #(and (:active? %) (nil? (:parent-id %))) categories)))
+       "</select>"))
+
+(defn- new-category-form [date categories]
   (str "<form class=\"input-panel\" method=\"post\" action=\"/categories\">"
        "<h2 class=\"pane-title\">Add category</h2>"
        "<input type=\"hidden\" name=\"redirect-to\" value=\"/days/" (escape-html date) "\">"
        "<div class=\"input-grid\">"
-       "<input name=\"category-id\" placeholder=\"Category ID\">"
        "<input name=\"category-name\" placeholder=\"Category name\">"
+       (parent-category-select categories)
        "<button type=\"submit\">Add category</button>"
        "</div></form>"))
+
+(defn- move-category-form [date category direction label]
+  (str "<form method=\"post\" action=\"/categories/" (escape-html (:id category)) "/move\">"
+       "<input type=\"hidden\" name=\"direction\" value=\"" (escape-html direction) "\">"
+       "<input type=\"hidden\" name=\"redirect-to\" value=\"/days/" (escape-html date) "\">"
+       "<button type=\"submit\">" (escape-html label) "</button>"
+       "</form>"))
+
+(defn- category-management-row [date categories-map category]
+  (str "<li class=\"category-row\">"
+       "<span>" (escape-html (category-label categories-map category)) "</span>"
+       "<span class=\"state\">" (if (:parent-id category) "child" "root") "</span>"
+       "<div class=\"controls\">"
+       (move-category-form date category "up" "Up")
+       (move-category-form date category "down" "Down")
+       "</div></li>"))
+
+(defn- category-management-list [date categories]
+  (let [categories-map (categories-by-id categories)]
+    (str "<h2 class=\"pane-title\">Categories</h2>"
+         "<ul class=\"category-list\">"
+         (apply str (map #(category-management-row date categories-map %) categories))
+         "</ul>")))
 
 (defn- work-log-row [categories categories-map log]
   (let [id (:id log)
@@ -144,6 +203,9 @@
     :large-gap (str "<li class=\"warn\">Large gap: "
                     (escape-html (:minutes warning))
                     " minutes</li>")
+    :non-assignable-category (str "<li class=\"warn\">Non-assignable category: "
+                                  (escape-html (:title warning))
+                                  "</li>")
     (str "<li class=\"warn\">" (escape-html warning) "</li>")))
 
 (defn day-page [{:keys [date work-logs summary]} categories]
@@ -160,7 +222,8 @@
                (apply str (map #(work-log-row categories categories-map %) work-logs))
                "</div></section>"
                "<aside class=\"summary-pane\"><h2 class=\"pane-title\">Category totals</h2>"
-               (new-category-form date)
+               (new-category-form date categories)
+               (category-management-list date categories)
                "<table><thead><tr><th>Category</th><th>Hours</th></tr></thead><tbody>"
                (apply str (map #(summary-row categories-map %)
                                (sorted-summary-items categories-map summary)))

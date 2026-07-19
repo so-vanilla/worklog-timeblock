@@ -10,12 +10,14 @@
         ds (db/datasource (.getAbsolutePath file))]
     (.deleteOnExit file)
     (migration/migrate! ds)
-    (db/upsert-category! ds {:id "dev" :name "Development"})
-    (db/upsert-category! ds {:id "meeting" :name "Meetings"})
-    (db/upsert-category! ds {:id "other" :name "Other" :kind :other})
-    (db/upsert-title-mapping! ds {:title "Build" :state :confirmed :category-id "dev"})
-    (db/upsert-title-mapping! ds {:title "Lunch" :state :excluded})
-    {:ds ds :handler (routes/app {:ds ds})}))
+    (let [dev (db/upsert-category! ds {:id "dev" :name "Development"})
+          meeting (db/upsert-category! ds {:id "meeting" :name "Meetings"})
+          other (db/upsert-category! ds {:id "other" :name "Other" :kind :other})]
+      (db/upsert-title-mapping! ds {:title "Build" :state :confirmed :category-id "dev"})
+      (db/upsert-title-mapping! ds {:title "Lunch" :state :excluded})
+      {:ds ds
+       :handler (routes/app {:ds ds})
+       :category-ids {:dev (:id dev) :meeting (:id meeting) :other (:id other)}})))
 
 (defn empty-temp-system []
   (let [file (java.io.File/createTempFile "worklog-timeblock-api-empty" ".db")
@@ -38,6 +40,9 @@
   (let [day (parse-body (request handler :get "/api/days/2026-07-06"))]
     (first (filter #(= title (:title %)) (:work-logs day)))))
 
+(defn category-minutes [summary category-id]
+  (get-in summary [:category-minutes (keyword (str category-id))]))
+
 (def events
   [{:source-id "local" :external-id "evt-build" :title "Build"
     :starts-at "2026-07-06T09:00:00+09:00" :ends-at "2026-07-06T09:50:00+09:00"
@@ -50,7 +55,7 @@
     :timezone "Asia/Tokyo"}])
 
 (deftest api-e2e-test
-  (let [{:keys [handler]} (temp-system)]
+  (let [{:keys [handler category-ids]} (temp-system)]
     (testing "health endpoint"
       (is (= {:status "ok"} (parse-body (request handler :get "/health")))))
 
@@ -59,26 +64,30 @@
         (is (= 200 (:status response)))
         (is (= 3 (:imported (parse-body response))))))
 
-    (testing "day endpoint returns snapshots"
-      (let [body (parse-body (request handler :get "/api/days/2026-07-06"))]
+    (testing "day endpoint returns snapshots with internal category ids"
+      (let [body (parse-body (request handler :get "/api/days/2026-07-06"))
+            build (first (filter #(= "Build" (:title %)) (:work-logs body)))]
         (is (= 3 (count (:work-logs body))))
         (is (= #{"confirmed" "excluded" "uncategorized"}
-               (set (map :state (:work-logs body)))))))
+               (set (map :state (:work-logs body)))))
+        (is (= (:dev category-ids) (:category-id build)))))
 
     (testing "summary endpoint returns manual-entry category totals"
       (let [body (parse-body (request handler :get "/api/days/2026-07-06/summary"))]
-        (is (= 45 (get-in body [:category-minutes :dev])))
-        (is (= 5 (get-in body [:other :rounding-residual-minutes])))))
+        (is (= 45 (category-minutes body (:dev category-ids))))
+        (is (= 5 (get-in body [:other :rounding-residual-minutes])))
+        (is (= (:other category-ids) (get-in body [:other :category-id])))))
 
     (testing "patch endpoint changes category"
       (let [unknown-id (:id (work-log-by-title handler "Unknown"))
             response (request handler :patch (str "/api/worklogs/" unknown-id)
-                              {:state :confirmed :category-id "meeting"})]
+                              {:state :confirmed :category-id (:meeting category-ids)})]
         (is (= 200 (:status response)))
-        (is (= {:state "confirmed" :category-id "meeting"}
+        (is (= {:state "confirmed" :category-id (:meeting category-ids)}
                (select-keys (parse-body response) [:state :category-id])))
-        (is (= 30 (get-in (parse-body (request handler :get "/api/days/2026-07-06/summary"))
-                          [:category-minutes :meeting])))))
+        (is (= 30 (category-minutes
+                   (parse-body (request handler :get "/api/days/2026-07-06/summary"))
+                   (:meeting category-ids))))))
 
     (testing "patch endpoint changes time range and recomputes summary"
       (let [build-id (:id (work-log-by-title handler "Build"))
@@ -87,15 +96,17 @@
         (is (= 200 (:status response)))
         (is (= {:start-minute 540 :end-minute 570}
                (select-keys (parse-body response) [:start-minute :end-minute])))
-        (is (= 30 (get-in (parse-body (request handler :get "/api/days/2026-07-06/summary"))
-                          [:category-minutes :dev])))))
+        (is (= 30 (category-minutes
+                   (parse-body (request handler :get "/api/days/2026-07-06/summary"))
+                   (:dev category-ids))))))
 
     (testing "exclude endpoint removes a log from summary"
       (let [build-id (:id (work-log-by-title handler "Build"))]
         (is (= 200 (:status (request handler :patch (str "/api/worklogs/" build-id)
                                       {:state :excluded}))))
-        (is (nil? (get-in (parse-body (request handler :get "/api/days/2026-07-06/summary"))
-                          [:category-minutes :dev])))))
+        (is (nil? (category-minutes
+                   (parse-body (request handler :get "/api/days/2026-07-06/summary"))
+                   (:dev category-ids))))))
 
     (testing "invalid range is rejected without mutating the log"
       (let [unknown-id (:id (work-log-by-title handler "Unknown"))
@@ -125,39 +136,49 @@
       (is (= 404 (:status (request handler :get "/missing")))))))
 
 (deftest api-manual-input-e2e-test
-  (let [{:keys [handler]} (empty-temp-system)]
+  (let [{:keys [handler ds]} (empty-temp-system)]
     (testing "empty day starts without work logs"
       (is (= [] (:work-logs (parse-body (request handler :get "/api/days/2026-07-07"))))))
 
-    (testing "category endpoint creates a category"
+    (testing "category endpoint creates a category without a client-supplied id"
+      (let [response (request handler :post "/api/categories"
+                              {:name "Development"})
+            body (parse-body response)]
+        (is (= 200 (:status response)))
+        (is (pos-int? (:id body)))
+        (is (= "Development" (:name body)))
+        (is (nil? (:legacy-key body)))))
+
+    (testing "category endpoint rejects client-supplied ids"
       (let [response (request handler :post "/api/categories"
                               {:id "dev" :name "Development"})]
-        (is (= 200 (:status response)))
-        (is (= {:id "dev" :name "Development"}
-               (select-keys (parse-body response) [:id :name])))))
-
-    (testing "category endpoint rejects duplicate ids"
-      (let [response (request handler :post "/api/categories"
-                              {:id "dev" :name "Duplicate"})]
         (is (= 400 (:status response)))
-        (is (= "duplicate-category" (:reason (parse-body response))))))
+        (is (= "client-category-id-not-allowed" (:reason (parse-body response))))))
+
+    (testing "category endpoint rejects duplicate sibling names"
+      (let [response (request handler :post "/api/categories"
+                              {:name "Development"})]
+        (is (= 400 (:status response)))
+        (is (= "duplicate-category-name" (:reason (parse-body response))))))
 
     (testing "manual worklog endpoint creates a categorized log"
-      (let [response (request handler :post "/api/days/2026-07-07/worklogs"
+      (let [dev-id (:id (db/find-category-by-name-and-parent ds "Development" nil))
+            response (request handler :post "/api/days/2026-07-07/worklogs"
                               {:title "Build"
                                :start-minute 540
                                :end-minute 600
-                               :category-id "dev"})]
+                               :category-id dev-id})]
         (is (= 200 (:status response)))
         (is (= {:title "Build"
                 :state "confirmed"
-                :category-id "dev"
+                :category-id dev-id
                 :start-minute 540
                 :end-minute 600}
                (select-keys (parse-body response)
                             [:title :state :category-id :start-minute :end-minute])))
-        (is (= 60 (get-in (parse-body (request handler :get "/api/days/2026-07-07/summary"))
-                          [:category-minutes :dev])))))
+        (is (= 60 (category-minutes
+                   (parse-body (request handler :get "/api/days/2026-07-07/summary"))
+                   dev-id)))))
 
     (testing "manual worklog endpoint creates an uncategorized log without a category"
       (let [response (request handler :post "/api/days/2026-07-07/worklogs"
@@ -188,11 +209,59 @@
         (is (= [] (:work-logs (parse-body (request handler :get "/api/days/2026-07-08")))))))
 
     (testing "manual worklog rejects invalid ranges without mutation"
-      (let [response (request handler :post "/api/days/2026-07-08/worklogs"
+      (let [dev-id (:id (db/find-category-by-name-and-parent ds "Development" nil))
+            response (request handler :post "/api/days/2026-07-08/worklogs"
                               {:title "Bad range"
                                :start-minute 660
                                :end-minute 660
-                               :category-id "dev"})]
+                               :category-id dev-id})]
         (is (= 400 (:status response)))
         (is (= "invalid-time-range" (:reason (parse-body response))))
         (is (= [] (:work-logs (parse-body (request handler :get "/api/days/2026-07-08")))))))))
+
+(deftest api-category-hierarchy-e2e-test
+  (let [{:keys [handler]} (empty-temp-system)]
+    (testing "parent categories are visible but not assignable after a child is created"
+      (let [ops (parse-body (request handler :post "/api/categories" {:name "Operations"}))
+            engineering (parse-body (request handler :post "/api/categories" {:name "Engineering"}))
+            frontend (parse-body (request handler :post "/api/categories"
+                                          {:name "Frontend" :parent-id (:id engineering)}))
+            backend (parse-body (request handler :post "/api/categories"
+                                         {:name "Backend" :parent-id (:id engineering)}))]
+        (is (= (:id engineering) (:parent-id frontend)))
+        (is (= (:id engineering) (:parent-id backend)))
+        (is (= 400 (:status (request handler :post "/api/categories"
+                                      {:name "Nested" :parent-id (:id frontend)}))))
+        (is (= "nested-category-not-allowed"
+               (:reason (parse-body (request handler :post "/api/categories"
+                                             {:name "Nested" :parent-id (:id frontend)})))))
+        (is (= 400 (:status (request handler :post "/api/days/2026-07-09/worklogs"
+                                      {:title "Parent assignment"
+                                       :start-minute 540
+                                       :end-minute 600
+                                       :category-id (:id engineering)}))))
+        (is (= "non-assignable-category"
+               (:reason (parse-body
+                         (request handler :post "/api/days/2026-07-09/worklogs"
+                                  {:title "Parent assignment"
+                                   :start-minute 540
+                                   :end-minute 600
+                                   :category-id (:id engineering)})))))
+        (is (= 200 (:status (request handler :post "/api/days/2026-07-09/worklogs"
+                                      {:title "Child assignment"
+                                       :start-minute 600
+                                       :end-minute 660
+                                       :category-id (:id frontend)}))))
+        (is (= 60 (category-minutes
+                   (parse-body (request handler :get "/api/days/2026-07-09/summary"))
+                   (:id frontend))))
+        (is (= 400 (:status (request handler :post "/api/categories"
+                                      {:name "Frontend" :parent-id (:id engineering)}))))
+        (is (= 200 (:status (request handler :post "/api/categories"
+                                      {:name "Frontend" :parent-id (:id ops)}))))
+        (is (= 200 (:status (request handler :post (str "/api/categories/" (:id engineering) "/move")
+                                      {:direction "up"}))))
+        (is (= 200 (:status (request handler :post (str "/api/categories/" (:id backend) "/move")
+                                      {:direction "up"}))))
+        (is (= ["Engineering" "Backend" "Frontend" "Operations" "Frontend"]
+               (map :name (:categories (parse-body (request handler :get "/api/categories"))))))))))

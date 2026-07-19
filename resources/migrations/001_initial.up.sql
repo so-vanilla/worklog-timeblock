@@ -1,15 +1,20 @@
 CREATE TABLE IF NOT EXISTS categories (
-  id TEXT PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  legacy_key TEXT UNIQUE,
   name TEXT NOT NULL,
   kind TEXT NOT NULL DEFAULT 'normal',
+  parent_id INTEGER,
+  position INTEGER NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (parent_id) REFERENCES categories(id)
 );
 
 CREATE TABLE IF NOT EXISTS title_mappings (
   title TEXT PRIMARY KEY,
   state TEXT NOT NULL,
-  category_id TEXT,
+  category_id INTEGER,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (category_id) REFERENCES categories(id)
@@ -22,7 +27,7 @@ CREATE TABLE IF NOT EXISTS work_logs (
   start_minute INTEGER NOT NULL,
   end_minute INTEGER NOT NULL,
   state TEXT NOT NULL,
-  category_id TEXT,
+  category_id INTEGER,
   source_id TEXT,
   external_id TEXT,
   source_updated_at TEXT,

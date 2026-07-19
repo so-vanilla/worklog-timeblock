@@ -19,7 +19,7 @@
    [:start-minute :int]
    [:end-minute :int]
    [:state [:enum :confirmed :uncategorized :excluded]]
-   [:category-id {:optional true} [:maybe :string]]
+   [:category-id {:optional true} [:maybe [:or :int :string]]]
    [:source-id {:optional true} [:maybe :string]]
    [:external-id {:optional true} [:maybe :string]]
    [:source-updated-at {:optional true} [:maybe :string]]])

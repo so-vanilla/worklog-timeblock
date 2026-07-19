@@ -233,6 +233,107 @@ TAB_ID  POSITION  NAME
 0  0  Tab #1
 ```
 
+## Continuous Goals: Workspace, Import, Categories
+
+Status: Approved for continuous execution. Do not stop after Goal 1 or Goal 2 if
+the gate passes; commit/push each goal and continue until all listed goals are
+done.
+
+Current layout decision:
+
+- The calendar/timeline is not the main surface. On a full-width screen it should
+  take about one third of the workspace.
+- The other two thirds are for input/editing, live category totals, and the
+  attention queue for uncategorized, overlapping, or source-updated items.
+- If the screen is narrow, prefer input/editing and summary before the compact
+  timeline.
+
+Workspace sketch:
+
+```text
+--------------------------------------------------------------------------------
+| 2026-07-06  < Prev | Today | Next >                         Settings | Import |
+--------------------------------------------------------------------------------
+| 1-day timeline       | Input / edit                         | Totals          |
+| 00:00                | title                                | Development 2h  |
+| 08:00  imported      | start 09:00  end 10:00               | Meeting     1h  |
+| 09:00  confirmed     | category [leaf category dropdown]    | Other    0.25h  |
+| 10:00  selected      | Save / Exclude / Confirm candidate   |-----------------|
+| 24:00                |                                      | Attention queue |
+|                      | overlapping/uncategorized details    | pending items   |
+--------------------------------------------------------------------------------
+     about 1/3                     about 1/3                         about 1/3
+```
+
+### Goal 1: Category Model And Category Workspace
+
+Done when:
+
+- Category IDs are internal auto-increment integers.
+- Category IDs are not visible as user-facing fields in the Web UI.
+- Existing string keys such as `dev` and `other` are preserved only as
+  `legacy_key` migration/fixture compatibility.
+- A category can have zero or one parent.
+- Category depth is limited to two levels.
+- Root categories can be reordered globally.
+- Child categories can be reordered inside the parent group.
+- A category with one or more active children is not assignable to work logs or
+  title mappings.
+- Parent categories with active children are not included in manual-entry
+  category totals.
+- Web category creation exposes name and optional parent selector, not a manual
+  category ID field.
+- Existing baseline is not reduced:
+  - Clojure E2E at least 5 tests / 109 assertions.
+  - Full test suite at least 11 tests / 149 assertions.
+  - zellij E2E at least 8 cases / 198 assertions.
+- Add at least 40 assertions across DB/domain/API/Web tests.
+- Full gate passes and the result is committed and pushed.
+
+### Goal 2: Source Events And iCal Import
+
+Done when:
+
+- `candidate` from adapters, persisted `source_events`, and user-owned
+  `work_logs` snapshots are separate concepts.
+- Re-fetching an import source updates `source_events` but does not silently
+  overwrite confirmed or excluded work-log snapshots.
+- `import_sources` can hold zero or more iCal file/url configurations.
+- Manual fetch exists for configured sources.
+- Backend-owned periodic fetch exists for enabled sources while the backend is
+  running.
+- iCal parsing covers file and URL sources through a common source interface.
+- Fixture tests include at least 8 ICS cases, including duplicate UID, updated
+  UID, cancelled event, malformed input, timezone, recurrence, exception date,
+  and day crossing or clipping.
+- Fetch behavior is verified across at least 2 cycles.
+- Add at least 60 assertions beyond Goal 1.
+- Full gate passes and the result is committed and pushed.
+
+### Goal 3: Compact Day Timeline Workspace
+
+Done when:
+
+- Day view has a compact one-day vertical timeline using about one third of a
+  full-width workspace.
+- Drag selection on the timeline snaps to the configured quantum and fills the
+  right-side input form start/end fields.
+- Keyboard/manual start/end edits also highlight the selected interval on the
+  timeline.
+- Confirmed logs render as occupied blocks.
+- Imported source candidates render as lighter candidate blocks and do not
+  contribute to manual-entry totals until confirmed.
+- Right-clicking an imported candidate opens a confirm/exclude action surface.
+- Dragging over an imported candidate starts a new manual draft instead of
+  opening the candidate action surface.
+- Confirmed/imported overlap has a visible fallback: confirmed is primary, and
+  covered candidates remain reachable from a badge, stripe, or attention queue.
+- Creating a draft that overlaps confirmed work is visibly blocked or requires
+  an explicit future override; silent double-counting is not allowed.
+- Browser/DOM E2E has at least 4 cases covering drag, form sync, candidate
+  context action, overlap fallback, and live summary update.
+- Full gate passes and the result is committed and pushed.
+
 ## Agent Team Plan
 
 Agent Teams should be used only when work can be split without shared-file conflicts. Do not use Delegate mode.

@@ -33,4 +33,16 @@
       (is (str/includes? screen "worklog-timeblock  2026-07-06"))
       (is (str/includes? screen "09:00-09:50 confirmed Build"))
       (is (str/includes? screen "dev 0.75h"))
-      (is (every? #(<= (count %) 30) (str/split-lines screen))))))
+      (is (every? #(<= (count %) 30) (str/split-lines screen)))))
+
+  (testing "renders category names for internal numeric ids"
+    (let [screen (tui/render-dashboard
+                  {:date "2026-07-07"
+                   :categories [{:id 10 :name "Development"}
+                                {:id 11 :name "Other"}]
+                   :work-logs [{:title "Build" :start-minute 540 :end-minute 600
+                                :state :confirmed :category-id 10}]
+                   :summary {:category-hours {10 1.0}
+                             :warnings []}})]
+      (is (str/includes? screen "Development"))
+      (is (not (str/includes? screen "10 1.00h"))))))

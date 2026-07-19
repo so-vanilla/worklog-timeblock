@@ -68,11 +68,16 @@
       (db/upsert-work-log-by-source! ds (worklog/candidate->worklog mappings event)))
     (count events)))
 
+(defn- summary-options [ds]
+  (assoc default-summary-options
+         :other-category-id (or (db/other-category-id ds) "other")
+         :assignable-category-ids (db/assignable-category-ids ds)))
+
 (defn- day-state [ds date]
   (let [work-logs (db/work-logs-by-date ds date)]
     {:date date
      :work-logs work-logs
-     :summary (summary/summarize-day default-summary-options work-logs)}))
+     :summary (summary/summarize-day (summary-options ds) work-logs)}))
 
 (defn- parse-id [value]
   (try
@@ -89,12 +94,8 @@
 
 (defn- normalize-category-id [category-id]
   (cond
-    (nil? category-id) nil
     (keyword? category-id) (name category-id)
-    (string? category-id) (let [category-id (str/trim category-id)]
-                            (when-not (str/blank? category-id)
-                              category-id))
-    :else (str category-id)))
+    :else (db/normalize-category-id category-id)))
 
 (defn- valid-minute? [minute]
   (and (integer? minute) (<= 0 minute 1440)))
@@ -116,11 +117,14 @@
       value
       fallback)))
 
-(defn- normalize-update [current categories attrs]
+(defn- normalize-update [ds current attrs]
   (let [state (normalize-state (or (:state attrs) (:state current)))
+        requested-category-id (when (contains? attrs :category-id)
+                                (normalize-category-id (:category-id attrs)))
         category-id (normalize-category-id
                      (if (contains? attrs :category-id)
-                       (:category-id attrs)
+                       (when requested-category-id
+                         (db/resolve-category-id ds requested-category-id))
                        (:category-id current)))
         start-minute (if (contains? attrs :start-minute)
                        (:start-minute attrs)
@@ -143,21 +147,24 @@
                 (< start-minute end-minute)))
       {:error (invalid-work-log-response "invalid-time-range")}
 
+      (and requested-category-id
+           (nil? (:category-id updated)))
+      {:error (invalid-work-log-response "unknown-category")}
+
       (and (= :confirmed state)
            (nil? (:category-id updated)))
       {:error (invalid-work-log-response "category-required")}
 
       (and (:category-id updated)
-           (not (contains? categories (:category-id updated))))
-      {:error (invalid-work-log-response "unknown-category")}
+           (not (db/category-assignable? ds (:category-id updated))))
+      {:error (invalid-work-log-response "non-assignable-category")}
 
       :else
       {:attrs updated})))
 
 (defn- persist-work-log-update! [ds id attrs]
   (if-let [current (db/get-work-log ds id)]
-    (let [categories (db/categories-by-id ds)
-          normalized (normalize-update current categories attrs)]
+    (let [normalized (normalize-update ds current attrs)]
       (if-let [error (:error normalized)]
         {:error error}
         {:work-log (db/update-work-log! ds id (:attrs normalized))}))
@@ -187,21 +194,33 @@
     (json-response 404 {:error "not-found"})))
 
 (defn- create-category! [ds attrs]
-  (let [id (normalize-category-id (:id attrs))
-        name (normalize-text (:name attrs))
-        categories (db/categories-by-id ds)]
+  (let [name (normalize-text (:name attrs))
+        parent-id (normalize-category-id (:parent-id attrs))
+        resolved-parent-id (when parent-id (db/resolve-category-id ds parent-id))]
     (cond
-      (nil? id)
-      {:error (invalid-category-response "category-id-required")}
+      (or (contains? attrs :id)
+          (contains? attrs :legacy-key))
+      {:error (invalid-category-response "client-category-id-not-allowed")}
 
       (nil? name)
       {:error (invalid-category-response "category-name-required")}
 
-      (contains? categories id)
-      {:error (invalid-category-response "duplicate-category")}
+      (and parent-id (nil? resolved-parent-id))
+      {:error (invalid-category-response "unknown-parent-category")}
+
+      (and resolved-parent-id (:parent-id (db/get-category ds resolved-parent-id)))
+      {:error (invalid-category-response "nested-category-not-allowed")}
+
+      (and resolved-parent-id (db/category-has-assignments? ds resolved-parent-id))
+      {:error (invalid-category-response "parent-category-has-assignments")}
+
+      (db/find-category-by-name-and-parent ds name resolved-parent-id)
+      {:error (invalid-category-response "duplicate-category-name")}
 
       :else
-      {:category (db/upsert-category! ds {:id id :name name})})))
+      {:category (db/upsert-category! ds {:name name
+                                          :parent-id resolved-parent-id
+                                          :kind (:kind attrs)})})))
 
 (defn- create-category-response! [ds attrs]
   (let [result (create-category! ds attrs)]
@@ -210,15 +229,17 @@
       (json-response (:category result)))))
 
 (defn- create-category-form-response! [ds form]
-  (let [result (create-category! ds {:id (:category-id form)
-                                     :name (:category-name form)})]
+  (let [result (create-category! ds {:name (:category-name form)
+                                     :parent-id (:parent-id form)})]
     (if-let [error (:error result)]
       error
       (redirect-response (safe-redirect-path (:redirect-to form) "/")))))
 
-(defn- new-work-log-attrs [date categories attrs]
+(defn- new-work-log-attrs [date ds attrs]
   (let [title (normalize-text (:title attrs))
-        category-id (normalize-category-id (:category-id attrs))
+        requested-category-id (normalize-category-id (:category-id attrs))
+        category-id (when requested-category-id
+                      (db/resolve-category-id ds requested-category-id))
         start-minute (:start-minute attrs)
         end-minute (:end-minute attrs)
         state (if category-id :confirmed :uncategorized)]
@@ -234,9 +255,13 @@
                 (< start-minute end-minute)))
       {:error (invalid-work-log-response "invalid-time-range")}
 
-      (and category-id
-           (not (contains? categories category-id)))
+      (and requested-category-id
+           (nil? category-id))
       {:error (invalid-work-log-response "unknown-category")}
+
+      (and category-id
+           (not (db/category-assignable? ds category-id)))
+      {:error (invalid-work-log-response "non-assignable-category")}
 
       :else
       {:attrs {:date date
@@ -247,8 +272,7 @@
                :category-id category-id}})))
 
 (defn- create-work-log! [ds date attrs]
-  (let [categories (db/categories-by-id ds)
-        normalized (new-work-log-attrs date categories attrs)]
+  (let [normalized (new-work-log-attrs date ds attrs)]
     (if-let [error (:error normalized)]
       {:error error}
       (let [id (db/insert-work-log! ds (:attrs normalized))]
@@ -268,6 +292,18 @@
     (if-let [error (:error result)]
       error
       (redirect-response (str "/days/" date)))))
+
+(defn- move-category-form-response! [ds id form]
+  (if (db/get-category ds id)
+    (do
+      (db/move-category! ds id (:direction form))
+      (redirect-response (safe-redirect-path (:redirect-to form) "/")))
+    (json-response 404 {:error "not-found"})))
+
+(defn- move-category-response! [ds id attrs]
+  (if (db/get-category ds id)
+    (json-response (db/move-category! ds id (:direction attrs)))
+    (json-response 404 {:error "not-found"})))
 
 (defn app [{:keys [ds]}]
   (ring/ring-handler
@@ -295,6 +331,11 @@
      ["/categories"
       {:post (fn [request]
                (create-category-form-response! ds (parse-form-body request)))}]
+     ["/categories/:id/move"
+      {:post (fn [request]
+               (move-category-form-response! ds
+                                             (parse-id (get-in request [:path-params :id]))
+                                             (parse-form-body request)))}]
      ["/worklogs/:id/assign-category"
       {:post (fn [request]
                (let [id (parse-id (get-in request [:path-params :id]))
@@ -317,8 +358,14 @@
                      imported (import-candidates! ds (:events body))]
                  (json-response {:imported imported})))}]
      ["/api/categories"
-      {:post (fn [request]
+      {:get (fn [_] (json-response {:categories (db/list-categories ds)}))
+       :post (fn [request]
                (create-category-response! ds (parse-json-body request)))}]
+     ["/api/categories/:id/move"
+      {:post (fn [request]
+               (move-category-response! ds
+                                        (parse-id (get-in request [:path-params :id]))
+                                        (parse-json-body request)))}]
      ["/api/days/:date"
       {:get (fn [request]
               (json-response (select-keys (day-state ds (get-in request [:path-params :date]))
