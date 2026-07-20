@@ -4,6 +4,7 @@
 (def default-namespaces
   ['worklog-timeblock.domain.worklog-test
    'worklog-timeblock.domain.summary-test
+   'worklog-timeblock.domain.export-test
    'worklog-timeblock.plugin.local-test
    'worklog-timeblock.plugin.ical-test
    'worklog-timeblock.importer.core-test

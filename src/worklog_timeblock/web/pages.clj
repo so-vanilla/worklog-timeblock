@@ -38,10 +38,11 @@
        ".attention-queue{display:grid;gap:8px;margin-bottom:18px;}.candidate-card{border:1px solid var(--line);border-radius:8px;padding:10px;background:#fbfcfd;}.candidate-card.covered{border-color:rgba(154,52,18,.45);}.candidate-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}.candidate-actions form{display:flex;gap:6px;align-items:center;}.candidate-badge{font-size:11px;color:var(--warn);text-transform:uppercase;}"
        ".pane-title{font-size:15px;margin:0 0 14px;}.sub-title{font-size:13px;margin:14px 0 8px;}.work-log-list{display:grid;gap:10px;}.work-log-row{display:grid;gap:10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:10px;overflow:hidden;}.work-log-row.selected{border-color:#1d4ed8;box-shadow:0 0 0 2px rgba(29,78,216,.14);}.work-log-main{display:grid;grid-template-columns:112px minmax(0,1fr) 92px;gap:10px;align-items:center;}.work-log-actions{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:start;}.work-log-range-line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;}"
        ".time-range{font-variant-numeric:tabular-nums;font-weight:650;}.title{min-width:0;overflow-wrap:anywhere;}.state{color:var(--muted);}.state-excluded{opacity:.66;}.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0;}.controls select{min-width:0;max-width:100%;}.category-form select{flex:1 1 180px;}.range-form{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0;}.range-form input{width:92px;}.exclude-form{justify-self:end;}.exclude-form button,.delete-form button{border-color:#747b86;background:#747b86;}"
-       ".category-create-form{display:grid;gap:8px;margin:0 0 14px;}.category-list{display:grid;gap:4px;list-style:none;margin:0;padding:0;}.category-row{display:grid;grid-template-columns:minmax(0,1fr) 48px auto;gap:8px;align-items:center;border:1px solid var(--line);border-left:5px solid var(--group-color,var(--line));border-radius:6px;padding:7px 8px;background:#fff;}.category-child{margin-left:20px;}.category-rename-form{display:flex;gap:6px;min-width:0;}.category-rename-form input{min-width:0;width:100%;}.category-row .controls{justify-content:flex-end;}.category-row button{padding:4px 8px;}.summary-row{border-left:5px solid var(--group-color,var(--line));}.summary-child td:first-child{padding-left:22px;}.summary-parent td:first-child{font-weight:700;}"
-       ".metric-list{display:grid;grid-template-columns:1fr auto;gap:6px 10px;margin:0 0 14px;}.metric-list dt{color:var(--muted);}.metric-list dd{margin:0;font-variant-numeric:tabular-nums;font-weight:650;}.day-breaks{border-top:1px solid var(--line);padding-top:2px;}.break-list{display:grid;gap:8px;margin:0 0 12px;}.break-row{display:grid;gap:8px;border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff7ed;}.break-actions{display:grid;gap:8px;}.one-off-break-form{display:grid;gap:8px;margin-top:8px;}"
-       ".settings-grid{display:grid;grid-template-columns:1fr;gap:14px;}.settings-form{display:grid;gap:10px;}.settings-nav{display:flex;gap:8px;align-items:center;margin:0 0 12px;}.field{display:grid;gap:4px;}.field-label{font-weight:650;}.field-help{color:var(--muted);font-size:12px;line-height:1.35;}.segmented-toggle{display:inline-flex;width:max-content;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:#fff;}.toggle-option{display:inline-flex;align-items:center;min-height:34px;padding:6px 12px;border:0;border-right:1px solid var(--line);border-radius:0;background:#fff;color:var(--text);text-decoration:none;}.toggle-option:last-child{border-right:0;}.toggle-option.active{background:#16a34a;color:#fff;}.break-rule-cards{display:grid;gap:10px;}.break-rule-card{display:grid;gap:8px;border:1px solid var(--line);border-radius:8px;padding:10px;background:#fbfcfd;}.break-rule-edit-form{display:grid;grid-template-columns:minmax(140px,1fr) 128px 128px auto;gap:8px;align-items:end;}.weekday-options{display:flex;flex-wrap:wrap;gap:8px 12px;}.weekday-options label{display:flex;gap:5px;align-items:center;color:var(--muted);}.flash-warning{border:1px solid rgba(154,52,18,.42);border-radius:8px;background:#fff7ed;color:var(--warn);padding:10px 12px;font-weight:650;}.day-workspace>.flash-warning{margin:12px 28px 0;}.warn{color:var(--warn);font-weight:650;}.warnings{padding-left:18px;}@media (max-width:980px){.workspace-header{align-items:flex-start;flex-direction:column;}.header-actions{justify-items:start;}.day-navigation,.page-actions{justify-content:flex-start;}.workspace-grid,.week-calendar{grid-template-columns:1fr;}.month-grid{grid-template-columns:repeat(7,minmax(86px,1fr));overflow:auto;}.entry-pane,.summary-pane{border-left:0;border-top:1px solid var(--line);}.day-timeline{height:720px;}.work-log-main,.work-log-actions,.work-log-range-line,.input-grid,.category-row,.break-rule-edit-form{grid-template-columns:1fr;}.range-form input{width:100%;}.controls,.range-form,.inline-form{align-items:stretch;}.controls form,.range-form,.inline-form input,.inline-form button,.exclude-form{width:100%;}.controls select,.controls button,.range-form input,.range-form button{width:100%;}}"
-       "</style>"
+	       ".category-create-form{display:grid;gap:8px;margin:0 0 14px;}.category-list{display:grid;gap:4px;list-style:none;margin:0;padding:0;}.category-row{display:grid;grid-template-columns:minmax(0,1fr) 48px auto;gap:8px;align-items:center;border:1px solid var(--line);border-left:5px solid var(--group-color,var(--line));border-radius:6px;padding:7px 8px;background:#fff;}.category-child{margin-left:20px;}.category-rename-form{display:flex;gap:6px;min-width:0;}.category-rename-form input{min-width:0;width:100%;}.category-row .controls{justify-content:flex-end;}.category-row button{padding:4px 8px;}.summary-row{border-left:5px solid var(--group-color,var(--line));}.summary-child td:first-child{padding-left:22px;}.summary-parent td:first-child{font-weight:700;}"
+	       ".metric-list{display:grid;grid-template-columns:1fr auto;gap:6px 10px;margin:0 0 14px;}.metric-list dt{color:var(--muted);}.metric-list dd{margin:0;font-variant-numeric:tabular-nums;font-weight:650;}.day-breaks{border-top:1px solid var(--line);padding-top:2px;}.break-list{display:grid;gap:8px;margin:0 0 12px;}.break-row{display:grid;gap:8px;border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff7ed;}.break-actions{display:grid;gap:8px;}.one-off-break-form{display:grid;gap:8px;margin-top:8px;}"
+	       ".settings-grid{display:grid;grid-template-columns:1fr;gap:14px;}.settings-form{display:grid;gap:10px;}.settings-nav{display:flex;gap:8px;align-items:center;margin:0 0 12px;}.field{display:grid;gap:4px;}.field-label{font-weight:650;}.field-help{color:var(--muted);font-size:12px;line-height:1.35;}.segmented-toggle{display:inline-flex;width:max-content;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:#fff;}.toggle-option{display:inline-flex;align-items:center;min-height:34px;padding:6px 12px;border:0;border-right:1px solid var(--line);border-radius:0;background:#fff;color:var(--text);text-decoration:none;}.toggle-option:last-child{border-right:0;}.toggle-option.active{background:#16a34a;color:#fff;}.break-rule-cards{display:grid;gap:10px;}.break-rule-card{display:grid;gap:8px;border:1px solid var(--line);border-radius:8px;padding:10px;background:#fbfcfd;}.break-rule-edit-form{display:grid;grid-template-columns:minmax(140px,1fr) 128px 128px auto;gap:8px;align-items:end;}.weekday-options{display:flex;flex-wrap:wrap;gap:8px 12px;}.weekday-options label{display:flex;gap:5px;align-items:center;color:var(--muted);}.flash-warning{border:1px solid rgba(154,52,18,.42);border-radius:8px;background:#fff7ed;color:var(--warn);padding:10px 12px;font-weight:650;}.day-workspace>.flash-warning{margin:12px 28px 0;}.warn{color:var(--warn);font-weight:650;}.warnings{padding-left:18px;}@media (max-width:980px){.workspace-header{align-items:flex-start;flex-direction:column;}.header-actions{justify-items:start;}.day-navigation,.page-actions{justify-content:flex-start;}.workspace-grid,.week-calendar{grid-template-columns:1fr;}.month-grid{grid-template-columns:repeat(7,minmax(86px,1fr));overflow:auto;}.entry-pane,.summary-pane{border-left:0;border-top:1px solid var(--line);}.day-timeline{height:720px;}.work-log-main,.work-log-actions,.work-log-range-line,.input-grid,.category-row,.break-rule-edit-form{grid-template-columns:1fr;}.range-form input{width:100%;}.controls,.range-form,.inline-form{align-items:stretch;}.controls form,.range-form,.inline-form input,.inline-form button,.exclude-form{width:100%;}.controls select,.controls button,.range-form input,.range-form button{width:100%;}}"
+	       ".days-shell{max-width:1360px;}.month-grid{gap:8px;}.calendar-day{min-height:150px;gap:7px;}.week-calendar{gap:10px;}.week-day-card{min-height:280px;padding:12px;gap:10px;}.calendar-category-list{list-style:none;margin:0;padding:0;display:grid;gap:4px;}.calendar-category-line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;border-left:4px solid var(--group-color,var(--line));padding:2px 4px 2px 7px;border-radius:4px;background:rgba(255,255,255,.7);}.calendar-category-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.calendar-category-hours{font-variant-numeric:tabular-nums;font-weight:650;}.calendar-category-child{margin-left:12px;padding-left:13px;background:rgba(15,118,110,.05);}.calendar-category-root{font-weight:650;}.export-status{color:var(--muted);font-size:12px;}@media (max-width:980px){.days-shell{max-width:none;}.calendar-day{min-height:132px;}.week-day-card{min-height:220px;}.month-grid{grid-template-columns:repeat(7,minmax(128px,1fr));}}"
+	       "</style>"
        "</head><body>" body "</body></html>"))
 
 (defn home-page [dates]
@@ -497,8 +498,22 @@
                                            :name (category-name categories-map category-id)}
                                 :hours hours
                                 :row-kind :root}))
-                           (:category-hours summary))]
+	                           (:category-hours summary))]
     (concat ordered-rows inactive-hours orphan-hours)))
+
+(defn- calendar-category-rows [categories day]
+  (remove #(= :parent (:row-kind %))
+          (category-summary-rows categories {:category-hours (:category-hours day)})))
+
+(defn- calendar-category-line [{:keys [category hours row-kind]}]
+  (str "<li class=\"calendar-category-line calendar-category-"
+       (escape-html (name row-kind))
+       "\" style=\"" (escape-html (group-style category))
+       "\"><span class=\"calendar-category-name\">"
+       (escape-html (:name category))
+       "</span><span class=\"calendar-category-hours\">"
+       (escape-html (format "%.2fh" (double hours)))
+       "</span></li>"))
 
 (defn- query-href [view date edit?]
   (str "/?view=" view "&date=" date (when edit? "&edit=1")))
@@ -626,28 +641,18 @@
          "</section>")))
 
 (defn- category-lines [categories day]
-  (let [rows (category-summary-rows categories {:category-hours (:category-hours day)})]
+  (let [rows (calendar-category-rows categories day)]
     (if (seq rows)
-      (str "<ul class=\"calendar-detail\">"
-           (apply str
-                  (map (fn [{:keys [category hours]}]
-                         (str "<li>" (escape-html (:name category)) " "
-                              (escape-html (format "%.2fh" (double hours)))
-                              "</li>"))
-                      rows))
+      (str "<ul class=\"calendar-detail calendar-category-list\">"
+           (apply str (map calendar-category-line rows))
            "</ul>")
       "<div class=\"calendar-detail\">No work</div>")))
 
 (defn- compact-category-lines [categories day]
-  (let [rows (category-summary-rows categories {:category-hours (:category-hours day)})]
+  (let [rows (calendar-category-rows categories day)]
     (when (seq rows)
-      (str "<ul class=\"calendar-detail\">"
-           (apply str
-                  (map (fn [{:keys [category hours]}]
-                         (str "<li>" (escape-html (:name category)) " "
-                              (escape-html (format "%.2fh" (double hours)))
-                              "</li>"))
-                       rows))
+      (str "<ul class=\"calendar-detail calendar-category-list\">"
+           (apply str (map calendar-category-line rows))
            "</ul>"))))
 
 (defn- week-day-card [categories day]
@@ -1438,17 +1443,54 @@
 })();
 </script>")
 
+(def export-script
+  "<script>
+(function(){
+  const button = document.querySelector('[data-export-copy]');
+  if (!button) return;
+  const status = document.querySelector('[data-export-status]');
+  button.addEventListener('click', async function(){
+    if (status) status.textContent = 'Copying...';
+    try {
+      const response = await fetch(button.dataset.exportUrl, { headers: { 'accept': 'text/plain' } });
+      if (!response.ok) throw new Error('Export failed');
+      const text = await response.text();
+      await navigator.clipboard.writeText(text);
+      if (status) status.textContent = 'Copied';
+    } catch (error) {
+      if (status) status.textContent = 'Copy failed';
+    }
+  });
+})();
+</script>")
+
+(defn- export-extension [format]
+  (if (= "markdown" (str format)) "md" "org"))
+
+(defn- export-action [date export-settings]
+  (let [url (str "/days/" date "/export")
+        format (or (:format export-settings) "org")
+        destination (or (:destination export-settings) "download")]
+    (if (= "clipboard" destination)
+      (str "<button type=\"button\" data-export-copy data-export-url=\""
+           (escape-html url)
+           "\">Export</button><span class=\"export-status\" data-export-status></span>")
+      (str "<a class=\"nav-button\" data-export-download href=\""
+           (escape-html url)
+           "\" download=\"" (escape-html (str date "." (export-extension format))) "\">Export</a>"))))
+
 (defn day-page [{:keys [date break-mode work-logs source-events attendance breaks summary]
-                 :as state} categories]
+	                 :as state} categories]
   (page (str "worklog-timeblock " date)
         (str "<main class=\"day-workspace\">"
-             "<header class=\"workspace-header\"><div class=\"workspace-title-area\">"
-             "<div class=\"workspace-title-row\"><h1>" (escape-html date)
-             "</h1>" (day-navigation date) "</div>"
-             "<div class=\"workspace-meta\">" (count work-logs) " logs</div></div>"
+	             "<header class=\"workspace-header\"><div class=\"workspace-title-area\">"
+	             "<div class=\"workspace-title-row\"><h1>" (escape-html date)
+	             "</h1>" (day-navigation date) "</div>"
+	             "<div class=\"workspace-meta\">" (count work-logs) " logs</div></div>"
              "<nav class=\"page-actions\">"
              "<a class=\"nav-button\" href=\"/\">Days</a>"
              "<a class=\"nav-button\" href=\"/settings\">Settings</a>"
+             (export-action date (:export-settings state))
              "</nav></header>"
              (flash-warning (:flash-warning state))
              "<div class=\"workspace-grid\">"
@@ -1467,11 +1509,12 @@
              (category-totals-panel categories summary)
              (category-settings-panel date categories)
              (when (seq (:warnings summary))
-               (str "<section class=\"input-panel warnings-panel\"><h2 class=\"pane-title\">Warnings</h2><ul class=\"warnings\">"
-                    (apply str (map warning-item (:warnings summary)))
-                    "</ul></section>"))
+	               (str "<section class=\"input-panel warnings-panel\"><h2 class=\"pane-title\">Warnings</h2><ul class=\"warnings\">"
+	                    (apply str (map warning-item (:warnings summary)))
+	                    "</ul></section>"))
              "</aside></div></main>"
-             timeline-script)))
+             timeline-script
+             export-script)))
 
 (defn- selected-attr [current value]
   (when (= current value) " selected"))
@@ -1537,8 +1580,28 @@
          "<label class=\"field\"><span class=\"field-label\">Fiscal month start day</span>"
          "<span class=\"field-help\">Use 21 for a period from the previous 21st through the current 20th.</span>"
          "<input name=\"fiscal-month-start-day\" type=\"number\" min=\"1\" max=\"31\" value=\""
-         (escape-html fiscal-month-start-day)
-         "\"></label>"
+	         (escape-html fiscal-month-start-day)
+	         "\"></label>"
+	         "<button type=\"submit\">Save</button></form>")))
+
+(defn- export-settings-form [settings]
+  (let [export (:export settings)
+        format (:format export)
+        destination (:destination export)]
+    (str "<form class=\"input-panel settings-form\" method=\"post\" action=\"/settings/export\">"
+         "<h2 class=\"pane-title\">Export</h2>"
+         "<div class=\"field-help\">Controls the current-day export action on the worklog page. Only confirmed work logs are written.</div>"
+         "<input type=\"hidden\" name=\"redirect-to\" value=\"/settings\">"
+         "<label class=\"field\"><span class=\"field-label\">Format</span>"
+         "<select name=\"export-format\">"
+         "<option value=\"org\"" (selected-attr format "org") ">Org</option>"
+         "<option value=\"markdown\"" (selected-attr format "markdown") ">Markdown</option>"
+         "</select></label>"
+         "<label class=\"field\"><span class=\"field-label\">Destination</span>"
+         "<select name=\"export-destination\">"
+         "<option value=\"download\"" (selected-attr destination "download") ">Download</option>"
+         "<option value=\"clipboard\"" (selected-attr destination "clipboard") ">Clipboard</option>"
+         "</select></label>"
          "<button type=\"submit\">Save</button></form>")))
 
 (defn- break-rule-card [rule]
@@ -1604,9 +1667,10 @@
              "<nav class=\"settings-nav\"><a class=\"nav-button\" href=\"/\">Days</a></nav>"
              (flash-warning (:flash-warning state))
              "<div class=\"settings-grid\">"
-             (break-mode-settings-form settings)
-             (holiday-policy-form settings)
-             (calendar-settings-form settings)
-             (break-rules-panel break-rules)
+	             (break-mode-settings-form settings)
+	             (holiday-policy-form settings)
+	             (calendar-settings-form settings)
+	             (export-settings-form settings)
+	             (break-rules-panel break-rules)
              (import-sources-panel import-sources)
              "</div></main>")))

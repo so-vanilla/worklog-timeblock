@@ -1174,6 +1174,78 @@ Quantitative done criteria:
 
 ## Immediate Next Session Checklist
 
+### Approved Feature: Days Calendar Density And Day Export
+
+Status: Done in this session.
+
+Scope:
+
+- In Days Week/Month calendar displays, remove parent-category subtotal rows from
+  the visible category breakdown. Child/root category totals still render.
+- Keep the day workspace right-pane `Category totals` behavior unchanged unless
+  explicitly requested. That panel may still show parent subtotal rows.
+- Make Week and Month views wider/taller so growing category counts remain
+  readable.
+- Improve the visual difference between root category rows and child category
+  rows in compact calendar breakdowns.
+- Add export settings:
+  - format: Org or Markdown
+  - destination: file download or clipboard
+- Add day-page export action for the currently open day.
+- Export only confirmed work logs. Uncategorized/excluded/imported-draft logs are
+  not included.
+- Org output should be journal-like with a day heading and one entry per
+  confirmed log.
+- Download filename should be `YYYY-MM-DD.org` or `YYYY-MM-DD.md`.
+
+Implementation ownership:
+
+- Product/UX: calendar density, category-row distinction, day export interaction.
+- Backend/API: export settings, confirmed-log selection, renderer, download route.
+- QA: exact export string tests plus Web/API/browser E2E for Settings, download,
+  clipboard, and calendar parent-subtotal removal.
+
+Quantitative done criteria:
+
+- Add at least 25 assertions across unit/API/Web/browser tests.
+- Exact renderer tests cover Org and Markdown.
+- API/Web tests prove excluded and uncategorized logs are omitted from export.
+- Web/browser tests prove Week/Month calendar compact breakdowns do not show
+  parent subtotals while child rows remain visible.
+- Browser E2E proves clipboard export writes expected text and download export
+  yields the expected filename/content.
+- Full gate passes:
+  - `devenv shell e2e-all`
+  - `devenv shell test`
+  - `devenv shell lint`
+  - `nix flake check`
+  - `nix run --no-warn-dirty . -- --db <empty-temp-db>` smoke
+  - `git diff --check --cached`
+  - `git diff --check`
+
+Implementation result:
+
+- Added `worklog-timeblock.domain.export` with exact Org and Markdown renderers.
+- Added app settings for export format and destination.
+- Added `GET /days/:date/export` for download/clipboard text generation.
+- Added Settings export preferences and day-page Export action.
+- Week/Month Days category breakdowns now omit parent subtotals while preserving
+  child rows with distinct styling.
+- Week/Month cards now use more width and height for growing category counts.
+- Added tests for renderer exact output, DB settings persistence, API export
+  route/content, Settings UI, browser clipboard export, browser download export,
+  and Days parent-subtotal removal.
+
+Quantitative result before commit:
+
+- `devenv shell e2e-all`: Clojure E2E 20 tests / 599 assertions, browser
+  35 cases / 241 assertions, zellij 8 cases / 230 assertions / 0 failures.
+- `devenv shell test`: 38 tests / 839 assertions / 0 failures.
+- `devenv shell lint`: errors 0 / warnings 0.
+- `nix flake check`: success.
+- `nix run --no-warn-dirty . -- --db <empty-temp-db>` smoke: 3 assertions /
+  0 failures after staging new source files for Nix flake inclusion.
+
 ### Completed Feature: Work Log Title Suggestions
 
 Status: Done in this session.

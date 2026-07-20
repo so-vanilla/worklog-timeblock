@@ -463,6 +463,68 @@ Implementation status:
 
 Do not jump to calendar sync first. The highest-value next step remains app-side category/title-mapping management.
 
+### Approved Goal: Days Calendar Density And Day Export
+
+The user approved this with `go`.
+
+Scope:
+
+- Days Week/Month calendar compact breakdowns must not show parent-category
+  subtotal rows. This applies to the calendar-style Days page only.
+- The day workspace right-pane `Category totals` is intentionally separate and
+  remains unchanged unless a later request changes it.
+- Root/child category rows in calendar breakdowns should be visually
+  distinguishable.
+- Week view should get a wider/taller layout, and Month should be adjusted to a
+  comparable density so more categories fit.
+- Settings must expose export format: Org or Markdown.
+- Settings must expose export destination: download or clipboard.
+- The day workspace must expose an export action for the current day.
+- Export output includes confirmed work logs only. Excluded logs, uncategorized
+  logs, and imported drafts are omitted.
+- Download filenames are `YYYY-MM-DD.org` and `YYYY-MM-DD.md`.
+
+Done criteria:
+
+- Exact renderer tests for Org and Markdown output.
+- API/Web/browser coverage for export settings, export route/content, clipboard
+  copy, and download filename/content.
+- Web/browser coverage proving parent subtotals are removed from Days calendar
+  breakdowns while child category rows remain visible.
+- Run and pass:
+  - `devenv shell e2e-all`
+  - `devenv shell test`
+  - `devenv shell lint`
+  - `nix flake check`
+  - `nix run --no-warn-dirty . -- --db <empty-temp-db>` smoke
+  - `git diff --check --cached`
+  - `git diff --check`
+- Commit and push to `origin/main`.
+
+Implementation status:
+
+- Done in the 2026-07-20 session.
+- Added `worklog-timeblock.domain.export` for Org/Markdown rendering.
+- Added export format/destination settings backed by `app_settings`.
+- Added `GET /days/:date/export` with `YYYY-MM-DD.org` or `YYYY-MM-DD.md`
+  attachment filenames.
+- Added day-page Export action:
+  - download mode renders a download link,
+  - clipboard mode fetches the same export route and writes to
+    `navigator.clipboard`.
+- Added Settings export preferences.
+- Days Week/Month calendar breakdowns now drop parent subtotal rows but keep
+  root and child rows. Child rows are indented and color-grouped.
+- Week/Month layouts are wider/taller for category growth.
+- Latest validation before commit:
+  - `devenv shell e2e-all`: Clojure E2E 20 tests / 599 assertions, browser
+    35 cases / 241 assertions, zellij 8 cases / 230 assertions / 0 failures.
+  - `devenv shell test`: 38 tests / 839 assertions / 0 failures.
+  - `devenv shell lint`: errors 0 / warnings 0.
+  - `nix flake check`: success.
+  - `nix run --no-warn-dirty . -- --db <empty-temp-db>` smoke: 3 assertions /
+    0 failures after staging new source files for Nix flake inclusion.
+
 ### Approved Continuous Goal Sequence
 
 The user approved continuing through all listed goals without waiting for

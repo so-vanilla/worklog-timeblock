@@ -446,6 +446,68 @@
         (is (= "non-assignable-category" (:reason (parse-body rejected))))
         (is (= 60 (category-minutes summary (:id frontend))))))))
 
+(deftest api-day-export-e2e-test
+  (let [{:keys [handler ds]} (empty-temp-system)
+        dev (db/upsert-category! ds {:name "Development"})
+        engineering (db/upsert-category! ds {:name "Engineering"})
+        backend (db/upsert-category! ds {:name "Backend" :parent-id (:id engineering)})]
+    (doseq [work-log [{:date "2026-07-06"
+                       :title "Build"
+                       :start-minute 540
+                       :end-minute 600
+                       :state :confirmed
+                       :category-id (:id dev)}
+                      {:date "2026-07-06"
+                       :title "Backend plan"
+                       :start-minute 600
+                       :end-minute 660
+                       :state :confirmed
+                       :category-id (:id backend)}
+                      {:date "2026-07-06"
+                       :title "Loose task"
+                       :start-minute 660
+                       :end-minute 690
+                       :state :uncategorized}
+                      {:date "2026-07-06"
+                       :title "Lunch"
+                       :start-minute 720
+                       :end-minute 780
+                       :state :excluded
+                       :category-id (:id dev)}]]
+      (db/insert-work-log! ds work-log))
+
+    (testing "default org export downloads confirmed work only"
+      (let [response (request handler :get "/days/2026-07-06/export")
+            body (str (:body response))]
+        (is (= 200 (:status response)))
+        (is (= "text/plain; charset=utf-8" (get-in response [:headers "content-type"])))
+        (is (= "attachment; filename=\"2026-07-06.org\""
+               (get-in response [:headers "content-disposition"])))
+        (is (str/includes? body "* 2026-07-06"))
+        (is (str/includes? body "** 09:00-10:00 Build"))
+        (is (str/includes? body ":CATEGORY: Development"))
+        (is (str/includes? body "** 10:00-11:00 Backend plan"))
+        (is (str/includes? body ":CATEGORY: Engineering / Backend"))
+        (is (not (str/includes? body "Loose task")))
+        (is (not (str/includes? body "Lunch")))))
+
+    (testing "settings switch export format and destination"
+      (let [response (request handler :put "/api/settings"
+                              {:export-format :markdown
+                               :export-destination :clipboard})
+            settings (parse-body response)
+            export-response (request handler :get "/days/2026-07-06/export")
+            body (str (:body export-response))]
+        (is (= 200 (:status response)))
+        (is (= {:format "markdown" :destination "clipboard"} (:export settings)))
+        (is (= "attachment; filename=\"2026-07-06.md\""
+               (get-in export-response [:headers "content-disposition"])))
+        (is (str/includes? body "# 2026-07-06"))
+        (is (str/includes? body "| 09:00-10:00 | Build | Development | 1.00 |"))
+        (is (str/includes? body "| 10:00-11:00 | Backend plan | Engineering / Backend | 1.00 |"))
+        (is (not (str/includes? body "Loose task")))
+        (is (not (str/includes? body "Lunch")))))))
+
 (deftest api-attendance-and-breaks-e2e-test
   (let [{:keys [handler ds]} (empty-temp-system)
         dev (db/upsert-category! ds {:name "Development"})]
@@ -598,27 +660,34 @@
     (testing "settings endpoint exposes defaults and persists break/holiday policy"
       (let [default-settings (parse-body (request handler :get "/api/settings"))
             response (request handler :put "/api/settings"
-                              {:break-mode :flexible
-                               :holiday-policy-mode :manual
-                               :holiday-weekdays []
-                               :week-start-day 7
-                               :fiscal-month-start-day 21})
-            updated (parse-body (request handler :get "/api/settings"))]
-        (is (= {:break-mode "fixed"
-                :week-start-day 1
-                :fiscal-month-start-day 1
-                :holiday-policy {:mode "complete-two-day"
-                                 :weekdays [6 7]}}
-               (select-keys default-settings [:break-mode :week-start-day
-                                              :fiscal-month-start-day
-                                              :holiday-policy])))
-        (is (= 200 (:status response)))
-        (is (= "flexible" (:break-mode (parse-body response))))
-        (is (= "flexible" (:break-mode updated)))
-        (is (= 7 (:week-start-day updated)))
-        (is (= 21 (:fiscal-month-start-day updated)))
-        (is (= {:mode "manual" :weekdays []}
-               (:holiday-policy updated)))
+	                              {:break-mode :flexible
+	                               :holiday-policy-mode :manual
+	                               :holiday-weekdays []
+	                               :week-start-day 7
+	                               :fiscal-month-start-day 21
+	                               :export-format :markdown
+	                               :export-destination :clipboard})
+	            updated (parse-body (request handler :get "/api/settings"))]
+	        (is (= {:break-mode "fixed"
+	                :week-start-day 1
+	                :fiscal-month-start-day 1
+	                :holiday-policy {:mode "complete-two-day"
+	                                 :weekdays [6 7]}
+	                :export {:format "org"
+	                         :destination "download"}}
+	               (select-keys default-settings [:break-mode :week-start-day
+	                                              :fiscal-month-start-day
+	                                              :holiday-policy
+	                                              :export])))
+	        (is (= 200 (:status response)))
+	        (is (= "flexible" (:break-mode (parse-body response))))
+	        (is (= "flexible" (:break-mode updated)))
+	        (is (= 7 (:week-start-day updated)))
+	        (is (= 21 (:fiscal-month-start-day updated)))
+	        (is (= {:format "markdown" :destination "clipboard"}
+	               (:export updated)))
+	        (is (= {:mode "manual" :weekdays []}
+	               (:holiday-policy updated)))
         (is (= 200 (:status (request handler :put "/api/settings"
                                       {:week-start-day 1
                                        :fiscal-month-start-day 1}))))))

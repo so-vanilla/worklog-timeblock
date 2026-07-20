@@ -1,9 +1,10 @@
 (ns worklog-timeblock.api.routes
   (:require [cheshire.core :as json]
             [clojure.string :as str]
-            [reitit.ring :as ring]
-            [worklog-timeblock.db.core :as db]
-            [worklog-timeblock.domain.summary :as summary]
+	            [reitit.ring :as ring]
+	            [worklog-timeblock.db.core :as db]
+	            [worklog-timeblock.domain.export :as worklog-export]
+	            [worklog-timeblock.domain.summary :as summary]
             [worklog-timeblock.domain.worklog :as worklog]
             [worklog-timeblock.importer.core :as importer]
             [worklog-timeblock.web.pages :as pages])
@@ -171,7 +172,9 @@
   {:break-mode (name (db/break-mode ds))
    :week-start-day (db/week-start-day ds)
    :fiscal-month-start-day (db/fiscal-month-start-day ds)
-   :holiday-policy (holiday-policy-json (db/holiday-policy ds))})
+   :holiday-policy (holiday-policy-json (db/holiday-policy ds))
+   :export {:format (name (db/export-format ds))
+            :destination (name (db/export-destination ds))}})
 
 (defn- holiday-or-workday [policy override date]
   (cond
@@ -956,6 +959,10 @@
       (db/set-week-start-day! ds (:week-start-day attrs)))
     (when (contains? attrs :fiscal-month-start-day)
       (db/set-fiscal-month-start-day! ds (:fiscal-month-start-day attrs)))
+    (when (contains? attrs :export-format)
+      (db/set-export-format! ds (:export-format attrs)))
+    (when (contains? attrs :export-destination)
+      (db/set-export-destination! ds (:export-destination attrs)))
     (json-response (settings-json ds))
     (catch Exception error
       (json-response 400 {:error "invalid-settings"
@@ -1000,6 +1007,30 @@
        (safe-redirect-path (:redirect-to form) "/settings")
        (json-response 400 {:error "invalid-settings"
                            :reason (.getMessage error)})))))
+
+(defn- update-export-settings-form-response! [ds form]
+  (try
+    (db/set-export-format! ds (:export-format form))
+    (db/set-export-destination! ds (:export-destination form))
+    (redirect-response (safe-redirect-path (:redirect-to form) "/settings"))
+    (catch Exception error
+      (form-warning-redirect
+       (safe-redirect-path (:redirect-to form) "/settings")
+       (json-response 400 {:error "invalid-settings"
+                           :reason (.getMessage error)})))))
+
+(defn- export-response [ds date]
+  (if-not (valid-date-string? date)
+    (json-response 400 {:error "invalid-date"})
+    (let [format (db/export-format ds)
+          filename (str date "." (worklog-export/extension format))
+          body (worklog-export/render format {:date date
+                                              :categories (db/list-categories ds)
+                                              :work-logs (db/work-logs-by-date ds date)})]
+      {:status 200
+       :headers {"content-type" "text/plain; charset=utf-8"
+                 "content-disposition" (str "attachment; filename=\"" filename "\"")}
+       :body body})))
 
 (defn- normalize-day-status-range [attrs]
   (let [start-date (:start-date attrs)
@@ -1093,15 +1124,19 @@
                      date (:date form)]
                  (if (valid-date-string? date)
                    (redirect-response (str "/days/" date))
-                   (form-warning-redirect
-                    "/"
-                    (json-response 400 {:error "invalid-date"})))))}]
+	                   (form-warning-redirect
+	                    "/"
+	                    (json-response 400 {:error "invalid-date"})))))}]
+     ["/days/:date/export"
+      {:get (fn [request]
+              (export-response ds (get-in request [:path-params :date])))}]
      ["/days/:date" {:get (fn [request]
                             (let [date (get-in request [:path-params :date])
                                   params (parse-query-params request)]
                               (html-response
                                (pages/day-page (assoc (day-state ds date)
-                                                      :flash-warning (:warning params))
+                                                      :flash-warning (:warning params)
+                                                      :export-settings (:export (settings-json ds)))
                                                (db/list-categories ds)))))}]
      ["/settings"
       {:get (fn [request]
@@ -1116,9 +1151,12 @@
      ["/settings/holiday-policy"
       {:post (fn [request]
                (update-holiday-policy-form-response! ds (parse-form-body request)))}]
-     ["/settings/calendar"
-      {:post (fn [request]
-               (update-calendar-settings-form-response! ds (parse-form-body request)))}]
+	     ["/settings/calendar"
+	      {:post (fn [request]
+	               (update-calendar-settings-form-response! ds (parse-form-body request)))}]
+	     ["/settings/export"
+	      {:post (fn [request]
+	               (update-export-settings-form-response! ds (parse-form-body request)))}]
      ["/day-status-ranges"
       {:post (fn [request]
                (update-day-status-range-form-response! ds (parse-form-body request)))}]

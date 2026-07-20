@@ -22,7 +22,9 @@ per-category totals. Existing work logs can also be corrected from the day page
 by assigning a category, editing the time range, or excluding the log. The Days
 screen supports month and week views. Month edit mode can be switched on for
 click or drag range changes between workday and holiday; paid leave is treated
-as holiday/non-work time.
+as holiday/non-work time. Week and Month show compact category totals for each
+day, with child categories visually indented and parent subtotals omitted from
+the calendar cells.
 
 The day page is a three-pane workspace with Prev/Next/TODAY/GOTO navigation.
 The left pane is a compact one-day timeline with snapped mouse drag selection.
@@ -41,6 +43,11 @@ Breaks do not count as work effort.
 Imported candidates can be confirmed or excluded from the candidate queue or
 the timeline context menu, and overlapping drafts are blocked instead of
 silently double-counted.
+
+Settings also controls current-day export format and destination. The day page
+can export confirmed work logs only, either as an Org journal-like document or a
+Markdown table, and can send the result to a file download or the clipboard.
+Uncategorized, excluded, and unconfirmed imported draft logs are omitted.
 
 Settings can store zero or more iCal file/URL import sources. Manual fetch
 stores imported events as `source_events` and creates initial work-log snapshots

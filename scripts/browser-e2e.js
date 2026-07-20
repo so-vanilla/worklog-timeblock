@@ -274,6 +274,12 @@ async function waitForTitleSuggestions(page) {
   );
 }
 
+async function readDownloadText(download) {
+  const filePath = await download.path();
+  assert(Boolean(filePath), "download should have a local path");
+  return fs.readFileSync(filePath, "utf8");
+}
+
 async function run() {
   await ensureChromium();
 
@@ -309,10 +315,18 @@ async function run() {
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 1440, height: 920 } });
 
-    await page.goto(`${baseUrl}/?view=month&date=2026-07-06`);
-    assert(await page.locator(".days-calendar[data-calendar-view='month'][data-calendar-edit='inactive']").count() === 1, "month calendar should render in inactive edit mode by default");
-    assert(await page.locator(".view-tabs .toggle-option.active:has-text('Month')").count() === 1, "month view should be shown as active toggle");
-    assert(await page.locator("a[href='/?view=month&date=2026-06-06']").count() === 1, "month navigation should include previous month");
+	    await page.goto(`${baseUrl}/?view=month&date=2026-07-06`);
+	    assert(await page.locator(".days-calendar[data-calendar-view='month'][data-calendar-edit='inactive']").count() === 1, "month calendar should render in inactive edit mode by default");
+	    assert(await page.locator(".view-tabs .toggle-option.active:has-text('Month')").count() === 1, "month view should be shown as active toggle");
+	    const daysShellWidth = await page.locator(".days-shell").evaluate((shell) => shell.getBoundingClientRect().width);
+	    assert(daysShellWidth >= 1280, `days shell should use more horizontal space, got ${daysShellWidth}`);
+	    const monthCardHeight = await page.locator(".calendar-day[data-date='2026-07-06']").evaluate((card) => card.getBoundingClientRect().height);
+	    assert(monthCardHeight >= 145, `month day cards should be tall enough for more categories, got ${monthCardHeight}`);
+	    const monthDayText = await page.locator(".calendar-day[data-date='2026-07-06']").textContent();
+	    assert(monthDayText.includes("Backend") && monthDayText.includes("1.00h"), "month calendar should show child category effort");
+	    assert(!monthDayText.includes("Engineering1.00h") && !monthDayText.includes("Engineering 1.00h"), "month calendar should not show parent subtotal effort");
+	    assert(await page.locator(".calendar-day[data-date='2026-07-06'] .calendar-category-child").count() >= 1, "month calendar should visually mark child category rows");
+	    assert(await page.locator("a[href='/?view=month&date=2026-06-06']").count() === 1, "month navigation should include previous month");
     assert(await page.locator("a[href='/?view=month&date=2026-08-06']").count() === 1, "month navigation should include next month");
     assert((await page.locator(".days-toolbar").textContent()).includes("Prev month"), "month navigation should label previous month");
     assert((await page.locator(".days-toolbar").textContent()).includes("Next month"), "month navigation should label next month");
@@ -322,10 +336,16 @@ async function run() {
       page.locator(".calendar-day[data-date='2026-07-06'] a").click(),
     ]);
 
-    await page.goto(`${baseUrl}/?view=week&date=2026-07-06`);
-    assert(await page.locator(".week-calendar[data-calendar-view='week']").count() === 1, "week calendar should render");
-    assert(await page.locator(".view-tabs .toggle-option.active:has-text('Week')").count() === 1, "week view should be shown as active toggle");
-    assert(await page.locator("a[href='/?view=week&date=2026-06-29']").count() === 1, "days navigation should include previous week");
+	    await page.goto(`${baseUrl}/?view=week&date=2026-07-06`);
+	    assert(await page.locator(".week-calendar[data-calendar-view='week']").count() === 1, "week calendar should render");
+	    assert(await page.locator(".view-tabs .toggle-option.active:has-text('Week')").count() === 1, "week view should be shown as active toggle");
+	    const weekCardHeight = await page.locator(".week-day-card[data-date='2026-07-06']").evaluate((card) => card.getBoundingClientRect().height);
+	    assert(weekCardHeight >= 260, `week day cards should be taller for category growth, got ${weekCardHeight}`);
+	    const weekDayText = await page.locator(".week-day-card[data-date='2026-07-06']").textContent();
+	    assert(weekDayText.includes("Backend") && weekDayText.includes("1.00h"), "week calendar should show child category effort");
+	    assert(!weekDayText.includes("Engineering1.00h") && !weekDayText.includes("Engineering 1.00h"), "week calendar should not show parent subtotal effort");
+	    assert(await page.locator(".week-day-card[data-date='2026-07-06'] .calendar-category-child").count() >= 1, "week calendar should visually mark child category rows");
+	    assert(await page.locator("a[href='/?view=week&date=2026-06-29']").count() === 1, "days navigation should include previous week");
     assert(await page.locator("a[href='/?view=week&date=2026-07-13']").count() === 1, "days navigation should include next week");
     assert((await page.locator(".days-toolbar").textContent()).includes("Prev week"), "week navigation should label previous week");
     assert((await page.locator(".days-toolbar").textContent()).includes("Next week"), "week navigation should label next week");
@@ -357,14 +377,68 @@ async function run() {
     await page.goto(`${baseUrl}/import-sources`);
     await page.waitForURL(`${baseUrl}/settings`);
     assert(await page.locator("form[action='/settings/break-mode']").count() === 1, "settings should own break mode form");
-    assert(await page.locator("form[action='/settings/holiday-policy']").count() === 1, "settings should own holiday policy form");
-    assert(await page.locator("form[action='/settings/calendar']").count() === 1, "settings should own calendar preferences form");
-    assert(await page.locator("select[name='week-start-day']").count() === 1, "settings should expose week start day");
-    assert(await page.locator("input[name='fiscal-month-start-day']").count() === 1, "settings should expose fiscal month start day");
-    assert(await page.locator(".import-sources-panel form[action='/import-sources']").count() === 1, "settings should own import source form");
-    assert(await page.locator("a[href='/import-sources']").count() === 0, "standalone import source page should not be linked from settings");
+	    assert(await page.locator("form[action='/settings/holiday-policy']").count() === 1, "settings should own holiday policy form");
+	    assert(await page.locator("form[action='/settings/calendar']").count() === 1, "settings should own calendar preferences form");
+	    assert(await page.locator("form[action='/settings/export']").count() === 1, "settings should own export preferences form");
+	    assert(await page.locator("select[name='week-start-day']").count() === 1, "settings should expose week start day");
+	    assert(await page.locator("input[name='fiscal-month-start-day']").count() === 1, "settings should expose fiscal month start day");
+	    assert(await page.locator("select[name='export-format']").inputValue() === "org", "export format should default to org");
+	    assert(await page.locator("select[name='export-destination']").inputValue() === "download", "export destination should default to download");
+	    assert(await page.locator(".import-sources-panel form[action='/import-sources']").count() === 1, "settings should own import source form");
+	    assert(await page.locator("a[href='/import-sources']").count() === 0, "standalone import source page should not be linked from settings");
+	    await page.selectOption("select[name='export-format']", "markdown");
+	    await page.selectOption("select[name='export-destination']", "clipboard");
+	    await Promise.all([
+	      page.waitForNavigation({ waitUntil: "domcontentloaded" }),
+	      page.locator("form[action='/settings/export'] button[type='submit']").click(),
+	    ]);
+	    assert(await page.locator("select[name='export-format']").inputValue() === "markdown", "export format setting should persist");
+	    assert(await page.locator("select[name='export-destination']").inputValue() === "clipboard", "export destination setting should persist");
 
-    await page.goto(`${baseUrl}/days/2026-07-06`);
+	    await page.goto(`${baseUrl}/days/2026-07-06`);
+	    await page.evaluate(() => {
+	      window.__clipboardWrites = [];
+	      Object.defineProperty(navigator, "clipboard", {
+	        configurable: true,
+	        value: {
+	          writeText: async (text) => {
+	            window.__clipboardWrites.push(text);
+	          },
+	        },
+	      });
+	    });
+	    assert(await page.locator("[data-export-copy]").count() === 1, "clipboard export button should render when configured");
+	    await page.locator("[data-export-copy]").click();
+	    await page.waitForFunction(() => window.__clipboardWrites && window.__clipboardWrites.length === 1);
+	    const clipboardWrites = await page.evaluate(() => window.__clipboardWrites);
+	    assert(clipboardWrites[0].startsWith("# 2026-07-06"), "clipboard export should use markdown heading");
+	    assert(clipboardWrites[0].includes("| 09:00-10:00 | Build | Development | 1.00 |"), "clipboard export should include confirmed root work");
+	    assert(clipboardWrites[0].includes("| 13:00-14:00 | Backend plan | Engineering / Backend | 1.00 |"), "clipboard export should include confirmed child work");
+	    assert(!clipboardWrites[0].includes("Candidate block"), "clipboard export should omit imported drafts");
+	    assert(!clipboardWrites[0].includes("Loose task"), "clipboard export should omit uncategorized work from other days");
+	    assert((await page.locator("[data-export-status]").textContent()).includes("Copied"), "clipboard export should show a copied status");
+
+	    await page.goto(`${baseUrl}/settings`);
+	    await page.selectOption("select[name='export-format']", "org");
+	    await page.selectOption("select[name='export-destination']", "download");
+	    await Promise.all([
+	      page.waitForNavigation({ waitUntil: "domcontentloaded" }),
+	      page.locator("form[action='/settings/export'] button[type='submit']").click(),
+	    ]);
+	    await page.goto(`${baseUrl}/days/2026-07-06`);
+	    assert(await page.locator("[data-export-download]").count() === 1, "download export link should render when configured");
+	    const [download] = await Promise.all([
+	      page.waitForEvent("download"),
+	      page.locator("[data-export-download]").click(),
+	    ]);
+	    assert(download.suggestedFilename() === "2026-07-06.org", `download filename should use the day and extension, got ${download.suggestedFilename()}`);
+	    const downloadText = await readDownloadText(download);
+	    assert(downloadText.startsWith("* 2026-07-06"), "download export should use org heading");
+	    assert(downloadText.includes("** 09:00-10:00 Build"), "download export should include confirmed root work");
+	    assert(downloadText.includes(":CATEGORY: Engineering / Backend"), "download export should include child category path");
+	    assert(!downloadText.includes("Candidate block"), "download export should omit imported drafts");
+
+	    await page.goto(`${baseUrl}/days/2026-07-06`);
 
     const ratio = await page.locator(".timeline-pane").evaluate((pane) => {
       const grid = pane.closest(".workspace-grid");
@@ -712,7 +786,7 @@ async function run() {
     assert((await page.locator(".timeline-warning-bubble").textContent()).includes("only shrinks"), "shift expansion warning should explain shrink-only behavior");
     assert((await page.locator(buildSelector).textContent()).includes("09:45-10:30"), "shift expansion should not save");
 
-    console.log(`browser-e2e cases=29 assertions=${assertions} failures=0`);
+	    console.log(`browser-e2e cases=35 assertions=${assertions} failures=0`);
   } finally {
     if (browser) {
       await browser.close();

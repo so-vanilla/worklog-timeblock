@@ -71,12 +71,14 @@
         (is (str/includes? html "class=\"timeline-pane\""))
         (is (str/includes? html "class=\"entry-pane\""))
         (is (str/includes? html "class=\"summary-pane\""))
-        (is (str/includes? html "class=\"day-timeline\""))
-        (is (str/includes? html "class=\"timeline-track\""))
-        (is (str/includes? html "href=\"/settings\""))
-        (is (str/includes? html "<nav class=\"page-actions\"><a class=\"nav-button\" href=\"/\">Days</a><a class=\"nav-button\" href=\"/settings\">Settings</a></nav>"))
-        (is (str/includes? html "<div class=\"workspace-title-row\"><h1>2026-07-06</h1><div class=\"day-navigation\">"))
-        (is (str/includes? html "Build"))
+	        (is (str/includes? html "class=\"day-timeline\""))
+	        (is (str/includes? html "class=\"timeline-track\""))
+	        (is (str/includes? html "href=\"/settings\""))
+	        (is (str/includes? html "<nav class=\"page-actions\">"))
+	        (is (str/includes? html "href=\"/days/2026-07-06/export\""))
+	        (is (str/includes? html "data-export-download"))
+	        (is (str/includes? html "<div class=\"workspace-title-row\"><h1>2026-07-06</h1><div class=\"day-navigation\">"))
+	        (is (str/includes? html "Build"))
         (is (str/includes? html "Development"))
         (is (str/includes? html "0.75h"))
         (is (str/includes? html "class=\"day-navigation\""))
@@ -240,6 +242,8 @@
 (deftest web-days-calendar-test
   (let [{:keys [handler ds]} (empty-temp-system)
         dev (db/upsert-category! ds {:name "Development"})
+        engineering (db/upsert-category! ds {:name "Engineering"})
+        backend (db/upsert-category! ds {:name "Backend" :parent-id (:id engineering)})
         dev-id (:id dev)]
     (request handler :post "/days/2026-07-15/attendance"
              "clock-in-time=09%3A00&clock-out-time=18%3A00")
@@ -253,6 +257,11 @@
              "clock-in-time=09%3A00&clock-out-time=10%3A00")
     (request handler :post "/days/2026-07-17/worklogs"
              "title=Needs%20category&start-time=09%3A00&end-time=10%3A00&category-id=")
+    (request handler :post "/days/2026-07-18/attendance"
+             "clock-in-time=09%3A00&clock-out-time=11%3A00")
+    (request handler :post "/days/2026-07-18/worklogs"
+             (str "title=Backend%20plan&start-time=09%3A00&end-time=10%3A00&category-id="
+                  (:id backend)))
     (request handler :post "/day-status-ranges"
              "start-date=2026-07-20&end-date=2026-07-22&status=holiday&redirect-to=%2F%3Fview%3Dmonth%26date%3D2026-07-15")
 
@@ -262,12 +271,15 @@
         (is (str/includes? html "data-calendar-view=\"month\""))
         (is (str/includes? html "class=\"calendar-day calendar-blank\""))
         (is (str/includes? html "class=\"calendar-day day-status-done\" data-date=\"2026-07-15\""))
-        (is (str/includes? html "class=\"calendar-day day-status-missing\" data-date=\"2026-07-16\""))
-        (is (str/includes? html "Uncategorized"))
-        (is (str/includes? html "Uncategorized 1.00h"))
-        (is (str/includes? html "class=\"calendar-day day-status-holiday\" data-date=\"2026-07-20\""))
-        (is (str/includes? html "href=\"/days/2026-07-15\""))
-        (is (not (str/includes? html "id=\"day-status-range-form\"")))))
+	        (is (str/includes? html "class=\"calendar-day day-status-missing\" data-date=\"2026-07-16\""))
+	        (is (str/includes? html "Uncategorized"))
+	        (is (str/includes? html "<span class=\"calendar-category-name\">Uncategorized</span><span class=\"calendar-category-hours\">1.00h</span>"))
+	        (is (str/includes? html "<span class=\"calendar-category-name\">Backend</span><span class=\"calendar-category-hours\">1.00h</span>"))
+	        (is (str/includes? html "calendar-category-child"))
+	        (is (not (str/includes? html "Engineering 1.00h")))
+	        (is (str/includes? html "class=\"calendar-day day-status-holiday\" data-date=\"2026-07-20\""))
+	        (is (str/includes? html "href=\"/days/2026-07-15\""))
+	        (is (not (str/includes? html "id=\"day-status-range-form\"")))))
 
     (testing "active month edit mode exposes click and range status actions"
       (let [html (response-body (request handler "/?view=month&date=2026-07-15&edit=1"))]
@@ -297,9 +309,12 @@
         (is (str/includes? html "Next week"))
         (is (str/includes? html "data-date=\"2026-07-13\""))
         (is (str/includes? html "data-date=\"2026-07-19\""))
-        (is (str/includes? html "href=\"/days/2026-07-15\""))
-        (is (str/includes? html "Development"))
-        (is (str/includes? html "8.00h"))))))
+	        (is (str/includes? html "href=\"/days/2026-07-15\""))
+	        (is (str/includes? html "Development"))
+	        (is (str/includes? html "8.00h"))
+	        (is (str/includes? html "<span class=\"calendar-category-name\">Backend</span><span class=\"calendar-category-hours\">1.00h</span>"))
+	        (is (str/includes? html "calendar-category-child"))
+	        (is (not (str/includes? html "Engineering 1.00h")))))))
 
 (deftest web-settings-page-test
   (let [{:keys [handler]} (empty-temp-system)]
@@ -318,12 +333,17 @@
         (is (str/includes? settings-html "action=\"/settings/holiday-policy\""))
         (is (str/includes? settings-html "name=\"holiday-policy-mode\""))
         (is (str/includes? settings-html "Default holidays"))
-        (is (str/includes? settings-html "action=\"/settings/calendar\""))
-        (is (str/includes? settings-html "name=\"week-start-day\""))
-        (is (str/includes? settings-html "name=\"fiscal-month-start-day\""))
-        (is (str/includes? settings-html "Fiscal month start day"))
-        (is (str/includes? settings-html "Daily break"))
-        (is (str/includes? settings-html "action=\"/break-rules\""))
+	        (is (str/includes? settings-html "action=\"/settings/calendar\""))
+	        (is (str/includes? settings-html "name=\"week-start-day\""))
+	        (is (str/includes? settings-html "name=\"fiscal-month-start-day\""))
+	        (is (str/includes? settings-html "Fiscal month start day"))
+	        (is (str/includes? settings-html "action=\"/settings/export\""))
+	        (is (str/includes? settings-html "name=\"export-format\""))
+	        (is (str/includes? settings-html "name=\"export-destination\""))
+	        (is (str/includes? settings-html "value=\"org\" selected"))
+	        (is (str/includes? settings-html "value=\"download\" selected"))
+	        (is (str/includes? settings-html "Daily break"))
+	        (is (str/includes? settings-html "action=\"/break-rules\""))
         (is (str/includes? settings-html "value=\"/settings\""))
         (is (str/includes? settings-html "Daily break rules"))
         (is (str/includes? settings-html "Add iCal source"))
@@ -347,8 +367,21 @@
             settings-html (response-body (request handler "/settings"))]
         (is (= 303 (:status response)))
         (is (= "/settings" (get-in response [:headers "location"])))
-        (is (str/includes? settings-html "value=\"7\" selected"))
-        (is (str/includes? settings-html "name=\"fiscal-month-start-day\" type=\"number\" min=\"1\" max=\"31\" value=\"21\""))))
+	        (is (str/includes? settings-html "value=\"7\" selected"))
+	        (is (str/includes? settings-html "name=\"fiscal-month-start-day\" type=\"number\" min=\"1\" max=\"31\" value=\"21\""))))
+
+    (testing "export settings switch the day page from download to clipboard"
+      (let [response (request handler :post "/settings/export"
+                              "export-format=markdown&export-destination=clipboard&redirect-to=%2Fsettings")
+            settings-html (response-body (request handler "/settings"))
+            day-html (response-body (request handler "/days/2026-07-11"))]
+        (is (= 303 (:status response)))
+        (is (= "/settings" (get-in response [:headers "location"])))
+        (is (str/includes? settings-html "value=\"markdown\" selected"))
+        (is (str/includes? settings-html "value=\"clipboard\" selected"))
+        (is (str/includes? day-html "data-export-copy"))
+        (is (str/includes? day-html "data-export-url=\"/days/2026-07-11/export\""))
+        (is (not (str/includes? day-html "data-export-download")))))
 
     (testing "settings daily break form persists and returns to settings"
       (let [response (request handler :post "/break-rules"

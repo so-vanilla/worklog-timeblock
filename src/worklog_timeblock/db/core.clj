@@ -9,6 +9,8 @@
 (def valid-break-modes #{:fixed :flexible})
 (def valid-holiday-policy-modes #{:complete-two-day :two-day :manual})
 (def valid-day-statuses #{:workday :holiday})
+(def valid-export-formats #{:org :markdown})
+(def valid-export-destinations #{:download :clipboard})
 
 (defn datasource [path]
   (jdbc/get-datasource {:jdbcUrl (str "jdbc:sqlite:" path)}))
@@ -944,6 +946,38 @@
       (upsert-setting! ds :break-mode (name mode))
       mode)
     (throw (ex-info "Invalid break mode" {:mode mode}))))
+
+(defn- normalize-export-format [format]
+  (let [format (normalize-keyword format)]
+    (when (contains? valid-export-formats format)
+      format)))
+
+(defn export-format [ds]
+  (or (normalize-export-format (setting-value ds :export-format "org"))
+      :org))
+
+(defn set-export-format! [ds format]
+  (if-let [format (normalize-export-format format)]
+    (do
+      (upsert-setting! ds :export-format (name format))
+      format)
+    (throw (ex-info "Invalid export format" {:format format}))))
+
+(defn- normalize-export-destination [destination]
+  (let [destination (normalize-keyword destination)]
+    (when (contains? valid-export-destinations destination)
+      destination)))
+
+(defn export-destination [ds]
+  (or (normalize-export-destination (setting-value ds :export-destination "download"))
+      :download))
+
+(defn set-export-destination! [ds destination]
+  (if-let [destination (normalize-export-destination destination)]
+    (do
+      (upsert-setting! ds :export-destination (name destination))
+      destination)
+    (throw (ex-info "Invalid export destination" {:destination destination}))))
 
 (defn- parse-fiscal-month-start-day [value]
   (let [value (cond
