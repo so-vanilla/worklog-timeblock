@@ -505,15 +505,25 @@
   (remove #(= :parent (:row-kind %))
           (category-summary-rows categories {:category-hours (:category-hours day)})))
 
-(defn- calendar-category-line [{:keys [category hours row-kind]}]
-  (str "<li class=\"calendar-category-line calendar-category-"
-       (escape-html (name row-kind))
-       "\" style=\"" (escape-html (group-style category))
-       "\"><span class=\"calendar-category-name\">"
-       (escape-html (:name category))
+(defn- calendar-category-label [categories-map {:keys [category row-kind]}]
+  (if (and (= :child row-kind) (:parent-id category))
+    (if-let [parent (get categories-map (:parent-id category))]
+      (str (:name parent) " / " (:name category))
+      (:name category))
+    (:name category)))
+
+(defn- calendar-category-line [categories-map {:keys [category hours row-kind] :as row}]
+  (let [label (calendar-category-label categories-map row)]
+    (str "<li class=\"calendar-category-line calendar-category-"
+         (escape-html (name row-kind))
+         "\" style=\"" (escape-html (group-style category))
+         "\"><span class=\"calendar-category-name\" title=\""
+         (escape-html label)
+         "\">"
+         (escape-html label)
        "</span><span class=\"calendar-category-hours\">"
        (escape-html (format "%.2fh" (double hours)))
-       "</span></li>"))
+         "</span></li>")))
 
 (defn- query-href [view date edit?]
   (str "/?view=" view "&date=" date (when edit? "&edit=1")))
@@ -641,18 +651,20 @@
          "</section>")))
 
 (defn- category-lines [categories day]
-  (let [rows (calendar-category-rows categories day)]
+  (let [categories-map (categories-by-id categories)
+        rows (calendar-category-rows categories day)]
     (if (seq rows)
       (str "<ul class=\"calendar-detail calendar-category-list\">"
-           (apply str (map calendar-category-line rows))
+           (apply str (map #(calendar-category-line categories-map %) rows))
            "</ul>")
       "<div class=\"calendar-detail\">No work</div>")))
 
 (defn- compact-category-lines [categories day]
-  (let [rows (calendar-category-rows categories day)]
+  (let [categories-map (categories-by-id categories)
+        rows (calendar-category-rows categories day)]
     (when (seq rows)
       (str "<ul class=\"calendar-detail calendar-category-list\">"
-           (apply str (map calendar-category-line rows))
+           (apply str (map #(calendar-category-line categories-map %) rows))
            "</ul>"))))
 
 (defn- week-day-card [categories day]

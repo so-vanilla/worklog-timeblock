@@ -1187,7 +1187,7 @@ Scope:
 - Make Week and Month views wider/taller so growing category counts remain
   readable.
 - Improve the visual difference between root category rows and child category
-  rows in compact calendar breakdowns.
+  rows in compact calendar breakdowns. Child rows show `Parent / Child`.
 - Add export settings:
   - format: Org or Markdown
   - destination: file download or clipboard
@@ -1230,7 +1230,7 @@ Implementation result:
 - Added `GET /days/:date/export` for download/clipboard text generation.
 - Added Settings export preferences and day-page Export action.
 - Week/Month Days category breakdowns now omit parent subtotals while preserving
-  child rows with distinct styling.
+  child rows with distinct styling and `Parent / Child` labels.
 - Week/Month cards now use more width and height for growing category counts.
 - Added tests for renderer exact output, DB settings persistence, API export
   route/content, Settings UI, browser clipboard export, browser download export,

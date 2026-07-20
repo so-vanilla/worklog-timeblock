@@ -273,10 +273,10 @@
         (is (str/includes? html "class=\"calendar-day day-status-done\" data-date=\"2026-07-15\""))
 	        (is (str/includes? html "class=\"calendar-day day-status-missing\" data-date=\"2026-07-16\""))
 	        (is (str/includes? html "Uncategorized"))
-	        (is (str/includes? html "<span class=\"calendar-category-name\">Uncategorized</span><span class=\"calendar-category-hours\">1.00h</span>"))
-	        (is (str/includes? html "<span class=\"calendar-category-name\">Backend</span><span class=\"calendar-category-hours\">1.00h</span>"))
-	        (is (str/includes? html "calendar-category-child"))
-	        (is (not (str/includes? html "Engineering 1.00h")))
+		        (is (str/includes? html "<span class=\"calendar-category-name\" title=\"Uncategorized\">Uncategorized</span><span class=\"calendar-category-hours\">1.00h</span>"))
+		        (is (str/includes? html "<span class=\"calendar-category-name\" title=\"Engineering / Backend\">Engineering / Backend</span><span class=\"calendar-category-hours\">1.00h</span>"))
+		        (is (str/includes? html "calendar-category-child"))
+		        (is (not (str/includes? html "<span class=\"calendar-category-name\" title=\"Engineering\">Engineering</span><span class=\"calendar-category-hours\">1.00h</span>")))
 	        (is (str/includes? html "class=\"calendar-day day-status-holiday\" data-date=\"2026-07-20\""))
 	        (is (str/includes? html "href=\"/days/2026-07-15\""))
 	        (is (not (str/includes? html "id=\"day-status-range-form\"")))))
@@ -312,9 +312,9 @@
 	        (is (str/includes? html "href=\"/days/2026-07-15\""))
 	        (is (str/includes? html "Development"))
 	        (is (str/includes? html "8.00h"))
-	        (is (str/includes? html "<span class=\"calendar-category-name\">Backend</span><span class=\"calendar-category-hours\">1.00h</span>"))
-	        (is (str/includes? html "calendar-category-child"))
-	        (is (not (str/includes? html "Engineering 1.00h")))))))
+		        (is (str/includes? html "<span class=\"calendar-category-name\" title=\"Engineering / Backend\">Engineering / Backend</span><span class=\"calendar-category-hours\">1.00h</span>"))
+		        (is (str/includes? html "calendar-category-child"))
+		        (is (not (str/includes? html "<span class=\"calendar-category-name\" title=\"Engineering\">Engineering</span><span class=\"calendar-category-hours\">1.00h</span>")))))))
 
 (deftest web-settings-page-test
   (let [{:keys [handler]} (empty-temp-system)]

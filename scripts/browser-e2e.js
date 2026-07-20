@@ -322,10 +322,17 @@ async function run() {
 	    assert(daysShellWidth >= 1280, `days shell should use more horizontal space, got ${daysShellWidth}`);
 	    const monthCardHeight = await page.locator(".calendar-day[data-date='2026-07-06']").evaluate((card) => card.getBoundingClientRect().height);
 	    assert(monthCardHeight >= 145, `month day cards should be tall enough for more categories, got ${monthCardHeight}`);
-	    const monthDayText = await page.locator(".calendar-day[data-date='2026-07-06']").textContent();
-	    assert(monthDayText.includes("Backend") && monthDayText.includes("1.00h"), "month calendar should show child category effort");
-	    assert(!monthDayText.includes("Engineering1.00h") && !monthDayText.includes("Engineering 1.00h"), "month calendar should not show parent subtotal effort");
-	    assert(await page.locator(".calendar-day[data-date='2026-07-06'] .calendar-category-child").count() >= 1, "month calendar should visually mark child category rows");
+	    const monthCategoryRows = await page.locator(".calendar-day[data-date='2026-07-06'] .calendar-category-line").evaluateAll((rows) =>
+	      rows.map((row) => ({
+	        text: row.textContent,
+	        title: row.querySelector(".calendar-category-name")?.getAttribute("title") || "",
+	        root: row.classList.contains("calendar-category-root"),
+	        child: row.classList.contains("calendar-category-child"),
+	      })),
+	    );
+	    assert(monthCategoryRows.some((row) => row.child && row.title === "Engineering / Backend" && row.text.includes("1.00h")), "month calendar should show child category effort with parent path");
+	    assert(!monthCategoryRows.some((row) => row.root && row.title === "Engineering" && row.text.includes("1.00h")), "month calendar should not show parent subtotal effort");
+	    assert(monthCategoryRows.some((row) => row.child), "month calendar should visually mark child category rows");
 	    assert(await page.locator("a[href='/?view=month&date=2026-06-06']").count() === 1, "month navigation should include previous month");
     assert(await page.locator("a[href='/?view=month&date=2026-08-06']").count() === 1, "month navigation should include next month");
     assert((await page.locator(".days-toolbar").textContent()).includes("Prev month"), "month navigation should label previous month");
@@ -341,10 +348,17 @@ async function run() {
 	    assert(await page.locator(".view-tabs .toggle-option.active:has-text('Week')").count() === 1, "week view should be shown as active toggle");
 	    const weekCardHeight = await page.locator(".week-day-card[data-date='2026-07-06']").evaluate((card) => card.getBoundingClientRect().height);
 	    assert(weekCardHeight >= 260, `week day cards should be taller for category growth, got ${weekCardHeight}`);
-	    const weekDayText = await page.locator(".week-day-card[data-date='2026-07-06']").textContent();
-	    assert(weekDayText.includes("Backend") && weekDayText.includes("1.00h"), "week calendar should show child category effort");
-	    assert(!weekDayText.includes("Engineering1.00h") && !weekDayText.includes("Engineering 1.00h"), "week calendar should not show parent subtotal effort");
-	    assert(await page.locator(".week-day-card[data-date='2026-07-06'] .calendar-category-child").count() >= 1, "week calendar should visually mark child category rows");
+	    const weekCategoryRows = await page.locator(".week-day-card[data-date='2026-07-06'] .calendar-category-line").evaluateAll((rows) =>
+	      rows.map((row) => ({
+	        text: row.textContent,
+	        title: row.querySelector(".calendar-category-name")?.getAttribute("title") || "",
+	        root: row.classList.contains("calendar-category-root"),
+	        child: row.classList.contains("calendar-category-child"),
+	      })),
+	    );
+	    assert(weekCategoryRows.some((row) => row.child && row.title === "Engineering / Backend" && row.text.includes("1.00h")), "week calendar should show child category effort with parent path");
+	    assert(!weekCategoryRows.some((row) => row.root && row.title === "Engineering" && row.text.includes("1.00h")), "week calendar should not show parent subtotal effort");
+	    assert(weekCategoryRows.some((row) => row.child), "week calendar should visually mark child category rows");
 	    assert(await page.locator("a[href='/?view=week&date=2026-06-29']").count() === 1, "days navigation should include previous week");
     assert(await page.locator("a[href='/?view=week&date=2026-07-13']").count() === 1, "days navigation should include next week");
     assert((await page.locator(".days-toolbar").textContent()).includes("Prev week"), "week navigation should label previous week");

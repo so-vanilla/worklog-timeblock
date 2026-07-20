@@ -474,7 +474,7 @@ Scope:
 - The day workspace right-pane `Category totals` is intentionally separate and
   remains unchanged unless a later request changes it.
 - Root/child category rows in calendar breakdowns should be visually
-  distinguishable.
+  distinguishable. Child rows show `Parent / Child`.
 - Week view should get a wider/taller layout, and Month should be adjusted to a
   comparable density so more categories fit.
 - Settings must expose export format: Org or Markdown.
@@ -514,7 +514,8 @@ Implementation status:
     `navigator.clipboard`.
 - Added Settings export preferences.
 - Days Week/Month calendar breakdowns now drop parent subtotal rows but keep
-  root and child rows. Child rows are indented and color-grouped.
+  root and child rows. Child rows are labeled as `Parent / Child`, indented, and
+  color-grouped.
 - Week/Month layouts are wider/taller for category growth.
 - Latest validation before commit:
   - `devenv shell e2e-all`: Clojure E2E 20 tests / 599 assertions, browser

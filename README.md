@@ -23,8 +23,8 @@ by assigning a category, editing the time range, or excluding the log. The Days
 screen supports month and week views. Month edit mode can be switched on for
 click or drag range changes between workday and holiday; paid leave is treated
 as holiday/non-work time. Week and Month show compact category totals for each
-day, with child categories visually indented and parent subtotals omitted from
-the calendar cells.
+day, with child categories labeled as `Parent / Child`, visually indented, and
+parent subtotals omitted from the calendar cells.
 
 The day page is a three-pane workspace with Prev/Next/TODAY/GOTO navigation.
 The left pane is a compact one-day timeline with snapped mouse drag selection.
