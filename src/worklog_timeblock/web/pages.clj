@@ -1,18 +1,10 @@
 (ns worklog-timeblock.web.pages
-  (:require [clojure.string :as str])
+  (:require [worklog-timeblock.web.layout :as layout])
   (:import [java.time LocalDate OffsetDateTime]))
-
-(defn- escape-html [value]
-  (str/escape (str value)
-              {\& "&amp;"
-               \< "&lt;"
-               \> "&gt;"
-               \" "&quot;"
-               \' "&#39;"}))
 
 (defn- page [title body]
   (str "<!doctype html><html><head><meta charset=\"utf-8\">"
-       "<title>" (escape-html title) "</title>"
+       "<title>" (layout/escape-html title) "</title>"
        "<style>:root{color-scheme:light;--bg:#f6f7f9;--surface:#fff;--line:#d7dde5;--text:#17202a;--muted:#596579;--accent:#0f766e;--warn:#9a3412;}"
        "*{box-sizing:border-box;}body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;}"
        "a{color:var(--accent);}button,select,input{font:inherit;}button{border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:6px;padding:6px 10px;cursor:pointer;}"
@@ -56,8 +48,8 @@
                (str "<ul>"
                     (apply str
                            (map (fn [date]
-                                  (str "<li><a href=\"/days/" (escape-html date) "\">"
-                                       (escape-html date)
+                                  (str "<li><a href=\"/days/" (layout/escape-html date) "\">"
+                                       (layout/escape-html date)
                                        "</a></li>"))
                                 dates))
                     "</ul>")
@@ -106,12 +98,12 @@
 
 (defn- day-navigation [date]
   (str "<div class=\"day-navigation\">"
-       "<a class=\"nav-button\" href=\"" (escape-html (day-link date -1)) "\">Prev</a>"
+       "<a class=\"nav-button\" href=\"" (layout/escape-html (day-link date -1)) "\">Prev</a>"
        "<form method=\"post\" action=\"/days\">"
-       "<input type=\"date\" name=\"date\" value=\"" (escape-html date) "\">"
+       "<input type=\"date\" name=\"date\" value=\"" (layout/escape-html date) "\">"
        "<button type=\"submit\">GOTO</button></form>"
-       "<a class=\"nav-button\" href=\"/days/" (escape-html (today-string)) "\">TODAY</a>"
-       "<a class=\"nav-button\" href=\"" (escape-html (day-link date 1)) "\">Next</a>"
+       "<a class=\"nav-button\" href=\"/days/" (layout/escape-html (today-string)) "\">TODAY</a>"
+       "<a class=\"nav-button\" href=\"" (layout/escape-html (day-link date 1)) "\">Next</a>"
        "</div>"))
 
 (defn- time-string [minute]
@@ -124,28 +116,6 @@
 
 (defn- hours-string [minutes]
   (format "%.2fh" (/ (double (or minutes 0)) 60.0)))
-
-(def warning-labels
-  {"category-required" "Category is required"
-   "client-category-id-not-allowed" "Category ID is assigned automatically"
-   "duplicate-category-name" "Duplicate category name"
-   "has-active-children" "Has active children"
-   "invalid-date" "Invalid date"
-   "invalid-time-range" "Invalid time range"
-   "invalid-minute" "Invalid time"
-   "invalid-settings" "Invalid settings"
-   "name-required" "Name is required"
-   "non-assignable-category" "Non-assignable category"
-   "title-required" "Title is required"
-   "unknown-category" "Unknown category"
-   "unknown-parent-category" "Unknown parent category"
-   "overlaps-confirmed-work-log" "Overlaps confirmed work"})
-
-(defn- flash-warning [warning]
-  (when (and warning (not (str/blank? (str warning))))
-    (str "<div class=\"flash-warning\" role=\"alert\">"
-         (escape-html (get warning-labels (str warning) (str warning)))
-         "</div>")))
 
 (defn- offset-minute [value]
   (let [date-time (OffsetDateTime/parse value)]
@@ -194,32 +164,32 @@
   (str "<div class=\"timeline-block confirmed-block"
        (when (= :uncategorized (:state log)) " uncategorized-block")
        "\" style=\""
-       (escape-html (block-style (:start-minute log) (:end-minute log)))
-       "\" data-worklog-id=\"" (escape-html (:id log))
-       "\" data-start-minute=\"" (escape-html (:start-minute log))
-       "\" data-end-minute=\"" (escape-html (:end-minute log)) "\">"
-       "<div class=\"block-time\">" (escape-html (str (time-string (:start-minute log))
+       (layout/escape-html (block-style (:start-minute log) (:end-minute log)))
+       "\" data-worklog-id=\"" (layout/escape-html (:id log))
+       "\" data-start-minute=\"" (layout/escape-html (:start-minute log))
+       "\" data-end-minute=\"" (layout/escape-html (:end-minute log)) "\">"
+       "<div class=\"block-time\">" (layout/escape-html (str (time-string (:start-minute log))
                                                       "-"
                                                       (time-string (:end-minute log))))
-       "</div><div class=\"block-title\">" (escape-html (:title log))
+       "</div><div class=\"block-title\">" (layout/escape-html (:title log))
        "</div></div>"))
 
 (defn- timeline-break-block [break]
   (str "<div class=\"timeline-block break-block\" style=\""
-       (escape-html (block-style (:start-minute break) (:end-minute break)))
-       "\" data-break-id=\"" (escape-html (:id break)) "\">"
-       "<div class=\"block-time\">" (escape-html (str (time-string (:start-minute break))
+       (layout/escape-html (block-style (:start-minute break) (:end-minute break)))
+       "\" data-break-id=\"" (layout/escape-html (:id break)) "\">"
+       "<div class=\"block-time\">" (layout/escape-html (str (time-string (:start-minute break))
                                                       "-"
                                                       (time-string (:end-minute break))))
-       "</div><div class=\"block-title\">" (escape-html (:title break))
+       "</div><div class=\"block-title\">" (layout/escape-html (:title break))
        "</div></div>"))
 
 (defn- timeline-attendance-marker [label minute]
   (when (integer? minute)
     (str "<div class=\"attendance-marker\" style=\"top:" (percent minute)
-         "\" data-attendance-marker=\"" (escape-html label)
-         "\" data-minute=\"" (escape-html minute) "\"><span>"
-         (escape-html (str label " " (time-string minute)))
+         "\" data-attendance-marker=\"" (layout/escape-html label)
+         "\" data-minute=\"" (layout/escape-html minute) "\"><span>"
+         (layout/escape-html (str label " " (time-string minute)))
          "</span></div>")))
 
 (defn- timeline-attendance [attendance]
@@ -228,10 +198,10 @@
     (str
      (when (and (integer? clock-in) (integer? clock-out))
        (str "<div class=\"attendance-band\" style=\""
-            (escape-html (block-style clock-in clock-out))
-            "\" data-attendance-start-minute=\"" (escape-html clock-in)
-            "\" data-attendance-end-minute=\"" (escape-html clock-out)
-            "\">Clock " (escape-html (str (time-string clock-in)
+            (layout/escape-html (block-style clock-in clock-out))
+            "\" data-attendance-start-minute=\"" (layout/escape-html clock-in)
+            "\" data-attendance-end-minute=\"" (layout/escape-html clock-out)
+            "\">Clock " (layout/escape-html (str (time-string clock-in)
                                           "-"
                                           (time-string clock-out)))
             "</div>"))
@@ -243,14 +213,14 @@
         overlap? (overlaps-confirmed? work-logs event)]
     (str "<div class=\"timeline-block imported-block"
          (when overlap? " overlap-block")
-         "\" style=\"" (escape-html (block-style start-minute end-minute))
-         "\" data-source-event-id=\"" (escape-html (:id event))
-         "\" data-external-id=\"" (escape-html (:external-id event))
-         "\" data-title=\"" (escape-html (:title event)) "\">"
-         "<div class=\"block-time\">" (escape-html (str (time-string start-minute)
+         "\" style=\"" (layout/escape-html (block-style start-minute end-minute))
+         "\" data-source-event-id=\"" (layout/escape-html (:id event))
+         "\" data-external-id=\"" (layout/escape-html (:external-id event))
+         "\" data-title=\"" (layout/escape-html (:title event)) "\">"
+         "<div class=\"block-time\">" (layout/escape-html (str (time-string start-minute)
                                                         "-"
                                                         (time-string end-minute)))
-         "</div><div class=\"block-title\">" (escape-html (:title event))
+         "</div><div class=\"block-title\">" (layout/escape-html (:title event))
          "</div></div>")))
 
 (defn- timeline-work-block? [log]
@@ -261,9 +231,9 @@
 
 (defn- category-option [selected-id category]
   (let [id (:id category)]
-    (str "<option value=\"" (escape-html id) "\""
+    (str "<option value=\"" (layout/escape-html id) "\""
          (when (= id selected-id) " selected")
-         ">" (escape-html (:name category)) "</option>")))
+         ">" (layout/escape-html (:name category)) "</option>")))
 
 (defn- category-select [categories selected-id]
   (let [active (vec (active-categories categories))
@@ -278,7 +248,7 @@
                                                    (get children (:id root)))]
                          (cond
                            (seq root-children)
-                           (str "<optgroup label=\"" (escape-html (:name root)) "\">"
+                           (str "<optgroup label=\"" (layout/escape-html (:name root)) "\">"
                                 (apply str (map #(category-option selected-id %)
                                                 root-children))
                                 "</optgroup>")
@@ -291,12 +261,12 @@
          "</select>")))
 
 (defn- source-confirm-form [categories source-event]
-  (str "<form method=\"post\" action=\"/source-events/" (escape-html (:id source-event)) "/confirm\">"
+  (str "<form method=\"post\" action=\"/source-events/" (layout/escape-html (:id source-event)) "/confirm\">"
        (category-select categories nil)
        "<button type=\"submit\">Confirm</button></form>"))
 
 (defn- source-exclude-form [source-event]
-  (str "<form method=\"post\" action=\"/source-events/" (escape-html (:id source-event)) "/exclude\">"
+  (str "<form method=\"post\" action=\"/source-events/" (layout/escape-html (:id source-event)) "/exclude\">"
        "<button type=\"submit\">Exclude</button></form>"))
 
 (defn- candidate-card [categories work-logs source-event]
@@ -304,11 +274,11 @@
         covered? (overlaps-confirmed? work-logs source-event)]
     (str "<article class=\"candidate-card"
          (when covered? " covered")
-         "\" data-external-id=\"" (escape-html (:external-id source-event)) "\">"
-         "<div class=\"time-range\">" (escape-html (str (time-string start-minute)
+         "\" data-external-id=\"" (layout/escape-html (:external-id source-event)) "\">"
+         "<div class=\"time-range\">" (layout/escape-html (str (time-string start-minute)
                                                         "-"
                                                         (time-string end-minute)))
-         "</div><div class=\"title\">" (escape-html (:title source-event)) "</div>"
+         "</div><div class=\"title\">" (layout/escape-html (:title source-event)) "</div>"
          (when covered? "<div class=\"candidate-badge\">covered</div>")
          "<div class=\"candidate-actions\">"
          (source-confirm-form categories source-event)
@@ -334,7 +304,7 @@
 
 (defn- new-work-log-form [date categories]
   (str "<form id=\"new-work-log-form\" class=\"input-panel\" method=\"post\" action=\"/days/"
-       (escape-html date) "/worklogs\">"
+       (layout/escape-html date) "/worklogs\">"
        "<h2 class=\"pane-title\">Add work log</h2>"
        "<div class=\"input-grid\">"
        "<div class=\"title-suggestion-wrap wide\">"
@@ -350,8 +320,8 @@
        "</div><div id=\"draft-summary-preview\" class=\"draft-summary-preview\">Draft 1.00h</div></form>"))
 
 (defn- parent-category-option [category]
-  (str "<option value=\"" (escape-html (:id category)) "\">"
-       (escape-html (:name category))
+  (str "<option value=\"" (layout/escape-html (:id category)) "\">"
+       (layout/escape-html (:name category))
        "</option>"))
 
 (defn- parent-category-select [categories]
@@ -364,7 +334,7 @@
 
 (defn- new-category-form [date categories]
   (str "<form class=\"category-create-form\" method=\"post\" action=\"/categories\">"
-       "<input type=\"hidden\" name=\"redirect-to\" value=\"/days/" (escape-html date) "\">"
+       "<input type=\"hidden\" name=\"redirect-to\" value=\"/days/" (layout/escape-html date) "\">"
        "<div class=\"input-grid\">"
        "<input name=\"category-name\" placeholder=\"Category name\">"
        (parent-category-select categories)
@@ -372,32 +342,32 @@
        "</div></form>"))
 
 (defn- move-category-form [date category direction label]
-  (str "<form method=\"post\" action=\"/categories/" (escape-html (:id category)) "/move\">"
-       "<input type=\"hidden\" name=\"direction\" value=\"" (escape-html direction) "\">"
-       "<input type=\"hidden\" name=\"redirect-to\" value=\"/days/" (escape-html date) "\">"
-       "<button type=\"submit\">" (escape-html label) "</button>"
+  (str "<form method=\"post\" action=\"/categories/" (layout/escape-html (:id category)) "/move\">"
+       "<input type=\"hidden\" name=\"direction\" value=\"" (layout/escape-html direction) "\">"
+       "<input type=\"hidden\" name=\"redirect-to\" value=\"/days/" (layout/escape-html date) "\">"
+       "<button type=\"submit\">" (layout/escape-html label) "</button>"
        "</form>"))
 
 (defn- rename-category-form [date category]
   (str "<form class=\"category-rename-form\" method=\"post\" action=\"/categories/"
-       (escape-html (:id category)) "/rename\">"
-       "<input type=\"hidden\" name=\"redirect-to\" value=\"/days/" (escape-html date) "\">"
-       "<input name=\"category-name\" value=\"" (escape-html (:name category))
+       (layout/escape-html (:id category)) "/rename\">"
+       "<input type=\"hidden\" name=\"redirect-to\" value=\"/days/" (layout/escape-html date) "\">"
+       "<input name=\"category-name\" value=\"" (layout/escape-html (:name category))
        "\" aria-label=\"Category name\">"
        "<button type=\"submit\">Rename</button>"
        "</form>"))
 
 (defn- delete-category-form [date category]
   (str "<form class=\"delete-form\" method=\"post\" action=\"/categories/"
-       (escape-html (:id category)) "/delete\">"
-       "<input type=\"hidden\" name=\"redirect-to\" value=\"/days/" (escape-html date) "\">"
+       (layout/escape-html (:id category)) "/delete\">"
+       "<input type=\"hidden\" name=\"redirect-to\" value=\"/days/" (layout/escape-html date) "\">"
        "<button type=\"submit\">Delete</button>"
        "</form>"))
 
 (defn- category-management-row [date category]
   (str "<li class=\"category-row category-"
        (if (:parent-id category) "child" "root")
-       "\" style=\"" (escape-html (group-style category)) "\">"
+       "\" style=\"" (layout/escape-html (group-style category)) "\">"
        (rename-category-form date category)
        "<span class=\"state\">" (if (:parent-id category) "child" "root") "</span>"
        "<div class=\"controls\">"
@@ -414,33 +384,33 @@
 (defn- work-log-row [categories log]
   (let [id (:id log)
         state-name (name (:state log))]
-    (str "<article class=\"work-log-row state-" (escape-html state-name)
-         "\" data-worklog-id=\"" (escape-html id) "\">"
+    (str "<article class=\"work-log-row state-" (layout/escape-html state-name)
+         "\" data-worklog-id=\"" (layout/escape-html id) "\">"
          "<div class=\"work-log-main\"><div class=\"time-range\">"
-         (escape-html (str (time-string (:start-minute log))
+         (layout/escape-html (str (time-string (:start-minute log))
                            "-"
                            (time-string (:end-minute log))))
-         "</div><div class=\"title\">" (escape-html (:title log))
-         "</div><div class=\"state\">" (escape-html state-name)
+         "</div><div class=\"title\">" (layout/escape-html (:title log))
+         "</div><div class=\"state\">" (layout/escape-html state-name)
          "</div></div>"
          "<div class=\"work-log-actions\"><form class=\"category-form controls\" data-auto-submit=\"category\" method=\"post\" action=\"/worklogs/"
-         (escape-html id) "/assign-category\">"
+         (layout/escape-html id) "/assign-category\">"
          (category-select categories (:category-id log))
          "</form>"
          "<div class=\"work-log-range-line\"><form class=\"range-form\" method=\"post\" action=\"/worklogs/"
-         (escape-html id) "/range\">"
-         "<input type=\"time\" name=\"start-time\" value=\"" (escape-html (time-string (:start-minute log))) "\">"
-         "<input type=\"time\" name=\"end-time\" value=\"" (escape-html (time-string (:end-minute log))) "\">"
+         (layout/escape-html id) "/range\">"
+         "<input type=\"time\" name=\"start-time\" value=\"" (layout/escape-html (time-string (:start-minute log))) "\">"
+         "<input type=\"time\" name=\"end-time\" value=\"" (layout/escape-html (time-string (:end-minute log))) "\">"
          "<button type=\"submit\">Range</button></form>"
          "<form class=\"exclude-form\" method=\"post\" action=\"/worklogs/"
-         (escape-html id) "/exclude\"><button type=\"submit\">Exclude</button></form>"
+         (layout/escape-html id) "/exclude\"><button type=\"submit\">Exclude</button></form>"
          "</div></div></article>")))
 
 (defn- summary-row [{:keys [category hours row-kind]}]
-  (str "<tr class=\"summary-row summary-" (escape-html (name row-kind))
-       "\" style=\"" (escape-html (group-style category))
-       "\" data-summary-category-id=\"" (escape-html (:id category)) "\"><td>"
-       (escape-html (:name category))
+  (str "<tr class=\"summary-row summary-" (layout/escape-html (name row-kind))
+       "\" style=\"" (layout/escape-html (group-style category))
+       "\" data-summary-category-id=\"" (layout/escape-html (:id category)) "\"><td>"
+       (layout/escape-html (:name category))
        "</td><td>" (format "%.2fh" (double hours))
        "</td></tr>"))
 
@@ -515,14 +485,14 @@
 (defn- calendar-category-line [categories-map {:keys [category hours row-kind] :as row}]
   (let [label (calendar-category-label categories-map row)]
     (str "<li class=\"calendar-category-line calendar-category-"
-         (escape-html (name row-kind))
-         "\" style=\"" (escape-html (group-style category))
+         (layout/escape-html (name row-kind))
+         "\" style=\"" (layout/escape-html (group-style category))
          "\"><span class=\"calendar-category-name\" title=\""
-         (escape-html label)
+         (layout/escape-html label)
          "\">"
-         (escape-html label)
+         (layout/escape-html label)
        "</span><span class=\"calendar-category-hours\">"
-       (escape-html (format "%.2fh" (double hours)))
+       (layout/escape-html (format "%.2fh" (double hours)))
          "</span></li>")))
 
 (defn- query-href [view date edit?]
@@ -537,28 +507,28 @@
 
 (defn- toggle-link [label href active?]
   (str "<a class=\"toggle-option" (when active? " active")
-       "\" href=\"" (escape-html href) "\">" (escape-html label) "</a>"))
+       "\" href=\"" (layout/escape-html href) "\">" (layout/escape-html label) "</a>"))
 
 (defn- calendar-navigation [view reference-date edit?]
   (let [month? (= "month" view)
         prev-label (if month? "Prev month" "Prev week")
         next-label (if month? "Next month" "Next week")]
     (str "<div class=\"days-toolbar\"><div><h1>Days</h1>"
-       "<div class=\"workspace-meta\">" (escape-html reference-date) "</div></div>"
+       "<div class=\"workspace-meta\">" (layout/escape-html reference-date) "</div></div>"
        "<div class=\"view-tabs segmented-toggle\" role=\"group\" aria-label=\"Calendar view\">"
        (toggle-link "Month" (query-href "month" reference-date edit?) month?)
        (toggle-link "Week" (query-href "week" reference-date edit?) (not month?))
        "</div>"
        "<div class=\"day-navigation\">"
-       "<a class=\"nav-button\" href=\"" (escape-html (calendar-date-link view reference-date edit? -1)) "\">"
+       "<a class=\"nav-button\" href=\"" (layout/escape-html (calendar-date-link view reference-date edit? -1)) "\">"
        prev-label "</a>"
        "<form class=\"inline-form\" method=\"get\" action=\"/\">"
-       "<input type=\"hidden\" name=\"view\" value=\"" (escape-html view) "\">"
+       "<input type=\"hidden\" name=\"view\" value=\"" (layout/escape-html view) "\">"
        (when edit? "<input type=\"hidden\" name=\"edit\" value=\"1\">")
-       "<input type=\"date\" name=\"date\" value=\"" (escape-html reference-date) "\">"
+       "<input type=\"date\" name=\"date\" value=\"" (layout/escape-html reference-date) "\">"
        "<button type=\"submit\">GOTO</button></form>"
-       "<a class=\"nav-button\" href=\"" (escape-html (query-href view (today-string) edit?)) "\">TODAY</a>"
-       "<a class=\"nav-button\" href=\"" (escape-html (calendar-date-link view reference-date edit? 1)) "\">"
+       "<a class=\"nav-button\" href=\"" (layout/escape-html (query-href view (today-string) edit?)) "\">TODAY</a>"
+       "<a class=\"nav-button\" href=\"" (layout/escape-html (calendar-date-link view reference-date edit? 1)) "\">"
        next-label "</a>"
        "</div>"
        "<div class=\"edit-tabs\">"
@@ -572,29 +542,29 @@
 
 (defn- calendar-detail [day]
   (str "<div class=\"calendar-detail\">"
-       "<div>" (escape-html (hours-string (:confirmed-work-minutes day))) " work</div>"
-       "<div>" (escape-html (hours-string (:unallocated-minutes day))) " open</div>"
+       "<div>" (layout/escape-html (hours-string (:confirmed-work-minutes day))) " work</div>"
+       "<div>" (layout/escape-html (hours-string (:unallocated-minutes day))) " open</div>"
        "</div>"))
 
 (declare compact-category-lines)
 
 (defn- calendar-day-content [categories day]
-  (str "<span class=\"day-number\">" (escape-html (:day-of-month day)) "</span>"
-       "<span class=\"day-status\">" (escape-html (:status day)) "</span>"
+  (str "<span class=\"day-number\">" (layout/escape-html (:day-of-month day)) "</span>"
+       "<span class=\"day-status\">" (layout/escape-html (:status day)) "</span>"
        (calendar-detail day)
        (compact-category-lines categories day)))
 
 (defn- month-day-cell [categories edit? day]
   (let [date (:date day)
         class-name (str "calendar-day day-status-" (:status day))]
-    (str "<div class=\"" (escape-html class-name) "\" data-date=\"" (escape-html date) "\""
-         (when edit? (str " data-calendar-day=\"" (escape-html date) "\""))
+    (str "<div class=\"" (layout/escape-html class-name) "\" data-date=\"" (layout/escape-html date) "\""
+         (when edit? (str " data-calendar-day=\"" (layout/escape-html date) "\""))
          ">"
          (if edit?
-           (str "<button type=\"button\" data-calendar-day=\"" (escape-html date) "\">"
+           (str "<button type=\"button\" data-calendar-day=\"" (layout/escape-html date) "\">"
                 (calendar-day-content categories day)
                 "</button>")
-           (str "<a href=\"/days/" (escape-html date) "\">"
+           (str "<a href=\"/days/" (layout/escape-html date) "\">"
                 (calendar-day-content categories day)
                 "</a>"))
          "</div>")))
@@ -627,12 +597,12 @@
        "<input type=\"hidden\" name=\"start-date\" value=\"\">"
        "<input type=\"hidden\" name=\"end-date\" value=\"\">"
        "<input type=\"hidden\" name=\"redirect-to\" value=\""
-       (escape-html (query-href "month" reference-date true)) "\">"
+       (layout/escape-html (query-href "month" reference-date true)) "\">"
        "<div class=\"title\" data-range-label></div>"
        "<div class=\"range-actions\">"
        "<button type=\"submit\" name=\"status\" value=\"workday\">Workday</button>"
        "<button type=\"submit\" name=\"status\" value=\"holiday\">Holiday</button>"
-       "<a class=\"nav-button\" data-open-day href=\"/days/" (escape-html reference-date) "\">Open</a>"
+       "<a class=\"nav-button\" data-open-day href=\"/days/" (layout/escape-html reference-date) "\">Open</a>"
        "</div></form></div>"))
 
 (defn- month-calendar [state]
@@ -670,10 +640,10 @@
 (defn- week-day-card [categories day]
   (let [date (:date day)
         class-name (str "week-day-card day-status-" (:status day))]
-    (str "<article class=\"" (escape-html class-name) "\" data-date=\"" (escape-html date) "\">"
-         "<a href=\"/days/" (escape-html date) "\">"
-         "<div class=\"day-number\">" (escape-html date) "</div>"
-         "<span class=\"day-status\">" (escape-html (:status day)) "</span>"
+    (str "<article class=\"" (layout/escape-html class-name) "\" data-date=\"" (layout/escape-html date) "\">"
+         "<a href=\"/days/" (layout/escape-html date) "\">"
+         "<div class=\"day-number\">" (layout/escape-html date) "</div>"
+         "<span class=\"day-status\">" (layout/escape-html (:status day)) "</span>"
          (calendar-detail day)
          (category-lines categories day)
          "</a></article>")))
@@ -765,7 +735,7 @@
   (page "worklog-timeblock days"
         (str "<main class=\"days-shell\">"
              (calendar-navigation (:view state) (:reference-date state) (:edit? state))
-             (flash-warning (:flash-warning state))
+             (layout/flash-warning (:flash-warning state))
              (if (= "week" (:view state))
                (week-calendar state)
                (month-calendar state))
@@ -785,23 +755,23 @@
   (let [stats (:attendance summary)]
     (str "<section class=\"input-panel attendance-panel\"><h2 class=\"pane-title\">Attendance</h2>"
          "<dl class=\"metric-list\">"
-         "<dt>Clock range</dt><dd>" (escape-html (attendance-range-label attendance)) "</dd>"
-         "<dt>Span</dt><dd>" (escape-html (hours-string (:span-minutes stats))) "</dd>"
-         "<dt>Recorded work</dt><dd>" (escape-html (hours-string (:confirmed-work-minutes stats))) "</dd>"
-         "<dt>Breaks</dt><dd>" (escape-html (hours-string (:break-minutes stats))) "</dd>"
-         "<dt>Unallocated</dt><dd>" (escape-html (hours-string (:unallocated-minutes stats))) "</dd>"
+         "<dt>Clock range</dt><dd>" (layout/escape-html (attendance-range-label attendance)) "</dd>"
+         "<dt>Span</dt><dd>" (layout/escape-html (hours-string (:span-minutes stats))) "</dd>"
+         "<dt>Recorded work</dt><dd>" (layout/escape-html (hours-string (:confirmed-work-minutes stats))) "</dd>"
+         "<dt>Breaks</dt><dd>" (layout/escape-html (hours-string (:break-minutes stats))) "</dd>"
+         "<dt>Unallocated</dt><dd>" (layout/escape-html (hours-string (:unallocated-minutes stats))) "</dd>"
          "</dl>"
          "<div class=\"controls\">"
-         "<form method=\"post\" action=\"/days/" (escape-html date) "/attendance/clock-in-now\">"
+         "<form method=\"post\" action=\"/days/" (layout/escape-html date) "/attendance/clock-in-now\">"
          "<button type=\"submit\">Clock in now</button></form>"
-         "<form method=\"post\" action=\"/days/" (escape-html date) "/attendance/clock-out-now\">"
+         "<form method=\"post\" action=\"/days/" (layout/escape-html date) "/attendance/clock-out-now\">"
          "<button type=\"submit\">Clock out now</button></form>"
          "</div>"
-         "<form class=\"range-form\" method=\"post\" action=\"/days/" (escape-html date) "/attendance\">"
+         "<form class=\"range-form\" method=\"post\" action=\"/days/" (layout/escape-html date) "/attendance\">"
          "<input type=\"time\" name=\"clock-in-time\" value=\""
-         (escape-html (optional-time-string (:clock-in-minute attendance))) "\">"
+         (layout/escape-html (optional-time-string (:clock-in-minute attendance))) "\">"
          "<input type=\"time\" name=\"clock-out-time\" value=\""
-         (escape-html (optional-time-string (:clock-out-minute attendance))) "\">"
+         (layout/escape-html (optional-time-string (:clock-out-minute attendance))) "\">"
          "<button type=\"submit\">Set attendance</button></form>"
          (day-breaks-section date break-mode breaks)
          "</section>")))
@@ -810,7 +780,7 @@
   (str "<form class=\"input-panel\" method=\"post\" action=\"/break-rules\">"
        "<h2 class=\"pane-title\">Default break</h2>"
        "<div class=\"field-help\">Used when break mode is fixed. These rules create daily break blocks, but edited day breaks stay independent.</div>"
-       "<input type=\"hidden\" name=\"redirect-to\" value=\"" (escape-html redirect-to) "\">"
+       "<input type=\"hidden\" name=\"redirect-to\" value=\"" (layout/escape-html redirect-to) "\">"
        "<div class=\"input-grid\">"
        "<label class=\"field wide\"><span class=\"field-label\">Title</span>"
        "<input name=\"break-title\" value=\"Lunch\" placeholder=\"Break title\"></label>"
@@ -822,7 +792,7 @@
        "</div></form>"))
 
 (defn- one-off-break-form [date]
-  (str "<form class=\"one-off-break-form\" method=\"post\" action=\"/days/" (escape-html date) "/breaks\">"
+  (str "<form class=\"one-off-break-form\" method=\"post\" action=\"/days/" (layout/escape-html date) "/breaks\">"
        "<h3 class=\"sub-title\">One-off break</h3>"
        "<div class=\"input-grid\">"
        "<input name=\"break-title\" value=\"Break\" placeholder=\"Break title\">"
@@ -832,20 +802,20 @@
        "</div></form>"))
 
 (defn- break-row [break]
-  (str "<article class=\"break-row\" data-break-id=\"" (escape-html (:id break)) "\">"
+  (str "<article class=\"break-row\" data-break-id=\"" (layout/escape-html (:id break)) "\">"
        "<div><span class=\"time-range\">"
-       (escape-html (str (time-string (:start-minute break))
+       (layout/escape-html (str (time-string (:start-minute break))
                          "-"
                          (time-string (:end-minute break))))
-       "</span> <span class=\"title\">" (escape-html (:title break)) "</span></div>"
+       "</span> <span class=\"title\">" (layout/escape-html (:title break)) "</span></div>"
        "<div class=\"break-actions\">"
        "<form class=\"range-form\" method=\"post\" action=\"/breaks/"
-       (escape-html (:id break)) "/range\">"
-       "<input type=\"time\" name=\"start-time\" value=\"" (escape-html (time-string (:start-minute break))) "\">"
-       "<input type=\"time\" name=\"end-time\" value=\"" (escape-html (time-string (:end-minute break))) "\">"
+       (layout/escape-html (:id break)) "/range\">"
+       "<input type=\"time\" name=\"start-time\" value=\"" (layout/escape-html (time-string (:start-minute break))) "\">"
+       "<input type=\"time\" name=\"end-time\" value=\"" (layout/escape-html (time-string (:end-minute break))) "\">"
        "<button type=\"submit\">Range</button></form>"
        "<form class=\"delete-form\" method=\"post\" action=\"/breaks/"
-       (escape-html (:id break)) "/delete\">"
+       (layout/escape-html (:id break)) "/delete\">"
        "<button type=\"submit\">Delete</button></form>"
        "</div></article>"))
 
@@ -865,18 +835,18 @@
 (defn- warning-item [warning]
   (case (:type warning)
     :uncategorized (str "<li class=\"warn\">Uncategorized: "
-                        (escape-html (:title warning))
+                        (layout/escape-html (:title warning))
                         "</li>")
     :large-gap (str "<li class=\"warn\">Large gap: "
-                    (escape-html (:minutes warning))
+                    (layout/escape-html (:minutes warning))
                     " minutes</li>")
     :non-assignable-category (str "<li class=\"warn\">Non-assignable category: "
-                                  (escape-html (:title warning))
+                                  (layout/escape-html (:title warning))
                                   "</li>")
     :source-updated (str "<li class=\"warn\">Source updated: "
-                         (escape-html (:external-id warning))
+                         (layout/escape-html (:external-id warning))
                          "</li>")
-    (str "<li class=\"warn\">" (escape-html warning) "</li>")))
+    (str "<li class=\"warn\">" (layout/escape-html warning) "</li>")))
 
 (defn- category-totals-panel [categories summary]
   (str "<section class=\"input-panel category-totals-panel\">"
@@ -896,7 +866,7 @@
        "</section>"))
 
 (defn- day-timeline [date work-logs source-events attendance breaks]
-  (str "<div class=\"day-timeline\" data-date=\"" (escape-html date) "\">"
+  (str "<div class=\"day-timeline\" data-date=\"" (layout/escape-html date) "\">"
        "<div class=\"timeline-hours\">" (timeline-hour-labels) "</div>"
        "<div class=\"timeline-track\" data-minute-quantum=\"15\">"
        "<div class=\"timeline-selection\" hidden></div>"
@@ -1485,18 +1455,18 @@
         destination (or (:destination export-settings) "download")]
     (if (= "clipboard" destination)
       (str "<button type=\"button\" data-export-copy data-export-url=\""
-           (escape-html url)
+           (layout/escape-html url)
            "\">Export</button><span class=\"export-status\" data-export-status></span>")
       (str "<a class=\"nav-button\" data-export-download href=\""
-           (escape-html url)
-           "\" download=\"" (escape-html (str date "." (export-extension format))) "\">Export</a>"))))
+           (layout/escape-html url)
+           "\" download=\"" (layout/escape-html (str date "." (export-extension format))) "\">Export</a>"))))
 
 (defn day-page [{:keys [date break-mode work-logs source-events attendance breaks summary]
 	                 :as state} categories]
   (page (str "worklog-timeblock " date)
         (str "<main class=\"day-workspace\">"
 	             "<header class=\"workspace-header\"><div class=\"workspace-title-area\">"
-	             "<div class=\"workspace-title-row\"><h1>" (escape-html date)
+	             "<div class=\"workspace-title-row\"><h1>" (layout/escape-html date)
 	             "</h1>" (day-navigation date) "</div>"
 	             "<div class=\"workspace-meta\">" (count work-logs) " logs</div></div>"
              "<nav class=\"page-actions\">"
@@ -1504,7 +1474,7 @@
              "<a class=\"nav-button\" href=\"/settings\">Settings</a>"
              (export-action date (:export-settings state))
              "</nav></header>"
-             (flash-warning (:flash-warning state))
+             (layout/flash-warning (:flash-warning state))
              "<div class=\"workspace-grid\">"
              "<section class=\"timeline-pane\"><h2 class=\"pane-title\">Timeline</h2>"
              (day-timeline date work-logs source-events attendance breaks)
@@ -1592,7 +1562,7 @@
          "<label class=\"field\"><span class=\"field-label\">Fiscal month start day</span>"
          "<span class=\"field-help\">Use 21 for a period from the previous 21st through the current 20th.</span>"
          "<input name=\"fiscal-month-start-day\" type=\"number\" min=\"1\" max=\"31\" value=\""
-	         (escape-html fiscal-month-start-day)
+	         (layout/escape-html fiscal-month-start-day)
 	         "\"></label>"
 	         "<button type=\"submit\">Save</button></form>")))
 
@@ -1617,19 +1587,19 @@
          "<button type=\"submit\">Save</button></form>")))
 
 (defn- break-rule-card [rule]
-  (str "<article class=\"break-rule-card\" data-break-rule-id=\"" (escape-html (:id rule)) "\">"
+  (str "<article class=\"break-rule-card\" data-break-rule-id=\"" (layout/escape-html (:id rule)) "\">"
        "<form class=\"break-rule-edit-form\" method=\"post\" action=\"/break-rules/"
-       (escape-html (:id rule)) "/update\">"
+       (layout/escape-html (:id rule)) "/update\">"
        "<input type=\"hidden\" name=\"redirect-to\" value=\"/settings\">"
        "<label class=\"field\"><span class=\"field-label\">Title</span>"
-       "<input name=\"break-title\" value=\"" (escape-html (:title rule)) "\"></label>"
+       "<input name=\"break-title\" value=\"" (layout/escape-html (:title rule)) "\"></label>"
        "<label class=\"field\"><span class=\"field-label\">Start</span>"
-       "<input type=\"time\" name=\"start-time\" value=\"" (escape-html (time-string (:start-minute rule))) "\"></label>"
+       "<input type=\"time\" name=\"start-time\" value=\"" (layout/escape-html (time-string (:start-minute rule))) "\"></label>"
        "<label class=\"field\"><span class=\"field-label\">End</span>"
-       "<input type=\"time\" name=\"end-time\" value=\"" (escape-html (time-string (:end-minute rule))) "\"></label>"
+       "<input type=\"time\" name=\"end-time\" value=\"" (layout/escape-html (time-string (:end-minute rule))) "\"></label>"
        "<button type=\"submit\">Save</button></form>"
        "<form class=\"delete-form\" method=\"post\" action=\"/break-rules/"
-       (escape-html (:id rule)) "/delete\">"
+       (layout/escape-html (:id rule)) "/delete\">"
        "<input type=\"hidden\" name=\"redirect-to\" value=\"/settings\">"
        "<button type=\"submit\">Delete</button></form>"
        "</article>"))
@@ -1644,13 +1614,13 @@
        "</section>"))
 
 (defn- import-source-row [source]
-  (str "<tr><td>" (escape-html (:name source))
-       "</td><td>" (escape-html (name (:kind source)))
-       "</td><td>" (escape-html (:uri source))
-       "</td><td>" (escape-html (:fetch-interval-minutes source))
-       "</td><td>" (escape-html (if (:enabled? source) "enabled" "disabled"))
+  (str "<tr><td>" (layout/escape-html (:name source))
+       "</td><td>" (layout/escape-html (name (:kind source)))
+       "</td><td>" (layout/escape-html (:uri source))
+       "</td><td>" (layout/escape-html (:fetch-interval-minutes source))
+       "</td><td>" (layout/escape-html (if (:enabled? source) "enabled" "disabled"))
        "</td><td>"
-       "<form method=\"post\" action=\"/import-sources/" (escape-html (:id source)) "/fetch\">"
+       "<form method=\"post\" action=\"/import-sources/" (layout/escape-html (:id source)) "/fetch\">"
        "<button type=\"submit\">Fetch</button></form>"
        "</td></tr>"))
 
@@ -1677,7 +1647,7 @@
   (page "worklog-timeblock settings"
         (str "<main class=\"home settings-page\"><h1>Settings</h1>"
              "<nav class=\"settings-nav\"><a class=\"nav-button\" href=\"/\">Days</a></nav>"
-             (flash-warning (:flash-warning state))
+             (layout/flash-warning (:flash-warning state))
              "<div class=\"settings-grid\">"
 	             (break-mode-settings-form settings)
 	             (holiday-policy-form settings)

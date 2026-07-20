@@ -39,6 +39,18 @@ Existing strengths to preserve:
 - User-facing behavior is already well covered for the day workspace, settings,
   export, import source handling, title suggestions, and Days calendars.
 
+## Progress Log
+
+### 2026-07-20
+
+- Tagged the initial complete app version as `v0.1.0`.
+- Added `docs/testing.md` with the full refactoring verification gate.
+- Added `worklog-timeblock.refactor-characterization-test` with 58 assertions
+  covering calendar date logic, day status classification, warning rendering,
+  safe redirects, and key public page/API output.
+- Started Phase 2 by extracting shared HTML escaping and flash-warning rendering
+  from `web/pages.clj` into `web/layout.clj`.
+
 ## Should We Add Tests?
 
 Yes. Add tests before moving production code.

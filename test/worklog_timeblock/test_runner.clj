@@ -9,6 +9,7 @@
    'worklog-timeblock.plugin.ical-test
    'worklog-timeblock.importer.core-test
    'worklog-timeblock.db.core-test
+   'worklog-timeblock.refactor-characterization-test
    'worklog-timeblock.api-e2e.routes-test
    'worklog-timeblock.web-e2e.pages-test
    'worklog-timeblock.tui-e2e.main-test])
